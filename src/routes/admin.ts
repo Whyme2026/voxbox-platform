@@ -9,6 +9,7 @@ import { ligneJournal } from "../journal.ts";
 import { validerParcours } from "../parcours/schema.ts";
 import { empreinte, genererTextes, type FicheClient } from "../rgpd/consentement.ts";
 import { changerStatut, chargerCampagne, detailCampagne, verifierModifiable, type Statut } from "./campagnes-commun.ts";
+import { codeAleatoire } from "../auth/cabine.ts";
 
 async function whyme(ctx: Contexte, action: Action): Promise<Identite> {
   const id = await identifier(ctx.request, ctx.env);
@@ -36,11 +37,7 @@ function couleurs(v: unknown): string {
   return JSON.stringify(v);
 }
 
-function codeAppairage(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans O/0 ni I/1
-  const octets = crypto.getRandomValues(new Uint8Array(6));
-  return [...octets].map((o) => alphabet[o % alphabet.length]).join("");
-}
+const codeAppairage = () => codeAleatoire(6);
 
 export function routesAdmin(r: Routeur): void {
   // ---------------------------------------------------------------- clients
@@ -291,6 +288,19 @@ export function routesAdmin(r: Routeur): void {
       ligneJournal(ctx.env.DB, id, { action: "cabine.affectation", cibleType: "cabine", cibleId: ctx.params.id, clientId, details: { campagne_id: campagneId } }),
     ]);
     return json({ cabine: { id: ctx.params.id, campagne_id: campagneId } });
+  });
+
+  // Nouveau code d'appairage : la tablette actuelle est déconnectée (jeton révoqué).
+  r.post("/api/admin/cabines/:id/code", async (ctx) => {
+    const id = await whyme(ctx, "cabines.gerer");
+    const cab = await ctx.env.DB.prepare("SELECT id FROM cabines WHERE id = ?").bind(ctx.params.id).first();
+    if (!cab) throw introuvable("Cabine introuvable");
+    const code = codeAppairage();
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("UPDATE cabines SET code_appairage = ?, jeton_hash = NULL WHERE id = ?").bind(code, ctx.params.id),
+      ligneJournal(ctx.env.DB, id, { action: "cabine.nouveau_code", cibleType: "cabine", cibleId: ctx.params.id }),
+    ]);
+    return json({ cabine: { id: ctx.params.id, code_appairage: code } });
   });
 
   // ---------------------------------------------------------------- journal

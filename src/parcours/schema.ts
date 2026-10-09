@@ -18,7 +18,17 @@ export interface EtapeIdentification extends EtapeBase {
   demanderNom?: boolean;
   demanderEmail?: boolean;
 }
-export interface EtapeConsentement extends EtapeBase { type: "consentement"; titre: string; bouton: string }
+export interface EtapeConsentement extends EtapeBase {
+  type: "consentement";
+  titre: string;
+  bouton: string;
+  /**
+   * Propose au visiteur une case facultative « diffusion publique » (réseaux sociaux, site, publicité).
+   * Absent ou false : la campagne est en usage interne uniquement, aucune case n'est affichée
+   * et le serveur refuse tout consentement de diffusion.
+   */
+  proposerDiffusion?: boolean;
+}
 export interface EtapeCadrage extends EtapeBase { type: "cadrage"; titre: string; proposerFloutage?: boolean }
 export interface EtapeQuestion extends EtapeBase {
   type: "question";
@@ -89,7 +99,9 @@ export function validerParcours(brut: unknown): string[] {
       case "identification": case "cadrage": case "fin":
         txt(ou, "titre", e.titre); break;
       case "consentement":
-        consentementVu = true; txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40); break;
+        consentementVu = true; txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
+        if (e.proposerDiffusion !== undefined && typeof e.proposerDiffusion !== "boolean") pb.push(`${ou} : « proposerDiffusion » vrai ou faux`);
+        break;
       case "question": {
         nbQuestions++;
         if (!consentementVu) pb.push(`${ou} : une question ne peut pas précéder le consentement`);
@@ -145,6 +157,11 @@ function verifierAtteignabilite(etapes: Etape[]): string[] {
     if (e.type !== "fin" && suivantes(e, i).length === 0) pb.push(`étape ${e.id} : aucune suite`);
   }
   return pb;
+}
+
+/** La campagne propose-t-elle le consentement facultatif de diffusion publique ? */
+export function diffusionProposee(p: Parcours): boolean {
+  return p.etapes.some((e) => e.type === "consentement" && e.proposerDiffusion === true);
 }
 
 /** Liste des questions d'un parcours, dans l'ordre de la configuration. */

@@ -6,23 +6,39 @@ import { creerD1 } from "./d1-local.ts";
 
 export const ADMIN = "admin@whyme.test";
 
-const r2Vide: R2Bucket = {
-  async put() { return null; },
-  async get() { return null; },
-  async delete() {},
-};
+/** Stockage R2 en mémoire : garde les objets pour que les tests puissent les vérifier. */
+export function creerR2(): R2Bucket & { objets: Map<string, { taille: number; type?: string }> } {
+  const objets = new Map<string, { taille: number; type?: string }>();
+  return {
+    objets,
+    async put(key, value, options) {
+      const taille = value instanceof ArrayBuffer ? value.byteLength : typeof value === "string" ? value.length : 0;
+      const type = (options?.httpMetadata as { contentType?: string } | undefined)?.contentType;
+      objets.set(key, { taille, type });
+      return { key, size: taille };
+    },
+    async get(key) {
+      const o = objets.get(key);
+      return o ? { key, size: o.taille } : null;
+    },
+    async delete(keys) {
+      for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k);
+    },
+  };
+}
 
 export function creerEnv(surcharges: Partial<Env> = {}) {
   const db = creerD1();
+  const media = creerR2();
   const env: Env = {
     DB: db,
-    MEDIA: r2Vide,
+    MEDIA: media,
     ENVIRONNEMENT: "dev",
     AUTH_MODE: "dev",
     ADMIN_EMAILS: ADMIN,
     ...surcharges,
   };
-  return { env, db };
+  return { env, db, media };
 }
 
 export interface Reponse<T = any> { status: number; corps: T }

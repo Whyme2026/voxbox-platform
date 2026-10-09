@@ -4,7 +4,7 @@
   "etapes": [
     { "id": "accueil", "type": "accueil", "titre": "Votre avis compte", "texte": "Quelques questions, quelques secondes, votre ressenti en vidéo.", "bouton": "Commencer" },
     { "id": "identite", "type": "identification", "titre": "Comment vous appelez-vous ?", "demanderNom": true, "demanderEmail": true },
-    { "id": "accord", "type": "consentement", "titre": "Avant de commencer", "bouton": "C'est parti" },
+    { "id": "accord", "type": "consentement", "titre": "Avant de commencer", "bouton": "C'est parti", "proposerDiffusion": true },
     { "id": "cadrage", "type": "cadrage", "titre": "Placez votre visage dans l'ovale", "proposerFloutage": true },
     { "id": "q-attentes", "type": "question", "texte": "En arrivant ici aujourd'hui, qu'est-ce qui vous a donné envie d'essayer ce véhicule ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "attentes" },
     { "id": "vehicule", "type": "choix", "titre": "Quel modèle allez-vous essayer ?", "options": [
