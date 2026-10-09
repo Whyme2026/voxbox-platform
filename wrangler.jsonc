@@ -1,0 +1,48 @@
+// Configuration Cloudflare de la plateforme Vox Boxes.
+// Trois environnements : dev (machine locale), test et production.
+// Les identifiants des bases D1 sont renseignés une fois les bases créées (juridiction UE).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voxbox",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true },
+  // Les variables sensibles ou propres à un environnement (ADMIN_EMAILS, ACCESS_TEAM_DOMAIN, ACCESS_AUD)
+  // sont saisies dans le tableau de bord Cloudflare et conservées à chaque déploiement.
+  "keep_vars": true,
+
+  "env": {
+    "dev": {
+      "name": "voxbox-dev",
+      "vars": { "ENVIRONNEMENT": "dev", "AUTH_MODE": "dev" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "voxbox-dev", "database_id": "local", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-dev" }]
+    },
+    "test": {
+      "name": "voxbox-test",
+      "workers_dev": true,
+      "vars": { "ENVIRONNEMENT": "test", "AUTH_MODE": "access" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "voxbox-test", "database_id": "A_RENSEIGNER", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-test", "jurisdiction": "eu" }]
+    },
+    "production": {
+      "name": "voxbox",
+      "workers_dev": true,
+      "vars": { "ENVIRONNEMENT": "production", "AUTH_MODE": "access" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "voxbox-prod", "database_id": "A_RENSEIGNER", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-prod", "jurisdiction": "eu" }]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "langue": "fr",
+  "etapes": [
+    { "id": "accueil", "type": "accueil", "titre": "Votre avis compte", "texte": "Quelques questions, quelques secondes, votre ressenti en vidéo.", "bouton": "Commencer" },
+    { "id": "identite", "type": "identification", "titre": "Comment vous appelez-vous ?", "demanderNom": true, "demanderEmail": true },
+    { "id": "accord", "type": "consentement", "titre": "Avant de commencer", "bouton": "C'est parti" },
+    { "id": "cadrage", "type": "cadrage", "titre": "Placez votre visage dans l'ovale", "proposerFloutage": true },
+    { "id": "q-attentes", "type": "question", "texte": "En arrivant ici aujourd'hui, qu'est-ce qui vous a donné envie d'essayer ce véhicule ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "attentes" },
+    { "id": "vehicule", "type": "choix", "titre": "Quel modèle allez-vous essayer ?", "options": [
+      { "id": "suv", "libelle": "Le SUV", "suite": "pause-essai" },
+      { "id": "berline", "libelle": "La berline", "suite": "pause-essai" }
+    ] },
+    { "id": "pause-essai", "type": "pause", "titre": "Bon essai !", "texte": "Revenez nous voir après votre essai pour nous raconter.", "bouton": "Je suis de retour" },
+    { "id": "q-premiere-impression", "type": "question", "texte": "Premier mot qui vous vient après l'essai ? Et pourquoi celui-là ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "ressenti" },
+    { "id": "q-surprise", "type": "question", "texte": "Qu'est-ce qui vous a le plus surpris, en bien ou en moins bien ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "points-forts-faibles" },
+    { "id": "q-recommandation", "type": "question", "texte": "Vous en parlez à un ami ce soir : vous lui dites quoi ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "recommandation" },
+    { "id": "fin", "type": "fin", "titre": "Merci !", "texte": "Votre avis va vraiment compter.", "retourAccueilSec": 10 }
+  ]
+}
