@@ -11,9 +11,10 @@ Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploit
 - Rien n'est propre à un secteur : l'automobile n'est qu'une configuration (`fixtures/parcours-automobile.json`).
 
 ## Règles de code
-- TypeScript côté serveur, **aucune dépendance d'exécution**.
+- TypeScript côté serveur, **aucune dépendance d'exécution**. Syntaxe « effaçable » uniquement (pas d'`enum`,
+  pas de propriétés de paramètres) : les tests tournent directement avec Node.
 - Code navigateur (`public/`) en JavaScript annoté (`// @ts-check` + JSDoc), sans étape de compilation, vérifié par `tsconfig.web.json`.
-  La cabine ne charge **rien depuis internet** (ni police, ni module) : leçon Geely. Syntaxe « effaçable » uniquement (pas d'`enum`, pas de propriétés de paramètres) : les tests tournent directement avec Node.
+  La cabine ne charge **rien depuis internet** (ni police, ni module) : leçon Geely.
 - Imports avec l'extension `.ts`.
 - Code, noms et messages en **français**.
 - Toute écriture sensible passe par un `batch` qui inclut sa ligne de `journal` (atomique).

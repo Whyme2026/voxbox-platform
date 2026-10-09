@@ -252,7 +252,7 @@ function aller(/** @type {string | null} */ id) {
   }
 }
 
-const suite = (/** @type {any} */ e, /** @type {string} */ choix = undefined) => aller(/** @type {any} */ (moteur).suivante(e.id, choix));
+const suite = (/** @type {any} */ e, /** @type {string | undefined} */ choix = undefined) => aller(/** @type {any} */ (moteur).suivante(e.id, choix));
 
 function accueil() {
   visiteur = null;

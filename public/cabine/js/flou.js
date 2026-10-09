@@ -24,7 +24,7 @@ const DETECTION_MS = 120;
 
 /** Le navigateur sait-il détecter les visages sans module externe ? */
 export function detectionDisponible() {
-  return typeof globalThis.FaceDetector === "function";
+  return typeof (/** @type {any} */ (globalThis)).FaceDetector === "function";
 }
 
 /**
@@ -108,8 +108,8 @@ export function creerFlou(video, options = {}) {
   let actif = true;
   let detectionEnCours = false;
   let derniereDetection = 0;
-  // @ts-ignore — API du navigateur, absente des types standard
-  const detecteur = detectionDisponible() ? new globalThis.FaceDetector({ fastMode: true, maxDetectedFaces: 4 }) : null;
+  // API du navigateur absente des types standard.
+  const detecteur = detectionDisponible() ? new (/** @type {any} */ (globalThis)).FaceDetector({ fastMode: true, maxDetectedFaces: 4 }) : null;
 
   const boucle = () => {
     if (!actif) return;
