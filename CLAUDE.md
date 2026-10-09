@@ -11,7 +11,9 @@ Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploit
 - Rien n'est propre à un secteur : l'automobile n'est qu'une configuration (`fixtures/parcours-automobile.json`).
 
 ## Règles de code
-- TypeScript partout, **aucune dépendance d'exécution**. Syntaxe « effaçable » uniquement (pas d'`enum`, pas de propriétés de paramètres) : les tests tournent directement avec Node.
+- TypeScript côté serveur, **aucune dépendance d'exécution**.
+- Code navigateur (`public/`) en JavaScript annoté (`// @ts-check` + JSDoc), sans étape de compilation, vérifié par `tsconfig.web.json`.
+  La cabine ne charge **rien depuis internet** (ni police, ni module) : leçon Geely. Syntaxe « effaçable » uniquement (pas d'`enum`, pas de propriétés de paramètres) : les tests tournent directement avec Node.
 - Imports avec l'extension `.ts`.
 - Code, noms et messages en **français**.
 - Toute écriture sensible passe par un `batch` qui inclut sa ligne de `journal` (atomique).
@@ -21,6 +23,11 @@ Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploit
 ## Vérifier avant d'envoyer
 ```
 npm run check      # typecheck + tests (Node ≥ 22.18, sans installation)
+```
+Tout changement de la cabine se vérifie aussi de bout en bout, dans un vrai Chrome avec caméra et micro simulés :
+```
+npm run e2e -- <audio.wav> <dossier-captures>   # parcours complet + présence du son dans chaque vidéo
+npm run cabine:local                            # serveur local avec une campagne de démo (code d'appairage affiché)
 ```
 Tout changement de comportement s'accompagne d'un test. Les tests d'API utilisent une base SQLite locale
 (`test/aide/d1-local.ts`) qui rejoue les migrations : ce qui passe ici passe sur D1.

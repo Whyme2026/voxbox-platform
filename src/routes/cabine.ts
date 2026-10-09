@@ -9,6 +9,7 @@ import { ligneJournal } from "../journal.ts";
 import { diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const TAILLE_MAX_VIDEO = 60 * 1024 * 1024;
 
 interface CampagneActive {
@@ -77,20 +78,38 @@ export function routesCabine(r: Routeur): void {
   });
 
   // Nouvelle session : un visiteur qui a donné son accord.
+  // La tablette fournit l'identifiant (UUID) : elle peut créer la session hors ligne et l'envoyer plus tard ;
+  // un renvoi de la même session est sans effet (idempotent).
   r.post("/api/cabine/sessions", async (ctx) => {
     const cab = await authentifierCabine(ctx.request, ctx.env.DB);
     const c = await campagneActive(ctx.env.DB, cab);
     if (!c) throw conflit("Aucune campagne active sur cette cabine");
     const d = await lireJson(ctx.request);
 
-    // La version jouée par la tablette doit être la version courante : sinon elle doit recharger.
-    if (d.parcours_version_id !== c.parcours_version_id || d.consentement_version_id !== c.consentement_version_id) {
-      throw new HttpError(409, "version_perimee", "La campagne a changé : la cabine doit recharger sa configuration");
+    const idFourni = typeof d.id === "string" ? d.id.toLowerCase() : undefined;
+    if (idFourni !== undefined && !UUID.test(idFourni)) throw invalide("id : UUID attendu");
+    if (idFourni) {
+      const existe = await ctx.env.DB.prepare("SELECT id, cabine_id, code_retrait, purge_prevue_le FROM sessions WHERE id = ?").bind(idFourni)
+        .first<{ id: string; cabine_id: string | null; code_retrait: string; purge_prevue_le: string }>();
+      if (existe) {
+        if (existe.cabine_id !== cab.id) throw conflit("Identifiant de session déjà utilisé");
+        return json({ session: { id: existe.id, code_retrait: existe.code_retrait, purge_prevue_le: existe.purge_prevue_le } });
+      }
     }
+
+    // Versions jouées par la tablette : elles doivent appartenir à la campagne (une tablette restée hors ligne
+    // peut avoir joué une version précédente ; on garde la trace exacte de ce que le visiteur a vu).
+    const pv = await ctx.env.DB.prepare("SELECT config FROM parcours_versions WHERE id = ? AND campagne_id = ?")
+      .bind(String(d.parcours_version_id ?? ""), c.id).first<{ config: string }>();
+    const cv = await ctx.env.DB.prepare("SELECT 1 FROM consentement_versions WHERE id = ? AND campagne_id = ?")
+      .bind(String(d.consentement_version_id ?? ""), c.id).first();
+    if (!pv || !cv) throw new HttpError(409, "version_perimee", "Version inconnue pour cette campagne : la cabine doit recharger sa configuration");
+    const parcoursJoue = JSON.parse(pv.config) as Parcours;
+
     if (d.consent_interne !== true) throw invalide("L'accord pour l'usage interne est obligatoire");
     if (d.consent_diffusion !== undefined && typeof d.consent_diffusion !== "boolean") throw invalide("consent_diffusion : vrai ou faux");
     const diffusion = d.consent_diffusion === true;
-    if (diffusion && !diffusionProposee(c.parcours)) throw invalide("Cette campagne ne propose pas la diffusion publique");
+    if (diffusion && !diffusionProposee(parcoursJoue)) throw invalide("Cette campagne ne propose pas la diffusion publique");
 
     const prenom = texte(d, "prenom", { requis: true, max: 40 })!;
     const nom = texte(d, "nom", { max: 60 }) ?? null;
@@ -98,9 +117,11 @@ export function routesCabine(r: Routeur): void {
     if (email && !EMAIL.test(email)) throw invalide("email : adresse invalide");
     const recontact = email && d.recontact === true ? 1 : 0; // la case n'a de sens que si l'e-mail est saisi
 
-    const now = maintenant();
+    const now = typeof d.cree_le === "string" && !Number.isNaN(Date.parse(d.cree_le)) && Date.parse(d.cree_le) <= Date.now() + 60_000
+      ? new Date(d.cree_le).toISOString() // heure réelle du passage, même si l'envoi arrive plus tard
+      : maintenant();
     const s = {
-      id: nouvelId(),
+      id: idFourni ?? nouvelId(),
       code_retrait: codeAleatoire(10),
       purge_prevue_le: ajouterJours(now, c.conservation_jours),
     };
@@ -110,7 +131,7 @@ export function routesCabine(r: Routeur): void {
        VALUES (?, ?, ?, 'cabine', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       s.id, c.id, cab.id, prenom, nom, email, recontact, diffusion ? 1 : 0,
-      c.consentement_version_id, c.parcours_version_id, s.code_retrait, now, s.purge_prevue_le,
+      String(d.consentement_version_id), String(d.parcours_version_id), s.code_retrait, now, s.purge_prevue_le,
     ).run();
     return json({ session: s }, 201);
   });

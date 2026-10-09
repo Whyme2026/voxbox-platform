@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Flou des visages</title>
+  <style>
+    :root { --encre: #221F3A; --papier: #F6F4FF; --doux: #6C6890; --trait: #DCD8EE; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--papier); color: var(--encre); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.01em; }
+    p { margin: 0 0 16px; color: var(--doux); max-width: 70ch; }
+    .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    figure { margin: 0; }
+    canvas { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; border-radius: 12px; display: block; }
+    figcaption { margin-top: 8px; font-weight: 600; }
+    figcaption span { display: block; font-weight: 400; color: var(--doux); font-size: .9rem; }
+    .barre { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 20px; }
+    button { font: inherit; font-weight: 600; padding: 12px 20px; border-radius: 999px; border: 0; background: var(--encre); color: var(--papier); cursor: pointer; }
+    button:focus-visible { outline: 3px solid #7B6CFF; outline-offset: 3px; }
+    .etat { color: var(--doux); }
+    .recommande { box-shadow: 0 0 0 3px var(--encre); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Flou des visages : comparaison</h1>
+  <p>La même image de caméra, traitée de quatre façons. Le flou doux réduit d'abord fortement le visage (l'information est détruite, le floutage est irréversible) puis le lisse : pas d'effet mosaïque.</p>
+  <div class="barre">
+    <button id="demarrer" type="button">Activer la caméra</button>
+    <span class="etat" id="etat">Caméra éteinte.</span>
+  </div>
+  <div class="grille">
+    <figure><canvas id="c-brut"></canvas><figcaption>Sans flou<span>Image de la caméra</span></figcaption></figure>
+    <figure><canvas id="c-pixels"></canvas><figcaption>Pixels (version Geely)<span>Mosaïque, contour carré</span></figcaption></figure>
+    <figure><canvas id="c-doux"></canvas><figcaption>Flou doux, niveau léger<span>Silhouette et expression devinées</span></figcaption></figure>
+    <figure><canvas id="c-fort" class="recommande"></canvas><figcaption>Flou doux, niveau fort (proposé)<span>Visage méconnaissable, rendu lisse</span></figcaption></figure>
+  </div>
+</main>
+<script type="module">
+  import { flouterZone, detectionDisponible } from "../cabine/js/flou.js";
+
+  const video = document.createElement("video");
+  video.muted = true; video.playsInline = true;
+  const toiles = ["brut", "pixels", "doux", "fort"].map((n) => document.getElementById(`c-${n}`));
+  const tampons = { petit: document.createElement("canvas"), calque: document.createElement("canvas") };
+  const etat = document.getElementById("etat");
+  // @ts-ignore
+  const detecteur = detectionDisponible() ? new FaceDetector({ fastMode: true }) : null;
+  let zone = null, enCours = false;
+
+  function pixeliser(ctx, z) {
+    const n = 12, w = Math.max(2, Math.round(n * z.w / z.h)), p = tampons.petit;
+    p.width = w; p.height = n;
+    p.getContext("2d").drawImage(video, z.x, z.y, z.w, z.h, 0, 0, w, n);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(p, z.x, z.y, z.w, z.h);
+    ctx.imageSmoothingEnabled = true;
+  }
+
+  function image() {
+    const l = video.videoWidth, h = video.videoHeight;
+    if (l) {
+      if (detecteur && !enCours) {
+        enCours = true;
+        detecteur.detect(video).then((v) => {
+          if (v[0]) { const b = v[0].boundingBox; const w = b.width * 1.35, hh = b.height * 1.6; zone = { x: b.x + b.width / 2 - w / 2, y: b.y + b.height * 0.42 - hh / 2, w, h: hh }; }
+        }).finally(() => { enCours = false; });
+      }
+      // Sans détecteur (ordinateur), zone simulée au centre pour comparer les rendus.
+      const z = zone ?? { x: l * 0.3, y: h * 0.12, w: l * 0.4, h: h * 0.72 };
+      toiles.forEach((t, i) => {
+        if (t.width !== l) { t.width = l; t.height = h; }
+        const ctx = t.getContext("2d");
+        ctx.drawImage(video, 0, 0, l, h);
+        if (i === 1) pixeliser(ctx, z);
+        if (i === 2) flouterZone(ctx, video, z, "doux", tampons);
+        if (i === 3) flouterZone(ctx, video, z, "fort", tampons);
+      });
+    }
+    requestAnimationFrame(image);
+  }
+
+  document.getElementById("demarrer").addEventListener("click", async () => {
+    try {
+      video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+      await video.play();
+      etat.textContent = detecteur
+        ? "Détection des visages : intégrée au navigateur."
+        : "Ce navigateur ne détecte pas les visages : zone simulée au centre pour comparer les rendus. La détection sera vérifiée sur la tablette.";
+      requestAnimationFrame(image);
+    } catch (e) {
+      etat.textContent = "Caméra refusée ou indisponible : autorisez-la dans le navigateur puis réessayez.";
+    }
+  });
+</script>
+</body>
+</html>

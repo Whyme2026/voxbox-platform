@@ -1,0 +1,153 @@
+/* Vox Box — écran de cabine.
+   Mise en page par zones : en paysage (16:9) la caméra à gauche, le texte à droite ;
+   en portrait (9:16, grand écran) la caméra en haut, le texte en dessous.
+   Polices système uniquement : rien de critique n'est chargé depuis internet. */
+
+:root {
+  --encre: #221F3A;
+  --papier: #F6F4FF;
+  --doux: #6C6890;
+  --trait: #DCD8EE;
+  --marque: #4B3FD8;          /* remplacée par la couleur principale de la marque cliente */
+  --sur-marque: #FFFFFF;
+  --rec: #E5484D;
+  --ok: #1E9E6A;
+  --rayon: 28px;
+  --espace: clamp(16px, 2.4vmin, 32px);
+  --corps: clamp(18px, 2.4vmin, 26px);
+  --titre: clamp(32px, 5.6vmin, 64px);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--papier); color: var(--encre); }
+body { user-select: none; -webkit-user-select: none; touch-action: manipulation; overscroll-behavior: none; }
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+.cabine {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "entete entete"
+    "camera scene"
+    "clavier clavier"
+    "pied pied";
+  gap: 0 var(--espace);
+  padding: var(--espace) calc(var(--espace) * 1.5);
+}
+.cabine.sans-camera { grid-template-areas: "entete entete" "scene scene" "clavier clavier" "pied pied"; }
+.cabine.sans-camera .scene { max-width: 60rem; justify-self: center; width: 100%; }
+
+@media (orientation: portrait) {
+  .cabine {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr) auto auto;
+    grid-template-areas: "entete" "camera" "scene" "clavier" "pied";
+  }
+  .cabine.sans-camera { grid-template-areas: "entete" "scene" "scene" "clavier" "pied"; }
+}
+
+/* --------------------------------------------------------------- entête et pied */
+.entete { grid-area: entete; display: flex; align-items: center; gap: 16px; min-height: 56px; }
+.logo { max-height: 48px; max-width: 220px; object-fit: contain; }
+.marque { font-weight: 700; font-size: var(--corps); }
+.etat-reseau { margin-left: auto; font-size: 15px; color: var(--doux); }
+.etat-reseau[data-etat="hors-ligne"] { color: var(--rec); }
+.pied { grid-area: pied; text-align: right; font-size: 13px; color: var(--doux); padding-top: 8px; letter-spacing: .02em; }
+
+/* --------------------------------------------------------------- caméra et anneau vox */
+.zone-camera { grid-area: camera; display: grid; place-items: center; min-height: 0; min-width: 0; container-type: size; }
+/* Le cercle prend la plus petite des deux dimensions de sa zone : il ne déborde jamais sur le texte. */
+.cadre { position: relative; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
+.cadre video, .cadre canvas {
+  position: absolute; inset: 6%; width: 88%; height: 88%;
+  object-fit: cover; border-radius: 50%; transform: scaleX(-1); /* effet miroir pour le visiteur seulement */
+  background: #000;
+}
+.anneau { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.anneau ellipse { fill: none; }
+.anneau-fond { stroke: var(--trait); stroke-width: 1.4; }
+.anneau-voix { stroke: var(--marque); stroke-width: 1.4; opacity: .35; transform-origin: 50% 50%; transition: transform 80ms linear; }
+.anneau-temps { stroke: var(--marque); stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 100 100; stroke-dashoffset: 100;
+  transform: rotate(-90deg); transform-origin: 50% 50%; }
+/* L'arc du temps n'existe que pendant le compte à rebours et l'enregistrement. */
+.cadre:not([data-etat="rec"]):not([data-etat="compte"]) .anneau-temps,
+.cadre:not([data-etat="rec"]) .anneau-voix { display: none; }
+.cadre[data-etat="rec"] .anneau-temps, .cadre[data-etat="rec"] .anneau-voix { stroke: var(--rec); }
+.cadre[data-etat="cadrage-ok"] .anneau-fond { stroke: var(--ok); }
+.compte {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  font-size: clamp(96px, 22vmin, 240px); font-weight: 800; color: #fff; line-height: 1;
+  text-shadow: 0 4px 24px rgba(0,0,0,.45); font-variant-numeric: tabular-nums;
+}
+.voyant {
+  position: absolute; left: 50%; bottom: 2%; transform: translateX(-50%);
+  background: var(--rec); color: #fff; font-weight: 700; font-size: 16px; padding: 6px 14px; border-radius: 999px;
+}
+.voyant::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #fff; margin-right: 8px; vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+
+/* --------------------------------------------------------------- scène (texte et actions) */
+.scene { grid-area: scene; display: flex; flex-direction: column; justify-content: center; gap: var(--espace); min-height: 0; overflow: auto; padding: 8px 0; }
+.scene h1 { font-size: var(--titre); line-height: 1.08; letter-spacing: -0.02em; margin: 0; font-weight: 800; text-wrap: balance; }
+.scene p { font-size: var(--corps); line-height: 1.45; margin: 0; color: var(--doux); max-width: 38em; }
+.scene .question { font-size: clamp(30px, 5vmin, 58px); line-height: 1.15; color: var(--encre); font-weight: 700; text-wrap: balance; }
+.progression { font-size: 17px; color: var(--doux); font-weight: 600; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.bouton {
+  min-height: 72px; padding: 0 40px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--marque); color: var(--sur-marque); font-size: clamp(20px, 2.8vmin, 28px); font-weight: 700;
+}
+.bouton:active { transform: scale(.98); }
+.bouton.secondaire { background: transparent; color: var(--encre); box-shadow: inset 0 0 0 2px var(--trait); }
+.bouton:disabled { opacity: .35; }
+.bouton:focus-visible, .touche:focus-visible, .option:focus-visible, .champ:focus-visible { outline: 4px solid var(--encre); outline-offset: 3px; }
+.lien { background: none; border: 0; padding: 8px 0; color: var(--encre); text-decoration: underline; text-underline-offset: 4px; font-size: 18px; cursor: pointer; }
+
+/* champs (sans saisie native) */
+.champs { display: grid; gap: 14px; }
+.champ {
+  display: grid; gap: 4px; text-align: left; width: 100%; cursor: pointer;
+  border: 2px solid var(--trait); border-radius: 18px; background: #fff; padding: 12px 18px;
+}
+.champ[aria-pressed="true"] { border-color: var(--marque); box-shadow: 0 0 0 3px color-mix(in srgb, var(--marque) 25%, transparent); }
+.champ .etiquette { font-size: 15px; color: var(--doux); }
+.champ .valeur { font-size: var(--corps); font-weight: 600; min-height: 1.3em; }
+.champ .valeur[data-vide="oui"]::before { content: attr(data-indice); color: #B6B2CE; font-weight: 400; }
+
+.case { display: flex; gap: 14px; align-items: flex-start; font-size: 19px; line-height: 1.4; cursor: pointer; text-align: left; background: none; border: 0; padding: 4px 0; }
+.case .boite { flex: none; width: 34px; height: 34px; border-radius: 10px; border: 2px solid var(--trait); background: #fff; display: grid; place-items: center; font-weight: 800; color: var(--sur-marque); }
+.case[aria-checked="true"] .boite { background: var(--marque); border-color: var(--marque); }
+.case[aria-checked="true"] .boite::after { content: "✓"; }
+
+.texte-legal { font-size: 16px !important; line-height: 1.5 !important; color: var(--doux); background: #fff; border-radius: 18px; padding: 16px 18px; max-height: 32vh; overflow: auto; }
+
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.option {
+  min-height: 120px; border-radius: var(--rayon); border: 2px solid var(--trait); background: #fff; cursor: pointer;
+  font-size: clamp(20px, 3vmin, 30px); font-weight: 700; display: grid; place-items: center; gap: 8px; padding: 16px;
+}
+.option img { max-width: 100%; max-height: 120px; object-fit: contain; }
+.option:active { border-color: var(--marque); }
+
+.reprises { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* --------------------------------------------------------------- clavier */
+.clavier { grid-area: clavier; display: grid; gap: 8px; padding-top: 12px; }
+.clavier:empty { display: none; }
+.clavier-ligne { display: flex; gap: 8px; justify-content: center; }
+.touche {
+  flex: 1 1 0; max-width: 92px; min-height: clamp(52px, 7vmin, 72px); border-radius: 14px; border: 0; cursor: pointer;
+  background: #fff; box-shadow: inset 0 0 0 1.5px var(--trait); font-size: clamp(20px, 2.8vmin, 28px); font-weight: 600;
+}
+.touche.large { flex: 3 1 0; max-width: 360px; }
+.touche:active { background: var(--marque); color: var(--sur-marque); }
+
+@media (prefers-reduced-motion: reduce) {
+  .voyant::before { animation: none; }
+  .anneau-voix { transition: none; }
+}

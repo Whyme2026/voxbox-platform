@@ -102,11 +102,42 @@ test("sans option diffusion, aucun consentement de diffusion n'est accepté", as
   assert.equal((await demarrer(tablette, { consent_diffusion: false })).status, 201);
 });
 
-test("une tablette avec une version périmée doit recharger", async () => {
+test("une version inconnue de la campagne est refusée", async () => {
   const { tablette } = await cabinePrete();
   const r = await demarrer(tablette, { parcours_version_id: "ancienne" });
   assert.equal(r.status, 409);
   assert.equal(r.corps.erreur, "version_perimee");
+});
+
+test("hors ligne : session créée par la tablette, renvoi sans doublon, heure réelle conservée", async () => {
+  const { tablette, db } = await cabinePrete();
+  const id = crypto.randomUUID();
+  const passage = new Date(Date.now() - 3_600_000).toISOString();
+  const a = await demarrer(tablette, { id, cree_le: passage });
+  assert.equal(a.status, 201);
+  const b = await demarrer(tablette, { id, cree_le: passage });
+  assert.equal(b.status, 200);
+  assert.equal(b.corps.session.code_retrait, a.corps.session.code_retrait);
+  const n = await db.prepare("SELECT COUNT(*) AS n, MIN(cree_le) AS cree_le FROM sessions").first<any>();
+  assert.equal(n.n, 1);
+  assert.equal(n.cree_le, passage);
+});
+
+test("campagne close : plus aucune session acceptée, même envoyée en différé", async () => {
+  const { tablette, api, campagneId } = await cabinePrete();
+  const ancienne = await tablette("GET", "/api/cabine/config");
+  await api("POST", `/api/admin/campagnes/${campagneId}/statut`, ADMIN, { statut: "close" });
+  const r = await tablette("POST", "/api/cabine/sessions", {
+    parcours_version_id: ancienne.corps.campagne.parcours_version_id,
+    consentement_version_id: ancienne.corps.consentement.id,
+    prenom: "Léa", consent_interne: true,
+  });
+  assert.equal(r.status, 409);
+});
+
+test("un identifiant de session invalide est refusé", async () => {
+  const { tablette } = await cabinePrete();
+  assert.equal((await demarrer(tablette, { id: "pas-un-uuid" })).status, 400);
 });
 
 test("réponse vidéo : stockée dans le stockage de la campagne, renvoi idempotent", async () => {
