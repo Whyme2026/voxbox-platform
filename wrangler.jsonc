@@ -1,6 +1,6 @@
 // Configuration Cloudflare de la plateforme Vox Boxes.
 // Trois environnements : dev (machine locale), test et production.
-// Les identifiants des bases D1 sont renseignés une fois les bases créées (juridiction UE).
+// Bases D1 et stockages R2 créés le 10/10/2026, tous en juridiction UE.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "voxbox",
@@ -31,7 +31,7 @@
       "workers_dev": true,
       "vars": { "ENVIRONNEMENT": "test", "AUTH_MODE": "access" },
       "d1_databases": [
-        { "binding": "DB", "database_name": "voxbox-test", "database_id": "A_RENSEIGNER", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "voxbox-test", "database_id": "ca5e4354-9ad6-4060-9020-b40c8209dded", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-test", "jurisdiction": "eu" }]
     },
@@ -40,7 +40,7 @@
       "workers_dev": true,
       "vars": { "ENVIRONNEMENT": "production", "AUTH_MODE": "access" },
       "d1_databases": [
-        { "binding": "DB", "database_name": "voxbox-prod", "database_id": "A_RENSEIGNER", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "voxbox-prod", "database_id": "ec16fb8a-4776-4d5a-bc2f-12b8f0f4c750", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-prod", "jurisdiction": "eu" }]
     }
