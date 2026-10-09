@@ -4,36 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#221F3A">
+  <meta name="theme-color" content="#17122E">
   <title>Vox Box</title>
   <link rel="stylesheet" href="cabine.css">
 </head>
 <body>
   <div class="cabine" id="cabine">
     <header class="entete">
+      <!-- Logo de la marque cliente si elle en a un, sinon la marque Vox Box. -->
       <img class="logo" id="logo" alt="" hidden>
-      <span class="marque" id="marque"></span>
+      <span class="voxbox" id="voxbox" aria-label="Vox Box">
+        <svg viewBox="0 0 40 32" aria-hidden="true"><path d="M6 2h28a4 4 0 0 1 4 4v15a4 4 0 0 1-4 4H17l-8 6v-6H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z" fill="var(--accent)"/><g fill="var(--sur-accent)"><rect x="11" y="10" width="3" height="7" rx="1.5"/><rect x="16.5" y="7" width="3" height="13" rx="1.5"/><rect x="22" y="9" width="3" height="9" rx="1.5"/><rect x="27.5" y="11.5" width="3" height="4" rx="1.5"/></g></svg>
+        <span>Vox Box</span>
+      </span>
       <span class="etat-reseau" id="etat-reseau" aria-live="polite"></span>
     </header>
-
-    <section class="zone-camera" id="zone-camera" hidden>
-      <div class="cadre">
-        <video id="video" muted playsinline autoplay></video>
-        <svg class="anneau" viewBox="0 0 100 100" aria-hidden="true">
-          <ellipse class="anneau-fond" cx="50" cy="50" rx="46" ry="46" />
-          <ellipse class="anneau-voix" id="anneau-voix" cx="50" cy="50" rx="46" ry="46" />
-          <ellipse class="anneau-temps" id="anneau-temps" cx="50" cy="50" rx="46" ry="46" pathLength="100" />
-        </svg>
-        <div class="compte" id="compte" aria-live="assertive"></div>
-        <div class="voyant" id="voyant" hidden>Enregistrement</div>
-      </div>
-    </section>
 
     <main class="scene" id="scene" aria-live="polite"></main>
     <div class="clavier" id="clavier"></div>
 
-    <footer class="pied"><span>by whyme</span></footer>
+    <footer class="pied">by <strong>whyme</strong></footer>
   </div>
+
+  <!-- Aperçu caméra : un seul élément, déplacé dans l'écran qui en a besoin. -->
+  <div class="apercu" id="apercu" hidden>
+    <video id="video" muted playsinline autoplay></video>
+    <div class="compte" id="compte" aria-live="assertive"></div>
+    <div class="rec" id="rec" hidden>
+      <span class="rec-point"></span><span>REC</span><span class="chrono" id="chrono">0:00</span>
+      <span class="onde" id="onde" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+  </div>
+
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

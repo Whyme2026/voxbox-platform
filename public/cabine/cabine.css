@@ -1,26 +1,32 @@
 /* Vox Box — écran de cabine.
-   Mise en page par zones : en paysage (16:9) la caméra à gauche, le texte à droite ;
-   en portrait (9:16, grand écran) la caméra en haut, le texte en dessous.
+   Thème maison « Vox Box » ; chaque marque cliente le remplace par ses propres couleurs (accent, fond, texte).
    Polices système uniquement : rien de critique n'est chargé depuis internet. */
 
 :root {
-  --encre: #221F3A;
-  --papier: #F6F4FF;
-  --doux: #6C6890;
-  --trait: #DCD8EE;
-  --marque: #4B3FD8;          /* remplacée par la couleur principale de la marque cliente */
-  --sur-marque: #FFFFFF;
-  --rec: #E5484D;
-  --ok: #1E9E6A;
-  --rayon: 28px;
-  --espace: clamp(16px, 2.4vmin, 32px);
-  --corps: clamp(18px, 2.4vmin, 26px);
-  --titre: clamp(32px, 5.6vmin, 64px);
+  /* Jetons du thème : seuls --accent, --fond et --texte sont surchargés par une marque. */
+  --fond: #17122E;        /* nuit */
+  --texte: #F5F2FF;       /* craie */
+  --accent: #FF4F8B;      /* voix */
+  --sur-accent: #FFFFFF;
+  --onde: #8B7BFF;        /* onde, secondaire */
+  --rec: #FF4D4F;
+
+  /* Dérivés automatiques : fonctionnent sur fond sombre comme sur fond clair. */
+  --texte-doux: color-mix(in srgb, var(--texte) 68%, var(--fond));
+  --surface: color-mix(in srgb, var(--texte) 7%, var(--fond));
+  --surface-forte: color-mix(in srgb, var(--texte) 13%, var(--fond));
+  --trait: color-mix(in srgb, var(--texte) 22%, var(--fond));
+
+  --gouttiere: clamp(20px, 3.4vmin, 44px);
+  --corps: clamp(18px, 2.3vmin, 26px);
+  --titre: clamp(36px, 6.4vmin, 76px);
+  --question: clamp(28px, 4.6vmin, 54px);
+  --rayon: clamp(18px, 2.6vmin, 30px);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: var(--papier); color: var(--encre); }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fond); color: var(--texte); }
 body { user-select: none; -webkit-user-select: none; touch-action: manipulation; overscroll-behavior: none; }
 button { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
@@ -28,126 +34,149 @@ button { font: inherit; color: inherit; }
 .cabine {
   height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  grid-template-areas:
-    "entete entete"
-    "camera scene"
-    "clavier clavier"
-    "pied pied";
-  gap: 0 var(--espace);
-  padding: var(--espace) calc(var(--espace) * 1.5);
-}
-.cabine.sans-camera { grid-template-areas: "entete entete" "scene scene" "clavier clavier" "pied pied"; }
-.cabine.sans-camera .scene { max-width: 60rem; justify-self: center; width: 100%; }
-
-@media (orientation: portrait) {
-  .cabine {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1.15fr) minmax(0, 1fr) auto auto;
-    grid-template-areas: "entete" "camera" "scene" "clavier" "pied";
-  }
-  .cabine.sans-camera { grid-template-areas: "entete" "scene" "scene" "clavier" "pied"; }
+  padding: var(--gouttiere);
+  gap: calc(var(--gouttiere) * .5);
 }
 
 /* --------------------------------------------------------------- entête et pied */
-.entete { grid-area: entete; display: flex; align-items: center; gap: 16px; min-height: 56px; }
-.logo { max-height: 48px; max-width: 220px; object-fit: contain; }
-.marque { font-weight: 700; font-size: var(--corps); }
-.etat-reseau { margin-left: auto; font-size: 15px; color: var(--doux); }
+.entete { display: flex; align-items: center; gap: 16px; min-height: 44px; }
+.logo { max-height: 52px; max-width: 240px; object-fit: contain; }
+.voxbox { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: -0.01em; }
+.voxbox svg { width: 40px; height: 32px; }
+.etat-reseau { margin-left: auto; font-size: 15px; color: var(--texte-doux); }
 .etat-reseau[data-etat="hors-ligne"] { color: var(--rec); }
-.pied { grid-area: pied; text-align: right; font-size: 13px; color: var(--doux); padding-top: 8px; letter-spacing: .02em; }
+.pied { text-align: center; font-size: 14px; color: var(--texte-doux); }
+.pied strong { color: var(--texte); font-weight: 800; }
 
-/* --------------------------------------------------------------- caméra et anneau vox */
-.zone-camera { grid-area: camera; display: grid; place-items: center; min-height: 0; min-width: 0; container-type: size; }
-/* Le cercle prend la plus petite des deux dimensions de sa zone : il ne déborde jamais sur le texte. */
-.cadre { position: relative; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
-.cadre video, .cadre canvas {
-  position: absolute; inset: 6%; width: 88%; height: 88%;
-  object-fit: cover; border-radius: 50%; transform: scaleX(-1); /* effet miroir pour le visiteur seulement */
-  background: #000;
-}
-.anneau { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.anneau ellipse { fill: none; }
-.anneau-fond { stroke: var(--trait); stroke-width: 1.4; }
-.anneau-voix { stroke: var(--marque); stroke-width: 1.4; opacity: .35; transform-origin: 50% 50%; transition: transform 80ms linear; }
-.anneau-temps { stroke: var(--marque); stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 100 100; stroke-dashoffset: 100;
-  transform: rotate(-90deg); transform-origin: 50% 50%; }
-/* L'arc du temps n'existe que pendant le compte à rebours et l'enregistrement. */
-.cadre:not([data-etat="rec"]):not([data-etat="compte"]) .anneau-temps,
-.cadre:not([data-etat="rec"]) .anneau-voix { display: none; }
-.cadre[data-etat="rec"] .anneau-temps, .cadre[data-etat="rec"] .anneau-voix { stroke: var(--rec); }
-.cadre[data-etat="cadrage-ok"] .anneau-fond { stroke: var(--ok); }
-.compte {
-  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
-  font-size: clamp(96px, 22vmin, 240px); font-weight: 800; color: #fff; line-height: 1;
-  text-shadow: 0 4px 24px rgba(0,0,0,.45); font-variant-numeric: tabular-nums;
-}
-.voyant {
-  position: absolute; left: 50%; bottom: 2%; transform: translateX(-50%);
-  background: var(--rec); color: #fff; font-weight: 700; font-size: 16px; padding: 6px 14px; border-radius: 999px;
-}
-.voyant::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #fff; margin-right: 8px; vertical-align: 1px; animation: pulse 1.2s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .3; } }
-
-/* --------------------------------------------------------------- scène (texte et actions) */
-.scene { grid-area: scene; display: flex; flex-direction: column; justify-content: center; gap: var(--espace); min-height: 0; overflow: auto; padding: 8px 0; }
-.scene h1 { font-size: var(--titre); line-height: 1.08; letter-spacing: -0.02em; margin: 0; font-weight: 800; text-wrap: balance; }
-.scene p { font-size: var(--corps); line-height: 1.45; margin: 0; color: var(--doux); max-width: 38em; }
-.scene .question { font-size: clamp(30px, 5vmin, 58px); line-height: 1.15; color: var(--encre); font-weight: 700; text-wrap: balance; }
-.progression { font-size: 17px; color: var(--doux); font-weight: 600; }
+/* --------------------------------------------------------------- scène */
+.scene { min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: calc(var(--gouttiere) * .8); overflow: hidden; }
+.scene > * { max-width: 46rem; }
+.scene h1 { font-size: var(--titre); line-height: 1.04; letter-spacing: -0.03em; margin: 0; font-weight: 850; text-wrap: balance; }
+.scene p { font-size: var(--corps); line-height: 1.45; margin: 0; color: var(--texte-doux); text-wrap: pretty; }
+.surtitre { color: var(--accent) !important; font-weight: 800; font-size: clamp(18px, 2.4vmin, 26px) !important; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 .bouton {
-  min-height: 72px; padding: 0 40px; border-radius: 999px; border: 0; cursor: pointer;
-  background: var(--marque); color: var(--sur-marque); font-size: clamp(20px, 2.8vmin, 28px); font-weight: 700;
+  min-height: 76px; padding: 0 44px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--accent); color: var(--sur-accent); font-size: clamp(21px, 2.8vmin, 30px); font-weight: 800;
+  transition: transform 90ms ease, opacity 150ms ease;
 }
-.bouton:active { transform: scale(.98); }
-.bouton.secondaire { background: transparent; color: var(--encre); box-shadow: inset 0 0 0 2px var(--trait); }
-.bouton:disabled { opacity: .35; }
-.bouton:focus-visible, .touche:focus-visible, .option:focus-visible, .champ:focus-visible { outline: 4px solid var(--encre); outline-offset: 3px; }
-.lien { background: none; border: 0; padding: 8px 0; color: var(--encre); text-decoration: underline; text-underline-offset: 4px; font-size: 18px; cursor: pointer; }
-
-/* champs (sans saisie native) */
-.champs { display: grid; gap: 14px; }
-.champ {
-  display: grid; gap: 4px; text-align: left; width: 100%; cursor: pointer;
-  border: 2px solid var(--trait); border-radius: 18px; background: #fff; padding: 12px 18px;
+.bouton:active { transform: scale(.97); }
+.bouton.secondaire { background: transparent; color: var(--texte); box-shadow: inset 0 0 0 2px var(--trait); }
+.bouton:disabled { opacity: .3; }
+.bouton:focus-visible, .touche:focus-visible, .option:focus-visible, .champ:focus-visible, .case:focus-visible, .lien:focus-visible {
+  outline: 4px solid var(--onde); outline-offset: 4px;
 }
-.champ[aria-pressed="true"] { border-color: var(--marque); box-shadow: 0 0 0 3px color-mix(in srgb, var(--marque) 25%, transparent); }
-.champ .etiquette { font-size: 15px; color: var(--doux); }
-.champ .valeur { font-size: var(--corps); font-weight: 600; min-height: 1.3em; }
-.champ .valeur[data-vide="oui"]::before { content: attr(data-indice); color: #B6B2CE; font-weight: 400; }
+.lien { background: none; border: 0; padding: 6px 0; color: var(--texte-doux); text-decoration: underline; text-underline-offset: 4px; font-size: 18px; cursor: pointer; }
 
-.case { display: flex; gap: 14px; align-items: flex-start; font-size: 19px; line-height: 1.4; cursor: pointer; text-align: left; background: none; border: 0; padding: 4px 0; }
-.case .boite { flex: none; width: 34px; height: 34px; border-radius: 10px; border: 2px solid var(--trait); background: #fff; display: grid; place-items: center; font-weight: 800; color: var(--sur-marque); }
-.case[aria-checked="true"] .boite { background: var(--marque); border-color: var(--marque); }
+/* --------------------------------------------------------------- accueil : l'onde */
+.onde-accueil { display: flex; align-items: center; gap: clamp(6px, 1vmin, 12px); height: clamp(64px, 12vmin, 140px); }
+.onde-accueil i { width: clamp(10px, 1.6vmin, 18px); height: 100%; border-radius: 999px; background: var(--accent); transform-origin: 50% 50%;
+  animation: onde 1.6s ease-in-out infinite; }
+.onde-accueil i:nth-child(2n) { background: var(--onde); }
+.onde-accueil i:nth-child(1) { animation-delay: -.2s } .onde-accueil i:nth-child(2) { animation-delay: -.9s }
+.onde-accueil i:nth-child(3) { animation-delay: -.5s } .onde-accueil i:nth-child(4) { animation-delay: -1.3s }
+.onde-accueil i:nth-child(5) { animation-delay: -.1s } .onde-accueil i:nth-child(6) { animation-delay: -.7s }
+.onde-accueil i:nth-child(7) { animation-delay: -1.1s }
+@keyframes onde { 0%, 100% { transform: scaleY(.22); } 50% { transform: scaleY(1); } }
+
+/* --------------------------------------------------------------- consignes et accord */
+.consignes { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: consigne; }
+.consignes li { counter-increment: consigne; display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; font-size: var(--corps); line-height: 1.4; }
+.consignes li::before {
+  content: counter(consigne); display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--surface-forte); color: var(--accent); font-weight: 800; font-size: 19px;
+}
+.cases { display: grid; gap: 12px; padding: 18px 20px; border-radius: var(--rayon); background: var(--surface); }
+.case { display: flex; gap: 14px; align-items: flex-start; font-size: 18px; line-height: 1.4; cursor: pointer; text-align: left; background: none; border: 0; padding: 4px 0; color: var(--texte); }
+.case small { display: block; color: var(--texte-doux); font-size: 15px; }
+.case .boite { flex: none; width: 34px; height: 34px; border-radius: 10px; border: 2px solid var(--trait); display: grid; place-items: center; font-weight: 900; color: var(--sur-accent); }
+.case[aria-checked="true"] .boite { background: var(--accent); border-color: var(--accent); }
 .case[aria-checked="true"] .boite::after { content: "✓"; }
+.texte-legal { font-size: 16px !important; line-height: 1.5 !important; max-height: 26vh; overflow: auto; padding: 14px 18px; border-radius: 16px; background: var(--surface); }
 
-.texte-legal { font-size: 16px !important; line-height: 1.5 !important; color: var(--doux); background: #fff; border-radius: 18px; padding: 16px 18px; max-height: 32vh; overflow: auto; }
-
-.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
-.option {
-  min-height: 120px; border-radius: var(--rayon); border: 2px solid var(--trait); background: #fff; cursor: pointer;
-  font-size: clamp(20px, 3vmin, 30px); font-weight: 700; display: grid; place-items: center; gap: 8px; padding: 16px;
+/* --------------------------------------------------------------- question */
+.ecran-question {
+  max-width: none !important; width: 100%; height: 100%;
+  display: grid; gap: calc(var(--gouttiere) * .6);
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "progression" "question" "camera" "temps" "aide" "actions";
 }
+.progression { grid-area: progression; display: flex; align-items: center; gap: 14px; }
+.points { display: flex; gap: 6px; }
+.points i { width: 26px; height: 6px; border-radius: 3px; background: var(--trait); }
+.points i[data-etat="fait"] { background: var(--onde); }
+.points i[data-etat="en-cours"] { background: var(--accent); }
+.titre-court { font-weight: 800; color: var(--accent); font-size: clamp(17px, 2.2vmin, 24px); }
+.question { grid-area: question; font-size: var(--question) !important; line-height: 1.12 !important; color: var(--texte) !important; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+.emplacement-camera { grid-area: camera; min-height: 0; display: grid; }
+.barre-temps { grid-area: temps; height: 8px; border-radius: 4px; background: var(--surface-forte); overflow: hidden; }
+.barre-temps span { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; transform: scaleX(1); }
+.barre-temps[data-etat="rec"] span { background: var(--rec); }
+.aide { grid-area: aide; display: grid; gap: 12px; }
+.pistes { display: flex; flex-wrap: wrap; gap: 10px; }
+.pistes span { padding: 8px 16px; border-radius: 999px; background: var(--surface-forte); font-size: 18px; font-weight: 600; }
+.coup-de-pouce { font-size: clamp(19px, 2.4vmin, 26px) !important; color: var(--texte) !important; }
+.coup-de-pouce::before { content: "Pour démarrer : "; color: var(--texte-doux); }
+.ecran-question .actions { grid-area: actions; }
+
+/* Paysage : la question reste en haut (caméra au-dessus de l'écran), l'aide à côté de l'aperçu. */
+@media (orientation: landscape) {
+  .ecran-question {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "progression progression" "question question" "camera aide" "temps actions";
+    column-gap: var(--gouttiere);
+  }
+  .ecran-question .aide { align-content: start; }
+}
+
+/* --------------------------------------------------------------- aperçu caméra */
+.apercu { position: relative; width: 100%; height: 100%; min-height: 0; border-radius: var(--rayon); overflow: hidden; background: #000; }
+.apercu video, .apercu canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.compte {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  font-size: clamp(110px, 24vmin, 260px); font-weight: 900; color: #fff; line-height: 1; font-variant-numeric: tabular-nums;
+  text-shadow: 0 6px 30px rgba(0,0,0,.5);
+}
+.compte:not(:empty) { background: rgba(10, 6, 30, .35); }
+.rec {
+  position: absolute; top: 14px; left: 14px; display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-radius: 999px; background: rgba(10, 6, 30, .62); color: #fff; font-weight: 800; font-size: 17px;
+}
+.rec-point { width: 12px; height: 12px; border-radius: 50%; background: var(--rec); animation: pulse 1.2s ease-in-out infinite; }
+.chrono { font-variant-numeric: tabular-nums; font-weight: 700; }
+.onde { display: inline-flex; align-items: center; gap: 3px; height: 18px; }
+.onde i { width: 4px; height: 100%; border-radius: 2px; background: #fff; transform: scaleY(.15); transform-origin: 50% 50%; transition: transform 70ms linear; }
+@keyframes pulse { 50% { opacity: .25; } }
+
+/* --------------------------------------------------------------- fin */
+.sortie { color: var(--texte) !important; font-weight: 700; }
+.retour { font-size: 16px !important; }
+
+/* --------------------------------------------------------------- champs, choix, clavier (étapes optionnelles) */
+.champs { display: grid; gap: 14px; }
+.champ { display: grid; gap: 4px; text-align: left; width: 100%; cursor: pointer; border: 2px solid var(--trait); border-radius: 18px; background: var(--surface); padding: 12px 18px; }
+.champ[aria-pressed="true"] { border-color: var(--accent); }
+.champ .etiquette { font-size: 15px; color: var(--texte-doux); }
+.champ .valeur { font-size: var(--corps); font-weight: 700; min-height: 1.3em; }
+.champ .valeur[data-vide="oui"]::before { content: attr(data-indice); color: var(--texte-doux); font-weight: 400; opacity: .6; }
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.option { min-height: 120px; border-radius: var(--rayon); border: 2px solid var(--trait); background: var(--surface); cursor: pointer;
+  font-size: clamp(20px, 3vmin, 30px); font-weight: 800; display: grid; place-items: center; gap: 8px; padding: 16px; }
 .option img { max-width: 100%; max-height: 120px; object-fit: contain; }
-.option:active { border-color: var(--marque); }
-
+.option:active { border-color: var(--accent); }
 .reprises { display: flex; flex-wrap: wrap; gap: 12px; }
-
-/* --------------------------------------------------------------- clavier */
-.clavier { grid-area: clavier; display: grid; gap: 8px; padding-top: 12px; }
+.clavier { display: grid; gap: 8px; }
 .clavier:empty { display: none; }
 .clavier-ligne { display: flex; gap: 8px; justify-content: center; }
-.touche {
-  flex: 1 1 0; max-width: 92px; min-height: clamp(52px, 7vmin, 72px); border-radius: 14px; border: 0; cursor: pointer;
-  background: #fff; box-shadow: inset 0 0 0 1.5px var(--trait); font-size: clamp(20px, 2.8vmin, 28px); font-weight: 600;
-}
+.touche { flex: 1 1 0; max-width: 92px; min-height: clamp(52px, 6.6vmin, 72px); border-radius: 14px; border: 0; cursor: pointer;
+  background: var(--surface-forte); color: var(--texte); font-size: clamp(20px, 2.8vmin, 28px); font-weight: 700; }
 .touche.large { flex: 3 1 0; max-width: 360px; }
-.touche:active { background: var(--marque); color: var(--sur-marque); }
+.touche:active { background: var(--accent); color: var(--sur-accent); }
 
 @media (prefers-reduced-motion: reduce) {
-  .voyant::before { animation: none; }
-  .anneau-voix { transition: none; }
+  .onde-accueil i, .rec-point { animation: none; }
+  .onde-accueil i { transform: scaleY(.6); }
 }

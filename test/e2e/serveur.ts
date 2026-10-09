@@ -53,8 +53,8 @@ async function appel(methode: string, chemin: string, corps?: unknown) {
 }
 
 /** Client, campagne active avec le parcours fourni, cabine affectée. Renvoie le code d'appairage. */
-export async function preparer(parcours: unknown) {
-  const cl = await appel("POST", "/api/admin/clients", { nom: "Marque Démo", raison_sociale: "Démo SAS", contact_rgpd: "rgpd@demo.test", couleurs: { principale: "#0F6E5A" } });
+export async function preparer(parcours: unknown, client: { nom: string; couleurs?: Record<string, string> } = { nom: "Vox Box" }) {
+  const cl = await appel("POST", "/api/admin/clients", { nom: client.nom, raison_sociale: `${client.nom} (démo)`, contact_rgpd: "rgpd@demo.test", couleurs: client.couleurs });
   const cp = await appel("POST", "/api/admin/campagnes", { client_id: cl.client.id, nom: "Essai" });
   const id = cp.campagne.id;
   await appel("POST", `/api/admin/campagnes/${id}/parcours`, { config: parcours });
@@ -87,7 +87,7 @@ export { db };
 // Lancement direct (essais manuels).
 if (process.argv[1] && import.meta.filename === process.argv[1]) {
   const port = Number(process.argv[2] ?? 8787);
-  const parcours = JSON.parse(readFileSync(join(import.meta.dirname, "../../fixtures/parcours-automobile.json"), "utf8"));
+  const parcours = JSON.parse(readFileSync(join(import.meta.dirname, "../../fixtures/parcours-demo.json"), "utf8"));
   await demarrerServeur(port);
   console.log(JSON.stringify({ url: `http://localhost:${port}/cabine/`, ...(await preparer(parcours)) }));
 }

@@ -62,3 +62,19 @@ test("le parcours doit finir par une étape de fin", () => {
   p.etapes.pop();
   assert.ok(validerParcours(p).some((m) => m.includes("« fin »")));
 });
+
+test("le parcours de démonstration Vox Box est valide", () => {
+  const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
+  assert.deepEqual(validerParcours(demo), []);
+  assert.equal(questions(demo).length, 5);
+});
+
+test("pistes et coup de pouce sont bornés", () => {
+  const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
+  const q = demo.etapes.find((e: any) => e.type === "question");
+  q.pistes = ["a", "b", "c", "d", "e", "f"];
+  q.coupDePouce = "x".repeat(200);
+  const pb = validerParcours(demo);
+  assert.ok(pb.some((m) => m.includes("pistes")));
+  assert.ok(pb.some((m) => m.includes("coupDePouce")));
+});

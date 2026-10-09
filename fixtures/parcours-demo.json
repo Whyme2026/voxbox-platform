@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "langue": "fr",
+  "etapes": [
+    {
+      "id": "accueil",
+      "type": "accueil",
+      "surtitre": "Votre avis en vidéo",
+      "titre": "Une minute pour dire ce que vous pensez vraiment.",
+      "texte": "Pas de formulaire, pas de note sur 10. Juste vous, une caméra et votre avis.",
+      "bouton": "Je me lance"
+    },
+    {
+      "id": "consignes",
+      "type": "consentement",
+      "titre": "Comment ça marche",
+      "consignes": [
+        "5 questions, une à la fois.",
+        "5 secondes pour lire, puis la caméra tourne.",
+        "30 secondes maximum par réponse. Fini avant ? Passez à la suite.",
+        "Pas de bonne ni de mauvaise réponse : on veut votre avis, pas un discours."
+      ],
+      "bouton": "C'est parti",
+      "proposerDiffusion": true,
+      "proposerFloutage": true
+    },
+    {
+      "id": "q-premier-mot",
+      "type": "question",
+      "titreCourt": "Le premier mot",
+      "texte": "Un seul mot pour résumer votre expérience aujourd'hui. Puis dites-nous pourquoi celui-là.",
+      "coupDePouce": "Mon mot, c'est… parce que…",
+      "dureeMaxSec": 30, "compteARebours": 5, "silenceArretSec": 3, "theme": "impression"
+    },
+    {
+      "id": "q-coup-de-coeur",
+      "type": "question",
+      "titreCourt": "Le coup de cœur",
+      "texte": "Qu'est-ce qui vous a fait dire « tiens, pas mal » ?",
+      "pistes": ["L'accueil", "Le produit", "Un détail", "Une personne"],
+      "coupDePouce": "J'ai bien aimé…",
+      "dureeMaxSec": 30, "compteARebours": 5, "silenceArretSec": 3, "theme": "points-forts"
+    },
+    {
+      "id": "q-petit-caillou",
+      "type": "question",
+      "titreCourt": "Le petit caillou",
+      "texte": "Et ce qui vous a un peu agacé ? Allez-y, on encaisse.",
+      "pistes": ["L'attente", "Le prix", "Une info manquante"],
+      "coupDePouce": "Franchement, j'aurais aimé…",
+      "dureeMaxSec": 30, "compteARebours": 5, "silenceArretSec": 3, "theme": "irritants"
+    },
+    {
+      "id": "q-baguette-magique",
+      "type": "question",
+      "titreCourt": "La baguette magique",
+      "texte": "Vous pouvez changer une seule chose. Laquelle ?",
+      "coupDePouce": "Moi, je changerais…",
+      "dureeMaxSec": 30, "compteARebours": 5, "silenceArretSec": 3, "theme": "attentes"
+    },
+    {
+      "id": "q-mot-de-la-fin",
+      "type": "question",
+      "titreCourt": "Le mot de la fin",
+      "texte": "Ce soir, vous en parlez à un ami. Vous lui dites quoi ?",
+      "coupDePouce": "Tu devrais…",
+      "dureeMaxSec": 30, "compteARebours": 5, "silenceArretSec": 3, "theme": "recommandation"
+    },
+    {
+      "id": "fin",
+      "type": "fin",
+      "titre": "Merci, c'est dans la boîte.",
+      "texte": "Votre avis part directement aux équipes qui peuvent agir.",
+      "sortie": "Vous pouvez sortir de la cabine. Belle fin de journée !",
+      "retourAccueilSec": 10
+    }
+  ]
+}

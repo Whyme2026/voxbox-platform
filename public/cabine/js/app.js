@@ -34,7 +34,7 @@ let numeroEcran = 0;
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 const scene = $("scene");
 const clavier = creerClavier($("clavier"));
-const cadre = /** @type {HTMLElement} */ (document.querySelector(".cadre"));
+const apercu = $("apercu");
 const video = /** @type {HTMLVideoElement} */ ($("video"));
 
 // ------------------------------------------------------------------ utilitaires d'affichage
@@ -55,25 +55,39 @@ function h(/** @type {string} */ tag, /** @type {Record<string, any>} */ attrs =
 const bouton = (/** @type {string} */ texte, /** @type {() => void} */ action, classe = "") =>
   h("button", { type: "button", class: `bouton ${classe}`.trim(), onclick: action }, texte);
 
-function afficher(/** @type {(Node|null)[]} */ contenu, { camera: avecCamera = false } = {}) {
+function afficher(/** @type {(Node|null)[]} */ contenu) {
   clavier.fermer();
-  $("zone-camera").hidden = !avecCamera;
-  $("cabine").classList.toggle("sans-camera", !avecCamera);
   scene.replaceChildren(.../** @type {Node[]} */ (contenu.filter(Boolean)));
+  // L'aperçu caméra est un élément unique, déplacé dans l'écran qui le demande.
+  const place = scene.querySelector(".emplacement-camera");
+  if (place) { place.append(apercu); apercu.hidden = false; video.play().catch(() => {}); }
+  else if (apercu.parentElement !== document.body) { apercu.hidden = true; document.body.append(apercu); }
   const premier = scene.querySelector("button");
   if (premier instanceof HTMLElement) premier.focus({ preventScroll: true });
   numeroEcran += 1;
 }
 
-function etatCadre(/** @type {string} */ etat) { cadre.dataset.etat = etat; }
-
-function anneauTemps(/** @type {number} */ fraction) {
-  // Propriété de style (et non attribut) : la feuille de style l'emporterait sur l'attribut.
-  $("anneau-temps").style.strokeDashoffset = String(100 - Math.max(0, Math.min(1, fraction)) * 100);
+/** Vumètre du voyant REC : 5 barres qui suivent la voix. */
+function onde(/** @type {number} */ niveau) {
+  const barres = $("onde").children;
+  const profil = [0.55, 0.85, 1, 0.75, 0.5];
+  for (let i = 0; i < barres.length; i++) {
+    /** @type {HTMLElement} */ (barres[i]).style.transform = `scaleY(${Math.max(0.15, niveau * /** @type {number} */ (profil[i]))})`;
+  }
 }
-function anneauVoix(/** @type {number} */ niveau) {
-  $("anneau-voix").style.transform = `scale(${1 + niveau * 0.06})`;
-  $("anneau-voix").style.opacity = String(0.25 + niveau * 0.75);
+
+const chrono = (/** @type {number} */ s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/** Case à cocher tactile. */
+function caseACocher(/** @type {Node | string} */ libelle, /** @type {boolean} */ coche, /** @type {(v: boolean) => void} */ surChangement, /** @type {string} */ precision = "") {
+  const el = h("button", { type: "button", class: "case", role: "checkbox", "aria-checked": String(coche) },
+    h("span", { class: "boite" }), h("span", {}, libelle, precision ? h("small", {}, precision) : null));
+  el.addEventListener("click", () => {
+    const v = el.getAttribute("aria-checked") !== "true";
+    el.setAttribute("aria-checked", String(v));
+    surChangement(v);
+  });
+  return el;
 }
 
 // ------------------------------------------------------------------ appairage et configuration
@@ -126,19 +140,23 @@ async function chargerConfig() {
   return "ok";
 }
 
+/**
+ * Thème : celui de Vox Box par défaut ; une marque cliente le remplace par ses couleurs
+ * (couleurs.principale → accent, couleurs.fond, couleurs.texte) et son logo.
+ */
 function appliquerHabillage() {
   const client = config?.client;
   const racine = document.documentElement.style;
-  const principale = client?.couleurs?.principale;
-  if (principale) {
-    racine.setProperty("--marque", principale);
-    racine.setProperty("--sur-marque", contraste(principale));
-  } else {
-    racine.removeProperty("--marque"); racine.removeProperty("--sur-marque");
+  const c = client?.couleurs ?? {};
+  for (const [cle, prop] of [["principale", "--accent"], ["fond", "--fond"], ["texte", "--texte"]]) {
+    if (typeof c[cle] === "string" && /^#[0-9a-fA-F]{6}$/.test(c[cle])) racine.setProperty(/** @type {string} */ (prop), c[cle]);
+    else racine.removeProperty(/** @type {string} */ (prop));
   }
-  $("marque").textContent = client?.nom ?? "";
+  if (c.principale) racine.setProperty("--sur-accent", contraste(c.principale)); else racine.removeProperty("--sur-accent");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", c.fond ?? "#17122E");
   const logo = /** @type {HTMLImageElement} */ ($("logo"));
   logo.hidden = !client?.logo_url;
+  $("voxbox").hidden = Boolean(client?.logo_url);
   if (client?.logo_url) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
 }
 
@@ -167,10 +185,10 @@ async function preparerCamera() {
 }
 
 function activerFlou(/** @type {boolean} */ actif) {
-  const existant = cadre.querySelector("canvas");
+  const existant = apercu.querySelector("canvas");
   if (actif && !flou) {
     flou = creerFlou(video, { niveau: "fort" });
-    cadre.insertBefore(flou.canevas, video.nextSibling);
+    apercu.insertBefore(flou.canevas, video.nextSibling);
     video.style.visibility = "hidden";
   } else if (!actif && flou) {
     flou.arreter(); flou = null;
@@ -257,7 +275,6 @@ const suite = (/** @type {any} */ e, /** @type {string | undefined} */ choix = u
 function accueil() {
   visiteur = null;
   activerFlou(false);
-  etatCadre("");
   if (!config?.campagne || !moteur) return ecranAttente();
   aller(moteur.premiere());
 }
@@ -273,6 +290,8 @@ function ecranAttente() {
 function ecranAccueil(/** @type {any} */ e) {
   const enPause = pauses();
   afficher([
+    h("div", { class: "onde-accueil", "aria-hidden": "true" }, ...Array.from({ length: 7 }, () => h("i"))),
+    e.surtitre ? h("p", { class: "surtitre" }, e.surtitre) : null,
     h("h1", {}, e.titre),
     e.texte ? h("p", {}, e.texte) : null,
     h("div", { class: "actions" },
@@ -340,21 +359,31 @@ function ecranIdentification(/** @type {any} */ e) {
 function ecranConsentement(/** @type {any} */ e) {
   if (!visiteur) return accueil();
   const v = visiteur;
+  const marque = config.client?.nom ?? "la marque";
   const proposee = Boolean(e.proposerDiffusion) && diffusionProposee(config.parcours) && Boolean(config.consentement?.texte_diffusion);
   if (!proposee) v.diffusion = false;
+  let accord = false;
+  const partir = bouton(e.bouton, async () => {
+    if (!accord) return;
+    if (v.floutage) await preparerCamera();
+    envoyerSession();
+    suite(e);
+  });
+  partir.toggleAttribute("disabled", true);
   const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_interne ?? "");
-  const caseDiffusion = proposee
-    ? h("button", { type: "button", class: "case", role: "checkbox", "aria-checked": String(v.diffusion),
-        onclick: () => { v.diffusion = !v.diffusion; caseDiffusion?.setAttribute("aria-checked", String(v.diffusion)); } },
-        h("span", { class: "boite" }), h("span", {}, config.consentement.texte_diffusion))
-    : null;
+
   afficher([
     h("h1", {}, e.titre),
-    h("p", {}, "Vos réponses sont filmées pour aider la marque à comprendre l'avis de ses clients. Elles restent à usage interne."),
-    caseDiffusion,
-    h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, "En savoir plus"),
+    e.consignes?.length ? h("ol", { class: "consignes" }, ...e.consignes.map((/** @type {string} */ c) => h("li", {}, c))) : null,
+    h("div", { class: "cases" },
+      caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses clients.`, false,
+        (x) => { accord = x; partir.toggleAttribute("disabled", !x); }, "Obligatoire pour commencer."),
+      proposee ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
+      e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, "Votre voix reste, votre visage disparaît.") : null,
+    ),
+    h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, "En savoir plus sur vos données"),
     details,
-    h("div", { class: "actions" }, bouton(e.bouton, () => suite(e))),
+    h("div", { class: "actions" }, partir),
   ]);
 }
 
@@ -363,82 +392,83 @@ async function ecranCadrage(/** @type {any} */ e) {
   const v = visiteur;
   const ok = await preparerCamera();
   if (!ok) return ecranErreurCamera();
-  etatCadre("");
-  anneauTemps(0);
   activerFlou(v.floutage);
-  const caseFlou = e.proposerFloutage
-    ? h("button", { type: "button", class: "case", role: "checkbox", "aria-checked": String(v.floutage),
-        onclick: () => { v.floutage = !v.floutage; caseFlou?.setAttribute("aria-checked", String(v.floutage)); activerFlou(v.floutage); } },
-        h("span", { class: "boite" }), h("span", {}, "Flouter mon visage"))
-    : null;
   afficher([
     h("h1", {}, e.titre),
-    h("p", {}, v.floutage && !detectionDisponible() ? "Toute l'image sera floutée." : "Restez bien dans le cercle pendant vos réponses."),
-    caseFlou,
+    h("div", { class: "emplacement-camera", style: "min-height: 40vh" }),
+    e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
     h("div", { class: "actions" }, bouton("Je suis prêt", () => { envoyerSession(); suite(e); })),
-  ], { camera: true });
+  ]);
 }
 
 function ecranErreurCamera() {
   afficher([
     h("h1", {}, "Caméra indisponible"),
-    h("p", {}, "La caméra ou le micro ne répond pas. Prévenez un conseiller ; la cabine va revenir à l'accueil."),
+    h("p", {}, "La caméra ou le micro ne répond pas. Prévenez un conseiller : la cabine revient à l'accueil."),
   ]);
   setTimeout(accueil, 8000);
 }
 
-function ecranQuestion(/** @type {any} */ e) {
-  if (!visiteur || !camera || !vumetre || !moteur) return accueil();
+async function ecranQuestion(/** @type {any} */ e) {
+  if (!visiteur || !moteur) return accueil();
   const v = visiteur;
+  if (!(await preparerCamera()) || !camera || !vumetre) return ecranErreurCamera();
+  activerFlou(v.floutage);
   envoyerSession();
   const { numero, total } = moteur.progression(e.id, v.repondues);
-  const suivant = bouton(numero >= total ? "Terminer" : "Question suivante", () => arret?.());
-  suivant.toggleAttribute("disabled", true);
-  afficher([
-    h("span", { class: "progression" }, `Question ${numero} sur ${total}`),
-    h("p", { class: "question" }, e.texte),
-    e.aide ? h("p", {}, e.aide) : null,
-    h("div", { class: "actions" }, suivant),
-  ], { camera: true });
-
+  const derniere = numero >= total;
   /** @type {(() => void) | null} */ let arret = null;
+  const suivant = bouton(derniere ? "J'ai terminé" : "Question suivante", () => arret?.());
+  suivant.toggleAttribute("disabled", true);
+  const remplissage = h("span");
+  const barre = h("div", { class: "barre-temps", role: "progressbar", "aria-label": "Temps restant" }, remplissage);
+
+  afficher([
+    h("div", { class: "ecran-question" },
+      h("div", { class: "progression" },
+        h("span", { class: "points", "aria-label": `Question ${numero} sur ${total}` },
+          ...Array.from({ length: total }, (_, i) => h("i", { "data-etat": i + 1 < numero ? "fait" : i + 1 === numero ? "en-cours" : "a-venir" }))),
+        e.titreCourt ? h("span", { class: "titre-court" }, e.titreCourt) : h("span", { class: "titre-court" }, `Question ${numero}`)),
+      h("p", { class: "question" }, e.texte),
+      h("div", { class: "emplacement-camera" }),
+      barre,
+      (e.pistes?.length || e.coupDePouce || e.aide) ? h("div", { class: "aide" },
+        e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,
+        e.coupDePouce ? h("p", { class: "coup-de-pouce" }, `« ${e.coupDePouce} »`) : null,
+        e.aide ? h("p", {}, e.aide) : null) : null,
+      h("div", { class: "actions" }, suivant)),
+  ]);
+
   let annule = false;
-  annulerEnCours = () => { annule = true; arret?.(); $("compte").textContent = ""; $("voyant").hidden = true; };
+  annulerEnCours = () => { annule = true; arret?.(); $("compte").textContent = ""; $("rec").hidden = true; };
   vumetre.reprendre();
   arreterInactivite();
+  const temps = (/** @type {number} */ f) => { remplissage.style.transform = `scaleX(${Math.max(0, Math.min(1, f))})`; };
+  temps(1);
 
-  // Compte à rebours, puis enregistrement.
-  const attente = Math.max(0, Number(e.compteARebours ?? 4));
-  let reste = attente;
-  etatCadre("compte");
-  anneauTemps(1);
+  // Le temps de lire : compte à rebours sur l'aperçu, puis la caméra tourne.
+  let reste = Math.max(0, Number(e.compteARebours ?? 5));
   const decompte = () => {
     if (annule) return;
-    if (reste > 0) {
-      $("compte").textContent = String(reste);
-      anneauTemps(reste / Math.max(attente, 1));
-      reste -= 1;
-      setTimeout(decompte, 1000);
-      return;
-    }
+    if (reste > 0) { $("compte").textContent = String(reste); reste -= 1; setTimeout(decompte, 1000); return; }
     $("compte").textContent = "";
     lancer();
   };
 
   const lancer = () => {
-    etatCadre("rec");
-    $("voyant").hidden = false;
+    $("rec").hidden = false;
+    barre.dataset.etat = "rec";
     suivant.toggleAttribute("disabled", false);
     const prise = enregistrer({
       flux: fluxAEnregistrer(), vumetre: /** @type {any} */ (vumetre),
       dureeMaxSec: e.dureeMaxSec, silenceArretSec: e.silenceArretSec ?? 3,
-      surNiveau: (n, ecoule) => { anneauVoix(n); anneauTemps(1 - ecoule / e.dureeMaxSec); },
+      surNiveau: (n, ecoule) => { onde(n); temps(1 - ecoule / e.dureeMaxSec); $("chrono").textContent = chrono(ecoule); },
     });
     arret = prise.arreter;
     prise.resultat.then(async (r) => {
-      $("voyant").hidden = true;
-      etatCadre("");
-      anneauVoix(0);
+      $("rec").hidden = true;
+      onde(0);
+      $("chrono").textContent = "0:00";
       if (annule) return;
       v.repondues.push(e.id);
       await file?.ajouter({
@@ -480,9 +510,23 @@ function ecranPause(/** @type {any} */ e) {
 function ecranFin(/** @type {any} */ e) {
   if (visiteur) retirerPause(visiteur.id);
   activerFlou(false);
-  afficher([h("h1", {}, e.titre), e.texte ? h("p", {}, e.texte) : null]);
+  let reste = Math.max(3, Number(e.retourAccueilSec ?? 10));
+  const retour = h("p", { class: "retour" }, `Retour à l'accueil dans ${reste} s`);
+  afficher([
+    h("div", { class: "onde-accueil", "aria-hidden": "true" }, ...Array.from({ length: 7 }, () => h("i"))),
+    h("h1", {}, e.titre),
+    e.texte ? h("p", {}, e.texte) : null,
+    e.sortie ? h("p", { class: "sortie" }, e.sortie) : null,
+    retour,
+  ]);
   const ecran = numeroEcran;
-  setTimeout(() => { if (numeroEcran === ecran) accueil(); }, Math.max(3, Number(e.retourAccueilSec ?? 10)) * 1000);
+  const tic = () => {
+    if (numeroEcran !== ecran) return;
+    if (--reste <= 0) return accueil();
+    retour.textContent = `Retour à l'accueil dans ${reste} s`;
+    setTimeout(tic, 1000);
+  };
+  setTimeout(tic, 1000);
 }
 
 // ------------------------------------------------------------------ inactivité, état, signal

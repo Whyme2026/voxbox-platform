@@ -11,7 +11,14 @@ interface EtapeBase {
   suite?: string;
 }
 
-export interface EtapeAccueil extends EtapeBase { type: "accueil"; titre: string; texte?: string; bouton: string }
+export interface EtapeAccueil extends EtapeBase {
+  type: "accueil";
+  /** Petite ligne au-dessus du titre (ex. « VIP Experience »). */
+  surtitre?: string;
+  titre: string;
+  texte?: string;
+  bouton: string;
+}
 export interface EtapeIdentification extends EtapeBase {
   type: "identification";
   titre: string;
@@ -22,6 +29,10 @@ export interface EtapeConsentement extends EtapeBase {
   type: "consentement";
   titre: string;
   bouton: string;
+  /** Consignes affichées avant l'accord (« 5 questions, 30 secondes… »). L'écran sert alors de « mode d'emploi ». */
+  consignes?: string[];
+  /** Propose au visiteur de flouter son visage (case facultative). */
+  proposerFloutage?: boolean;
   /**
    * Propose au visiteur une case facultative « diffusion publique » (réseaux sociaux, site, publicité).
    * Absent ou false : la campagne est en usage interne uniquement, aucune case n'est affichée
@@ -40,11 +51,17 @@ export interface EtapeQuestion extends EtapeBase {
   silenceArretSec?: number;
   /** Thème d'analyse, pour regrouper les réponses dans la restitution. */
   theme?: string;
+  /** Nom court affiché au-dessus de la question (ex. « Le coup de cœur »). */
+  titreCourt?: string;
+  /** Pistes de réponse affichées en étiquettes (5 au plus). */
+  pistes?: string[];
+  /** Début de phrase pour lancer la réponse (ex. « Pour moi, c'était… »). */
+  coupDePouce?: string;
 }
 export interface OptionChoix { id: string; libelle: string; image?: string; suite: string }
 export interface EtapeChoix extends EtapeBase { type: "choix"; titre: string; options: OptionChoix[] }
 export interface EtapePause extends EtapeBase { type: "pause"; titre: string; texte?: string; bouton: string }
-export interface EtapeFin extends EtapeBase { type: "fin"; titre: string; texte?: string; retourAccueilSec?: number }
+export interface EtapeFin extends EtapeBase { type: "fin"; titre: string; texte?: string; sortie?: string; retourAccueilSec?: number }
 
 export type Etape =
   | EtapeAccueil | EtapeIdentification | EtapeConsentement | EtapeCadrage
@@ -87,6 +104,12 @@ export function validerParcours(brut: unknown): string[] {
     else if (v.length > max) pb.push(`${ou} : « ${champ} » trop long (${max} caractères maximum)`);
   };
 
+  const liste = (ou: string, champ: string, v: unknown, max: number, longueur: number) => {
+    if (!Array.isArray(v) || v.length > max || v.some((x) => typeof x !== "string" || !x.trim() || x.length > longueur)) {
+      pb.push(`${ou} : « ${champ} » : ${max} textes au plus, de ${longueur} caractères au plus`);
+    }
+  };
+
   let nbQuestions = 0;
   let consentementVu = false;
   for (const e of etapes) {
@@ -94,12 +117,22 @@ export function validerParcours(brut: unknown): string[] {
     const ou = `étape ${e.id}`;
     if (e.suite !== undefined) cible(ou, e.suite);
     switch (e.type) {
-      case "accueil": case "pause":
+      case "accueil":
+        txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
+        if (e.surtitre !== undefined) txt(ou, "surtitre", e.surtitre, 40);
+        break;
+      case "pause":
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40); break;
-      case "identification": case "cadrage": case "fin":
+      case "identification": case "cadrage":
         txt(ou, "titre", e.titre); break;
+      case "fin":
+        txt(ou, "titre", e.titre);
+        if (e.sortie !== undefined) txt(ou, "sortie", e.sortie, 160);
+        break;
       case "consentement":
         consentementVu = true; txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
+        if (e.consignes !== undefined) liste(ou, "consignes", e.consignes, 6, 140);
+        if (e.proposerFloutage !== undefined && typeof e.proposerFloutage !== "boolean") pb.push(`${ou} : « proposerFloutage » vrai ou faux`);
         if (e.proposerDiffusion !== undefined && typeof e.proposerDiffusion !== "boolean") pb.push(`${ou} : « proposerDiffusion » vrai ou faux`);
         break;
       case "question": {
@@ -109,6 +142,9 @@ export function validerParcours(brut: unknown): string[] {
         if (typeof e.dureeMaxSec !== "number" || e.dureeMaxSec < 5 || e.dureeMaxSec > 120) pb.push(`${ou} : durée maximale entre 5 et 120 secondes`);
         if (e.compteARebours !== undefined && (typeof e.compteARebours !== "number" || e.compteARebours < 0 || e.compteARebours > 10)) pb.push(`${ou} : compte à rebours entre 0 et 10 secondes`);
         if (e.silenceArretSec !== undefined && (typeof e.silenceArretSec !== "number" || e.silenceArretSec < 0 || e.silenceArretSec > 15)) pb.push(`${ou} : arrêt sur silence entre 0 et 15 secondes`);
+        if (e.titreCourt !== undefined) txt(ou, "titreCourt", e.titreCourt, 40);
+        if (e.pistes !== undefined) liste(ou, "pistes", e.pistes, 5, 40);
+        if (e.coupDePouce !== undefined) txt(ou, "coupDePouce", e.coupDePouce, 100);
         break;
       }
       case "choix": {

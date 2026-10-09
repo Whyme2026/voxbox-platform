@@ -39,6 +39,14 @@ Fichier JSON validé par `src/parcours/schema.ts` : étapes `accueil`, `identifi
 `question`, `choix` (embranchement), `pause` (avant/après), `fin`. Contrôles : identifiants uniques, renvois valides,
 consentement avant toute question, toutes les étapes atteignables, fin obligatoire.
 
+## Parcours de démonstration et thème
+- `fixtures/parcours-demo.json` : parcours **neutre Vox Box**, base vendue puis personnalisée par marque.
+  Accueil, consignes + accord (bouton grisé tant que l'accord obligatoire n'est pas donné), 5 questions
+  (titre court, pistes, coup de pouce), fin. Prénom, choix, pause avant/après, cadrage : options par campagne.
+- Thème maison Vox Box (fond nuit, accent « voix » magenta) ; une marque le remplace via `clients.couleurs`
+  (`principale` → accent, `fond`, `texte`) et son logo. Les autres teintes sont dérivées automatiquement.
+- Flou : niveau **fort** retenu (10/10/2026).
+
 ## Cabine (tablette)
 Page `public/cabine/`, sans compilation ni dépendance :
 - `moteur.js` : déroulé du parcours (logique pure, testée avec Node) ;
