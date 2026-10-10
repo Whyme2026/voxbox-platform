@@ -6,6 +6,7 @@ import { creerClavier } from "./clavier.js";
 import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from "./enregistreur.js";
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
+import { genererQR, cheminQR } from "./qr.js";
 
 const VERSION = "0.3.0";
 const CLE_JETON = "voxbox.jeton";
@@ -24,7 +25,7 @@ const PAUSE_MAX_MS = 12 * 3600_000;
 /**
  * Visiteur en cours. Effacé entièrement à chaque retour à l'accueil.
  * @type {null | { id: string, prenom: string, nom: string, email: string, recontact: boolean, diffusion: boolean,
- *   floutage: boolean, repondues: string[], creeLe: string, envoyee: boolean, parcoursVersion: string, consentVersion: string }}
+ *   floutage: boolean, repondues: string[], creeLe: string, envoyee: boolean, parcoursVersion: string, consentVersion: string, codeRetrait: string }}
  */
 let visiteur = null;
 let minuterieInactivite = 0;
@@ -260,12 +261,34 @@ function retirerPause(/** @type {string} */ id) {
 
 // ------------------------------------------------------------------ session et envois
 
+/** Code de retrait (10 caractères lisibles, sans O/0 ni I/1) : affiché en QR code sur l'écran de fin, même hors ligne. */
+function codeRetrait() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return [...crypto.getRandomValues(new Uint8Array(10))].map((o) => alphabet[o % alphabet.length]).join("");
+}
+
 function nouvelleSession() {
   visiteur = {
     id: crypto.randomUUID(), prenom: "", nom: "", email: "", recontact: false, diffusion: false,
     floutage: false, repondues: [], creeLe: new Date().toISOString(), envoyee: false,
     parcoursVersion: config.campagne.parcours_version_id, consentVersion: config.consentement.id,
+    codeRetrait: codeRetrait(),
   };
+}
+
+/** Miniature JPEG (320×180) de l'image filmée, floutée si le visiteur l'a demandé. */
+function prendreMiniature() {
+  /** @type {CanvasImageSource} */
+  const source = flou ? flou.canevas : video;
+  const l = flou ? flou.canevas.width : video.videoWidth;
+  const ht = flou ? flou.canevas.height : video.videoHeight;
+  if (!l || !ht) return Promise.resolve(null);
+  const c = document.createElement("canvas");
+  c.width = 320; c.height = 180;
+  const ctx = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+  const ratio = Math.max(320 / l, 180 / ht);
+  ctx.drawImage(source, (320 - l * ratio) / 2, (180 - ht * ratio) / 2, l * ratio, ht * ratio);
+  return new Promise((ok) => c.toBlob((b) => ok(b), "image/jpeg", 0.72));
 }
 
 /** Met la création de session en file, une seule fois, avant toute vidéo. */
@@ -279,6 +302,7 @@ async function envoyerSession() {
       parcours_version_id: visiteur.parcoursVersion, consentement_version_id: visiteur.consentVersion,
       prenom: visiteur.prenom || "Visiteur", nom: visiteur.nom || undefined, email: visiteur.email || undefined,
       recontact: visiteur.recontact, consent_interne: true, consent_diffusion: visiteur.diffusion,
+      code_retrait: visiteur.codeRetrait,
     }),
   });
 }
@@ -540,7 +564,11 @@ async function ecranQuestion(/** @type {any} */ e) {
       },
     });
     arret = prise.arreter;
+    /** @type {Promise<Blob | null>} */
+    let miniature = Promise.resolve(null);
+    const minuterieMiniature = setTimeout(() => { miniature = prendreMiniature(); }, 1200);
     prise.resultat.then(async (r) => {
+      clearTimeout(minuterieMiniature);
       $("rec").hidden = true;
       $("ecoute").hidden = true;
       delete apercu.dataset.rec;
@@ -553,6 +581,10 @@ async function ecranQuestion(/** @type {any} */ e) {
         type: r.type.split(";")[0] ?? "video/webm", corps: r.blob,
         entetes: { "x-duree-ms": String(r.dureeMs), "x-son-present": r.sonPresent ? "1" : "0" },
       });
+      const image = await miniature.catch(() => null);
+      if (image) {
+        await file?.ajouter({ methode: "PUT", chemin: `/api/cabine/sessions/${v.id}/reponses/${encodeURIComponent(e.id)}/miniature`, type: "image/jpeg", corps: image });
+      }
       suite(e);
     }).catch(() => ecranErreurCamera());
   };
@@ -586,11 +618,33 @@ function ecranPause(/** @type {any} */ e) {
   setTimeout(() => { if (numeroEcran === ecran) accueil(); }, 12_000);
 }
 
+/** QR code du lien de retrait, avec le code en clair pour qui ne peut pas scanner. */
+function carteRetrait(/** @type {string} */ code) {
+  const { d, cote } = cheminQR(genererQR(`${location.origin}/retrait/#${code}`));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${cote} ${cote}`);
+  svg.setAttribute("class", "qr");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "QR code pour retirer votre accord");
+  svg.setAttribute("shape-rendering", "crispEdges");
+  const fond = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  fond.setAttribute("width", String(cote)); fond.setAttribute("height", String(cote)); fond.setAttribute("fill", "#FFFFFF");
+  const chemin = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  chemin.setAttribute("d", d); chemin.setAttribute("fill", "#23263F");
+  svg.append(fond, chemin);
+  const lisible = `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+  return h("div", { class: "carte retrait arrive" }, svg,
+    h("div", { class: "texte-retrait" },
+      h("strong", {}, "Vous changez d'avis ?"),
+      h("span", {}, "Scannez ce code pour retirer votre accord, à tout moment."),
+      h("span", { class: "code-retrait" }, lisible)));
+}
+
 function ecranFin(/** @type {any} */ e) {
   if (visiteur) retirerPause(visiteur.id);
   activerFlou(false);
   const nb = visiteur?.repondues.length ?? 0;
-  let reste = Math.max(3, Number(e.retourAccueilSec ?? 10));
+  let reste = Math.max(3, Number(e.retourAccueilSec ?? 20));
   const libelle = h("span", {}, `Retour à l'accueil dans ${reste} s`);
   const coche = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   coche.setAttribute("viewBox", "0 0 24 24");
@@ -603,7 +657,9 @@ function ecranFin(/** @type {any} */ e) {
           h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
           nb ? h("p", { class: "bulle visiteur envoye arrive" }, coche, nb > 1 ? `${nb} réponses envoyées` : "1 réponse envoyée") : null,
           e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null),
-        e.sortie ? h("p", { class: "sortie" }, perso(e.sortie)) : h("span")),
+        h("div", { class: "colonne" },
+          e.sortie ? h("p", { class: "sortie" }, perso(e.sortie)) : null,
+          visiteur?.codeRetrait ? carteRetrait(visiteur.codeRetrait) : null)),
       h("div", { class: "retour", style: `--duree: ${reste}s` }, h("div", { class: "barre" }, h("span")), libelle)),
   ], "fin");
   const ecran = numeroEcran;

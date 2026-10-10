@@ -15,6 +15,6 @@
     { "id": "q-premiere-impression", "type": "question", "texte": "Premier mot qui vous vient après l'essai ? Et pourquoi celui-là ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "ressenti" },
     { "id": "q-surprise", "type": "question", "texte": "Qu'est-ce qui vous a le plus surpris, en bien ou en moins bien ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "points-forts-faibles" },
     { "id": "q-recommandation", "type": "question", "texte": "Vous en parlez à un ami ce soir : vous lui dites quoi ?", "dureeMaxSec": 30, "compteARebours": 4, "silenceArretSec": 3, "theme": "recommandation" },
-    { "id": "fin", "type": "fin", "titre": "Merci !", "texte": "Votre avis va vraiment compter.", "retourAccueilSec": 10 }
+    { "id": "fin", "type": "fin", "titre": "Merci !", "texte": "Votre avis va vraiment compter.", "retourAccueilSec": 20 }
   ]
 }

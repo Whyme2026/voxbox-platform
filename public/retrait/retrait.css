@@ -1,0 +1,49 @@
+/* Parlopop — page publique de retrait d'accord (ouverte depuis le QR code de fin de parcours, sur téléphone). */
+@font-face { font-family: "Fredoka"; src: url("../polices/fredoka.woff") format("woff"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Gabarito"; src: url("../polices/gabarito.woff") format("woff"); font-weight: 400 900; font-display: swap; }
+
+:root {
+  --accent: #3F4C8F; --parole: #F2D27A; --fond: #F1F2F6; --texte: #23263F; --rec: #D65A57;
+  --sur-accent: #FFFFFF; --sur-parole: #23263F;
+  --texte-doux: color-mix(in srgb, var(--texte) 72%, var(--fond));
+  --trait: color-mix(in srgb, var(--texte) 14%, var(--fond));
+  --accent-pale: color-mix(in srgb, var(--accent) 13%, #FFFFFF);
+  --titres: "Fredoka", "Gabarito", system-ui, sans-serif;
+  --rayon: 22px;
+  font-family: "Gabarito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--fond); color: var(--texte); }
+body { margin: 0 auto; max-width: 560px; min-height: 100dvh; display: flex; flex-direction: column; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); font-size: 17px; line-height: 1.45; }
+[hidden] { display: none !important; }
+
+.entete { display: flex; align-items: center; gap: 12px; min-height: 40px; margin-bottom: 22px; }
+.logo { max-height: 36px; max-width: 160px; object-fit: contain; }
+.marque-parlopop { display: inline-flex; align-items: center; gap: 8px; font-family: var(--titres); font-weight: 600; font-size: 20px; }
+.marque-parlopop svg { width: 34px; height: 28px; }
+
+main { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.bulle { position: relative; margin: 0; padding: .7em 1em; width: fit-content; max-width: 100%; border-radius: var(--rayon) var(--rayon) var(--rayon) 6px; background: var(--accent); color: var(--sur-accent); }
+.bulle.titre { font-family: var(--titres); font-weight: 600; font-size: 26px; line-height: 1.15; letter-spacing: -.01em; }
+.bulle.douce { background: var(--accent-pale); color: var(--texte); }
+.bulle.visiteur { align-self: flex-end; background: var(--parole); color: var(--sur-parole); border-radius: var(--rayon) var(--rayon) 6px var(--rayon); }
+
+.carte { background: #FFFFFF; border-radius: var(--rayon); padding: 16px 18px; box-shadow: 0 1px 2px rgba(35,38,63,.06), 0 16px 32px -24px rgba(35,38,63,.28); }
+.carte p { margin: 0 0 8px; } .carte p:last-child { margin: 0; }
+.doux { color: var(--texte-doux); font-size: 15px; }
+
+.choix { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+button, .champ input { font: inherit; }
+button { appearance: none; border: 0; cursor: pointer; border-radius: 999px; padding: 14px 20px; font-family: var(--titres); font-weight: 600; font-size: 18px; text-align: center; }
+button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+.principal { background: var(--accent); color: var(--sur-accent); }
+.secondaire { background: #FFFFFF; color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent-pale); }
+.danger { background: var(--rec); color: #FFFFFF; }
+.lien { background: none; color: var(--texte-doux); font-family: inherit; font-weight: 400; font-size: 15px; text-decoration: underline; padding: 8px; }
+button[disabled] { opacity: .55; cursor: wait; }
+
+.champ { display: flex; flex-direction: column; gap: 6px; }
+.champ label { font-weight: 600; }
+.champ input { padding: 14px 16px; border-radius: 14px; border: 2px solid var(--trait); background: #FFFFFF; font-family: var(--titres); font-size: 22px; letter-spacing: .12em; text-transform: uppercase; }
+.erreur { color: var(--rec); font-weight: 600; margin: 0; }
+.pied { margin-top: 28px; color: var(--texte-doux); font-size: 13px; text-align: center; }

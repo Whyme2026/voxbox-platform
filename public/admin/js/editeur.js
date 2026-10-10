@@ -82,7 +82,7 @@ export const TYPES = /** @type {Record<string, { libelle: string, description: s
       { cle: "titre", libelle: "Titre", type: "long", max: 300, defaut: "Merci {prenom}, c'est dans la boîte !" },
       { cle: "texte", libelle: "Texte", type: "long", max: 300 },
       { cle: "sortie", libelle: "Message de sortie (en grand)", type: "texte", max: 160, defaut: "Vous pouvez sortir de la cabine. Belle fin de journée !" },
-      { cle: "retourAccueilSec", libelle: "Retour à l'accueil après (secondes)", type: "nombre", min: 3, maxNb: 60, defaut: 10 },
+      { cle: "retourAccueilSec", libelle: "Retour à l'accueil après (secondes)", type: "nombre", min: 3, maxNb: 60, defaut: 20 },
     ],
   },
 });

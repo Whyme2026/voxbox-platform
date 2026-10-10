@@ -260,7 +260,7 @@ button { font: inherit; color: inherit; }
 /* --------------------------------------------------------------- fin */
 .envoye { display: inline-flex; align-items: center; gap: 12px; font-size: var(--corps); font-weight: 600; }
 .envoye svg { width: 1.1em; height: 1.1em; }
-.sortie { font-family: var(--titres); font-size: calc(var(--titre) * .82); font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
+.sortie { font-family: var(--titres); font-size: calc(var(--titre) * .62); font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
 .retour { display: flex; flex-direction: column; gap: 10px; font-size: 15px; color: var(--texte-doux); }
 .retour .barre { height: 8px; border-radius: 4px; background: var(--trait); overflow: hidden; }
 .retour .barre span { display: block; height: 100%; border-radius: 4px; background: var(--accent); transform-origin: left; animation: decompte var(--duree, 10s) linear forwards; }
@@ -290,3 +290,10 @@ button { font: inherit; color: inherit; }
 /* Aperçu depuis Parlorama */
 .bandeau-apercu { position: fixed; z-index: 10; top: 10px; left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 16px 16px 16px 5px;
   background: var(--texte); color: var(--fond); font-size: 14px; font-weight: 600; pointer-events: none; opacity: .85; }
+
+/* Lien de retrait (écran de fin) */
+.retrait { display: flex; align-items: center; gap: 18px; padding: 16px 20px; max-width: 30em; }
+.retrait .qr { flex: none; width: clamp(110px, 19vmin, 150px); height: auto; border-radius: 10px; }
+.texte-retrait { display: flex; flex-direction: column; gap: 4px; font-size: clamp(15px, 2.5vmin, 18px); line-height: 1.35; color: var(--texte-doux); }
+.texte-retrait strong { color: var(--texte); font-family: var(--titres); font-weight: 600; font-size: 1.15em; }
+.code-retrait { font-family: var(--titres); font-weight: 600; letter-spacing: .08em; color: var(--accent); }

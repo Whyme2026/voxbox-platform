@@ -5,7 +5,7 @@
 import { h } from "./dom.js";
 import { editeurParcours } from "./editeur.js";
 import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
-import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon } from "./montage/rendu.js";
+import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "./montage/rendu.js";
 
 /** @typedef {{ email: string, role: string, client: any, droits: string[], environnement: string }} Moi */
 
@@ -472,9 +472,102 @@ async function lireDans(/** @type {HTMLElement} */ ecran, /** @type {string} */ 
   return lectureDirecte() ? `${url}?telecharger=1` : source;
 }
 
+// ------------------------------------------------------------------ miniatures
+
+/** Adresse lisible par une balise <img> ou <video> : directe en ligne, blob en local (l'identité passe par un en-tête). */
+async function sourceMedia(/** @type {string} */ url) {
+  return lectureDirecte() ? url : URL.createObjectURL(await telechargerVideo(url));
+}
+
+/** Pose une vignette sous le bouton « Lire » d'un écran vidéo. */
+function poserVignette(/** @type {HTMLElement} */ ecran, /** @type {string} */ source) {
+  const img = /** @type {HTMLImageElement} */ (h("img", { class: "vignette", alt: "", loading: "lazy", decoding: "async" }));
+  img.addEventListener("error", () => img.remove());
+  img.src = source;
+  ecran.querySelector(".vignette")?.remove();
+  ecran.prepend(img);
+}
+
+/**
+ * Image JPEG tirée d'une vidéo (recadrage « cover »), vers 1,2 s : après le compte à rebours, le visiteur parle.
+ * @returns {Promise<Blob>}
+ */
+async function imageDeVideo(/** @type {string} */ url, largeur = 320, hauteur = 180) {
+  const src = await sourceMedia(url);
+  const v = document.createElement("video");
+  v.muted = true; v.playsInline = true; v.preload = "auto";
+  /** @param {"loadeddata" | "seeked"} evenement */
+  const attendre = (evenement) => new Promise((ok, ko) => {
+    const delai = setTimeout(() => ko(new Error("Vidéo trop lente à charger")), 20_000);
+    v.addEventListener(evenement, () => { clearTimeout(delai); ok(null); }, { once: true });
+    v.addEventListener("error", () => { clearTimeout(delai); ko(new Error("Vidéo illisible")); }, { once: true });
+  });
+  try {
+    const pret = attendre("loadeddata");
+    v.src = src;
+    await pret;
+    const cale = attendre("seeked");
+    v.currentTime = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(1.2, v.duration / 2) : 1.2;
+    await cale;
+    const c = document.createElement("canvas");
+    c.width = largeur; c.height = hauteur;
+    const ctx = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+    const ratio = Math.max(largeur / v.videoWidth, hauteur / v.videoHeight);
+    ctx.drawImage(v, (largeur - v.videoWidth * ratio) / 2, (hauteur - v.videoHeight * ratio) / 2, v.videoWidth * ratio, v.videoHeight * ratio);
+    return await new Promise((ok, ko) => c.toBlob((b) => (b ? ok(b) : ko(new Error("Image impossible"))), "image/jpeg", 0.72));
+  } finally {
+    v.removeAttribute("src"); v.load();
+    if (src.startsWith("blob:")) URL.revokeObjectURL(src);
+  }
+}
+
+/**
+ * Rattrapage : les réponses enregistrées avant les miniatures en reçoivent une, fabriquée ici une par une,
+ * seulement pour les tuiles affichées à l'écran. Chaque lecture est tracée à part dans le journal (reponse.miniature).
+ * @type {{ r: any, ecran: HTMLElement }[]}
+ */
+const aRattraper = [];
+let rattrapageEnCours = false;
+const observateurMiniatures = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver((entrees) => {
+  for (const e of entrees) {
+    if (!e.isIntersecting) continue;
+    observateurMiniatures?.unobserve(e.target);
+    const tache = /** @type {any} */ (e.target).tacheMiniature;
+    if (tache) { aRattraper.push(tache); rattraper(); }
+  }
+}, { rootMargin: "200px" });
+
+async function rattraper() {
+  if (rattrapageEnCours) return;
+  rattrapageEnCours = true;
+  try {
+    while (aRattraper.length) {
+      const { r, ecran } = /** @type {{ r: any, ecran: HTMLElement }} */ (aRattraper.shift());
+      if (!ecran.isConnected || ecran.querySelector("video") || r.miniature) continue;
+      try {
+        const image = await imageDeVideo(`/api/espace/reponses/${r.id}/video?pour=miniature`);
+        const res = await fetch(`/api/espace/reponses/${r.id}/miniature`, {
+          method: "PUT", body: image, credentials: "same-origin", headers: { ...enTetesDev(), "content-type": "image/jpeg" },
+        });
+        if (!res.ok) continue;
+        r.miniature = true;
+        if (!ecran.querySelector("video")) poserVignette(ecran, URL.createObjectURL(image));
+      } catch { /* vidéo illisible ou réseau : la tuile reste sans vignette */ }
+    }
+  } finally {
+    rattrapageEnCours = false;
+  }
+}
+
 function tuileVideo(/** @type {any} */ r, /** @type {string} */ titre, /** @type {string} */ sous = "") {
   const ecran = h("button", { type: "button", class: "ecran-video", "aria-label": `Lire la réponse : ${titre}` },
     h("span", { class: "lecture" }, icone(ICONES.lecture), "Lire"));
+  if (r.miniature) {
+    sourceMedia(`/api/espace/reponses/${r.id}/miniature`).then((src) => poserVignette(ecran, src)).catch(() => {});
+  } else if (r.statut !== "en_attente" && observateurMiniatures) {
+    /** @type {any} */ (ecran).tacheMiniature = { r, ecran };
+    observateurMiniatures.observe(ecran);
+  }
   ecran.addEventListener("click", async () => {
     if (ecran.querySelector("video")) return;
     try { await lireDans(ecran, `/api/espace/reponses/${r.id}/video`); }
@@ -611,6 +704,8 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
           headers: { ...enTetesDev(), "content-type": film.type, "x-duree-ms": String(film.dureeMs) },
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Envoi impossible");
+        // Vignette : la carte d'ouverture du film, sans bloquer si elle échoue.
+        await envoyerVignetteParlomix(decl.parlomix.id, plan, logo).catch(() => {});
       }
       suivi.replaceChildren(h("strong", {}, `Parlomix prêt${formats.length > 1 ? "s" : ""} : ${formats.join(" et ")}.`));
       toast("Parlomix prêt.");
@@ -634,6 +729,22 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
     h("section", { class: "carte" }, h("h2", {}, "Parlomix de la campagne"), liste));
 }
 
+/** Vignette d'un Parlomix : sa carte d'ouverture (titre aux couleurs de la campagne), au format du film. */
+async function envoyerVignetteParlomix(/** @type {string} */ id, /** @type {any} */ plan, /** @type {HTMLImageElement | null} */ logo) {
+  const portrait = plan.format === "9:16";
+  const c = document.createElement("canvas");
+  c.width = portrait ? 180 : 320; c.height = portrait ? 320 : 180;
+  const ctx = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+  const intro = plan.sequences.find((/** @type {any} */ x) => x.type === "carte" && x.role === "intro");
+  if (!intro) return;
+  dessinerCarte(ctx, intro, 0.75, plan.theme, logo);
+  const image = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.8));
+  if (!image) return;
+  await fetch(`/api/espace/parlomix/${id}/miniature`, {
+    method: "PUT", body: image, credentials: "same-origin", headers: { ...enTetesDev(), "content-type": "image/jpeg" },
+  });
+}
+
 /** Logo du client pour les cartes du Parlomix (seulement s'il est hébergé par la plateforme : sinon le canevas serait bloqué). */
 async function chargerLogo(/** @type {string | null | undefined} */ url) {
   if (!url || !url.startsWith("/")) return null;
@@ -646,6 +757,9 @@ function tuileParlomix(/** @type {any} */ p) {
   const portrait = p.format === "9:16";
   const ecran = h("button", { type: "button", class: `ecran-video${portrait ? " portrait" : ""}`, "aria-label": `Lire le Parlomix : ${p.titre}`, disabled: !p.disponible },
     h("span", { class: "lecture" }, p.disponible ? icone(ICONES.lecture) : null, p.disponible ? "Lire" : "Plus disponible"));
+  if (p.miniature && p.disponible) {
+    sourceMedia(`/api/espace/parlomix/${p.id}/miniature`).then((src) => poserVignette(ecran, src)).catch(() => {});
+  }
   const telecharger = h("a", { class: "bouton discret petit", hidden: true }, "Télécharger");
   ecran.addEventListener("click", async () => {
     if (ecran.querySelector("video")) return;

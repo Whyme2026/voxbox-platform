@@ -108,7 +108,7 @@
       "titre": "Merci {prenom}, c'est dans la boîte !",
       "texte": "Vos réponses partent directement aux équipes qui peuvent agir.",
       "sortie": "Vous pouvez sortir de la cabine. Belle fin de journée !",
-      "retourAccueilSec": 10
+      "retourAccueilSec": 20
     }
   ]
 }

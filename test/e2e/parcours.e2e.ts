@@ -98,6 +98,10 @@ async function scenarioDemo() {
   await page.getByText("Merci Camille, c'est dans la boîte !").waitFor({ timeout: 90_000 });
   await page.waitForTimeout(1600);
   await capture("06-fin");
+  // Le QR code de l'écran de fin mène à la page de retrait, avec le code de la session.
+  const lu = lireQR(join(captures, `${scenario}-06-fin.png`));
+  const session = await db.prepare("SELECT code_retrait FROM sessions ORDER BY cree_le LIMIT 1").first<any>();
+  assert.equal(lu, `http://localhost:${port}/retrait/#${session.code_retrait}`, "QR code de fin lisible et juste");
   if (process.env.E2E_VIDEO) return { sessions: 1, consentDiffusion: 1, prenom: "Camille" }; // film en 16:9 seulement
   // Portrait (écran tourné, futur format 9:16) : mise en page de l'accueil et d'une question.
   await page.setViewportSize({ width: 720, height: 1280 });
@@ -113,6 +117,44 @@ async function scenarioDemo() {
   await page.waitForTimeout(800);
   await capture("08-question-portrait");
   return { sessions: 2, consentDiffusion: 1, prenom: "Camille" };
+}
+
+/** Décode le QR code d'une capture (OpenCV). Chaîne vide si OpenCV est absent. */
+function lireQR(fichier: string): string {
+  if (spawnSync("python3", ["-c", "import cv2"]).status !== 0) return "";
+  const r = spawnSync("python3", ["-c", "import cv2,sys\nimg=cv2.imread(sys.argv[1])\nprint(cv2.QRCodeDetector().detectAndDecode(img)[0])", fichier], { encoding: "utf8" });
+  return r.stdout.trim();
+}
+
+/** Page publique de retrait, sur téléphone : saisie manuelle du code, puis suppression des réponses. */
+async function visiteRetrait() {
+  const s = await db.prepare("SELECT id, code_retrait FROM sessions ORDER BY cree_le LIMIT 1").first<any>();
+  const tel = await navigateur.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const p = await tel.newPage();
+  p.on("pageerror", (e: Error) => erreurs.push(`retrait : ${e.message}`));
+  const photo = (nom: string) => p.screenshot({ path: join(captures, `retrait-${nom}.png`) });
+  await p.goto(`http://localhost:${port}/retrait/`);
+  await p.getByLabel("Votre code").fill(`${s.code_retrait.slice(0, 4)}-${s.code_retrait.slice(4, 8)}-${s.code_retrait.slice(8)}`.toLowerCase());
+  await photo("01-saisie");
+  await p.getByRole("button", { name: "Continuer" }).click();
+  await p.getByRole("heading", { name: "Bonjour Camille" }).waitFor();
+  await photo("02-choix");
+  await p.getByRole("button", { name: "Supprimer mes réponses" }).click();
+  await p.getByRole("heading", { name: "Vous confirmez ?" }).waitFor();
+  await photo("03-confirmation");
+  await p.getByRole("button", { name: "Oui, supprimer mes réponses" }).click();
+  await p.getByText("Mes réponses sont supprimées").waitFor();
+  await photo("04-termine");
+  // Lien direct après coup : la page dit que c'est déjà fait.
+  await p.goto(`http://localhost:${port}/retrait/#${s.code_retrait}`);
+  await p.reload();
+  await p.getByText("Mes réponses sont supprimées").waitFor();
+  await tel.close();
+  const apres = await db.prepare("SELECT retiree_le, prenom FROM sessions WHERE id = ?").bind(s.id).first<any>();
+  assert.ok(apres.retiree_le, "session retirée par le visiteur");
+  const restes = await db.prepare("SELECT COUNT(*) AS n FROM reponses WHERE session_id = ? AND (cle_source IS NOT NULL OR cle_miniature IS NOT NULL)").bind(s.id).first<any>();
+  assert.equal(restes.n, 0, "vidéos et miniatures effacées");
+  assert.ok(![...objets.keys()].some((k) => k.includes(s.id)), "plus aucun fichier de la session dans le stockage");
 }
 
 async function scenarioAuto() {
@@ -152,6 +194,11 @@ async function visiteAdmin() {
   await admin.setViewportSize(process.env.E2E_VIDEO ? { width: 1280, height: 720 } : { width: 1440, height: 900 });
   const pause = (ms: number) => (process.env.E2E_VIDEO ? admin.waitForTimeout(ms) : Promise.resolve());
   const photo = async (nom: string) => { await admin.screenshot({ path: join(captures, `admin-${nom}.png`) }); await pause(2200); };
+  // Une réponse « d'avant les miniatures » : Parlorama doit fabriquer sa vignette.
+  const sansMiniature = await db.prepare("SELECT r.id, r.cle_miniature FROM reponses r ORDER BY r.cree_le LIMIT 1").first<any>();
+  assert.ok(sansMiniature.cle_miniature, "la cabine a envoyé une miniature");
+  await db.prepare("UPDATE reponses SET cle_miniature = NULL WHERE id = ?").bind(sansMiniature.id).run();
+  objets.delete(sansMiniature.cle_miniature);
   await admin.goto(`http://localhost:${port}/admin/`);
   await admin.getByRole("heading", { name: "Tableau de bord" }).waitFor();
   await photo("01-tableau-de-bord");
@@ -160,6 +207,13 @@ async function visiteAdmin() {
   await photo("02-campagnes");
   await admin.locator("td a").first().click();
   await admin.locator(".session").first().waitFor();
+  for (let i = 0; i < 40; i++) {
+    const r = await db.prepare("SELECT cle_miniature FROM reponses WHERE id = ?").bind(sansMiniature.id).first<any>();
+    if (r.cle_miniature) break;
+    await admin.waitForTimeout(250);
+  }
+  assert.ok((await db.prepare("SELECT cle_miniature FROM reponses WHERE id = ?").bind(sansMiniature.id).first<any>()).cle_miniature, "miniature rattrapée par Parlorama");
+  await admin.waitForFunction(() => document.querySelectorAll(".ecran-video .vignette").length >= 5 && [...document.querySelectorAll<HTMLImageElement>(".ecran-video .vignette")].every((i) => i.complete && i.naturalWidth > 0));
   await photo("03-campagne-reponses");
   await admin.locator(".ecran-video").first().click();
   await admin.locator(".ecran-video video").first().waitFor();
@@ -300,9 +354,11 @@ async function visiteParlomix(admin: any, photo: (nom: string) => Promise<void>)
   await admin.locator(".parlomix-liste .ecran-video").first().click();
   await admin.locator(".parlomix-liste video").first().waitFor();
   await admin.waitForTimeout(2500);
+  await admin.waitForFunction(() => document.querySelectorAll(".parlomix-liste .vignette").length >= 2);
   await photo("14-parlomix-liste");
-  const films = await db.prepare("SELECT id, type, format, cle, type_mime, duree_ms, nb_extraits FROM parlomix WHERE statut = 'pret' ORDER BY cree_le").all<any>();
+  const films = await db.prepare("SELECT id, type, format, cle, cle_miniature, type_mime, duree_ms, nb_extraits FROM parlomix WHERE statut = 'pret' ORDER BY cree_le").all<any>();
   assert.equal(films.results.length, 3, "trois Parlomix prêts");
+  for (const f of films.results) assert.ok(f.cle_miniature && objets.has(f.cle_miniature), `${f.type} ${f.format} : vignette`);
   assert.equal(films.results[0].nb_extraits, nbQuestions, "le Parlomix de Camille monte ses cinq réponses");
   for (const f of films.results) {
     const fichier = join(captures, `parlomix-${f.type}-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);
@@ -326,7 +382,8 @@ try {
   const attendu = scenario === "auto" ? await scenarioAuto() : await scenarioDemo();
 
   // La file d'envoi se vide.
-  for (let i = 0; i < 60 && objets.size < nbQuestions; i++) await page.waitForTimeout(250);
+  const videosRecues = () => [...objets.keys()].filter((k) => k.endsWith(".webm")).length;
+  for (let i = 0; i < 60 && videosRecues() < nbQuestions; i++) await page.waitForTimeout(250);
   await page.waitForTimeout(1500);
   const sessions = await db.prepare("SELECT prenom, consent_diffusion FROM sessions ORDER BY cree_le").all<any>();
   const reponses = await db.prepare("SELECT etape_id, son_present, duree_ms, cle_source FROM reponses ORDER BY cree_le").all<any>();
@@ -351,6 +408,7 @@ try {
   }
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   if (process.env.E2E_ADMIN) await visiteAdmin();
+  if (scenario === "demo" && !process.env.E2E_VIDEO) await visiteRetrait();
   if (bilanParlomix.length) console.log(JSON.stringify({ parlomix: bilanParlomix }, null, 2));
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   console.log(JSON.stringify({ ok: true, scenario }));

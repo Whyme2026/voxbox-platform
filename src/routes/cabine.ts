@@ -7,10 +7,12 @@ import { authentifierCabine, codeAleatoire, empreinteJeton, nouveauJeton, type C
 import { conflit, HttpError, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal } from "../journal.ts";
 import { diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
+import { lireMiniature } from "../media.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const TAILLE_MAX_VIDEO = 60 * 1024 * 1024;
+export const CODE_RETRAIT = /^[A-HJ-NP-Z2-9]{10}$/;
 
 interface CampagneActive {
   id: string;
@@ -120,9 +122,13 @@ export function routesCabine(r: Routeur): void {
     const now = typeof d.cree_le === "string" && !Number.isNaN(Date.parse(d.cree_le)) && Date.parse(d.cree_le) <= Date.now() + 60_000
       ? new Date(d.cree_le).toISOString() // heure réelle du passage, même si l'envoi arrive plus tard
       : maintenant();
+    // Code de retrait : choisi par la tablette (elle l'affiche en QR code sur l'écran de fin, même hors ligne),
+    // sinon par le serveur. 32^10 combinaisons : une collision est impossible en pratique.
+    const codeFourni = typeof d.code_retrait === "string" && CODE_RETRAIT.test(d.code_retrait) ? d.code_retrait : null;
+    const pris = codeFourni ? await ctx.env.DB.prepare("SELECT 1 FROM sessions WHERE code_retrait = ?").bind(codeFourni).first() : null;
     const s = {
       id: idFourni ?? nouvelId(),
-      code_retrait: codeAleatoire(10),
+      code_retrait: codeFourni && !pris ? codeFourni : codeAleatoire(10),
       purge_prevue_le: ajouterJours(now, c.conservation_jours),
     };
     await ctx.env.DB.prepare(
@@ -172,6 +178,22 @@ export function routesCabine(r: Routeur): void {
          statut = 'recue', erreur = NULL, maj_le = excluded.maj_le`,
     ).bind(nouvelId(), s.id, etape, cle, dureeMs, sonPresent, now, now).run();
     return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent } }, 201);
+  });
+
+  // Miniature d'une réponse (image prise pendant l'enregistrement, floutée si la vidéo l'est). Envoyée après la vidéo.
+  r.ajouter("PUT", "/api/cabine/sessions/:session/reponses/:etape/miniature", async (ctx) => {
+    const cab = await authentifierCabine(ctx.request, ctx.env.DB);
+    const rep = await ctx.env.DB.prepare(
+      `SELECT r.id, s.campagne_id, s.cabine_id, s.retiree_le FROM reponses r JOIN sessions s ON s.id = r.session_id
+        WHERE r.session_id = ? AND r.etape_id = ?`,
+    ).bind(ctx.params.session, ctx.params.etape).first<{ id: string; campagne_id: string; cabine_id: string | null; retiree_le: string | null }>();
+    if (!rep || rep.cabine_id !== cab.id) throw introuvable("Réponse introuvable");
+    if (rep.retiree_le) throw new HttpError(410, "retiree", "Le visiteur a retiré son accord");
+    const corps = await lireMiniature(ctx.request);
+    const cle = `campagnes/${rep.campagne_id}/sessions/${ctx.params.session}/${ctx.params.etape}.jpg`;
+    await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
+    await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ? WHERE id = ?").bind(cle, rep.id).run();
+    return json({ miniature: true }, 201);
   });
 
   // Logo d'un client, public (ce n'est pas une donnée personnelle) : affiché par la cabine et dans les Parlomix.

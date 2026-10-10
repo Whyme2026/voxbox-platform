@@ -6,16 +6,17 @@ import type { Routeur } from "../routeur.ts";
 import type { D1Database } from "../types.ts";
 import { identifier, type Identite } from "../auth/identite.ts";
 import { exiger, verifierAppartenance } from "../auth/droits.ts";
-import { HttpError, conflit, introuvable, json, maintenant } from "../http.ts";
-import { journaliser, ligneJournal } from "../journal.ts";
-import { servirVideo } from "../media.ts";
+import { HttpError, introuvable, invalide, json } from "../http.ts";
+import { journaliser } from "../journal.ts";
+import { retirerAccord, retirerDiffusion, sessionPour } from "../rgpd/retrait.ts";
+import { lireMiniature, servirMiniature, servirVideo } from "../media.ts";
 import { chargerCampagne } from "./campagnes-commun.ts";
 
 interface LigneSession {
   id: string; prenom: string; cree_le: string; consent_diffusion: number; recontact: number;
   retiree_le: string | null; parcours_version_id: string; cabine_id: string | null; cabine_nom: string | null;
 }
-interface LigneReponse { id: string; session_id: string; etape_id: string; duree_ms: number | null; son_present: number | null; statut: string; cree_le: string }
+interface LigneReponse { id: string; session_id: string; etape_id: string; duree_ms: number | null; son_present: number | null; statut: string; cree_le: string; miniature: number }
 
 /** Une cellule CSV (séparateur « ; », guillemets doublés). */
 function cellule(v: unknown): string {
@@ -25,41 +26,20 @@ function cellule(v: unknown): string {
 
 /** Session d'une campagne accessible à cette identité (404 sinon, même pour un autre client). */
 async function chargerSession(db: D1Database, id: Identite, sessionId: string) {
-  const s = await db.prepare(
-    `SELECT s.id, s.campagne_id, s.consent_diffusion, s.retiree_le, c.client_id
-       FROM sessions s JOIN campagnes c ON c.id = s.campagne_id WHERE s.id = ?`,
-  ).bind(sessionId).first<{ id: string; campagne_id: string; consent_diffusion: number; retiree_le: string | null; client_id: string }>();
+  const s = await sessionPour(db, "id", sessionId);
   if (!s) throw introuvable("Visiteur introuvable");
   verifierAppartenance(id, s.client_id);
   return s;
 }
 
 export function routesReponses(r: Routeur): void {
-  // Retrait d'accord d'un visiteur (demande reçue par la marque ou par WhyMe) : ses vidéos, ses réponses et
-  // les Parlomix où il apparaît sont supprimés ; il ne reste qu'une trace anonyme de la session et du retrait.
+  // Retrait d'accord demandé à la marque ou à WhyMe (voir rgpd/retrait.ts).
   r.post("/api/espace/sessions/:id/retrait", async (ctx) => {
     const id = await identifier(ctx.request, ctx.env);
     exiger(id, "visiteurs.gerer");
     const s = await chargerSession(ctx.env.DB, id, ctx.params.id!);
-    if (s.retiree_le) throw conflit("L'accord de ce visiteur a déjà été retiré");
-    const { results: videos } = await ctx.env.DB.prepare("SELECT cle_source, cle_16_9, cle_9_16 FROM reponses WHERE session_id = ?").bind(s.id)
-      .all<{ cle_source: string | null; cle_16_9: string | null; cle_9_16: string | null }>();
-    const { results: montages } = await ctx.env.DB.prepare("SELECT id, cle FROM parlomix WHERE campagne_id = ? AND sessions LIKE ?")
-      .bind(s.campagne_id, `%"${s.id}"%`).all<{ id: string; cle: string | null }>();
-    // Fichiers d'abord : si le stockage échoue, rien n'est marqué comme supprimé et l'opération peut être refaite.
-    const cles = [...videos.flatMap((v) => [v.cle_source, v.cle_16_9, v.cle_9_16]), ...montages.map((m) => m.cle)].filter((c): c is string => Boolean(c));
-    if (cles.length) await ctx.env.MEDIA.delete(cles);
-    const now = maintenant();
-    await ctx.env.DB.batch([
-      ctx.env.DB.prepare("DELETE FROM reponses WHERE session_id = ?").bind(s.id),
-      ...montages.map((m) => ctx.env.DB.prepare("DELETE FROM parlomix WHERE id = ?").bind(m.id)),
-      ctx.env.DB.prepare("UPDATE sessions SET retiree_le = ?, prenom = '(retiré)', nom = NULL, email = NULL, recontact = 0, consent_diffusion = 0 WHERE id = ?").bind(now, s.id),
-      ligneJournal(ctx.env.DB, id, {
-        action: "session.retrait", cibleType: "session", cibleId: s.id, clientId: s.client_id,
-        details: { campagne_id: s.campagne_id, videos_supprimees: videos.length, parlomix_supprimes: montages.length },
-      }),
-    ]);
-    return json({ session: { id: s.id, retiree_le: now, videos_supprimees: videos.length, parlomix_supprimes: montages.length } });
+    const res = await retirerAccord(ctx.env, id, s, "parlorama");
+    return json({ session: { id: s.id, ...res } });
   });
 
   // Retrait du seul accord de diffusion publique (les réponses restent pour l'usage interne).
@@ -67,14 +47,7 @@ export function routesReponses(r: Routeur): void {
     const id = await identifier(ctx.request, ctx.env);
     exiger(id, "visiteurs.gerer");
     const s = await chargerSession(ctx.env.DB, id, ctx.params.id!);
-    if (s.retiree_le) throw conflit("L'accord de ce visiteur a déjà été retiré");
-    if (!s.consent_diffusion) throw conflit("Ce visiteur n'avait pas accepté la diffusion publique");
-    await ctx.env.DB.batch([
-      ctx.env.DB.prepare("UPDATE sessions SET consent_diffusion = 0 WHERE id = ?").bind(s.id),
-      // Les Parlomix où il apparaît ne sont plus diffusables.
-      ctx.env.DB.prepare("UPDATE parlomix SET diffusable = 0 WHERE campagne_id = ? AND sessions LIKE ?").bind(s.campagne_id, `%"${s.id}"%`),
-      ligneJournal(ctx.env.DB, id, { action: "session.diffusion_retiree", cibleType: "session", cibleId: s.id, clientId: s.client_id, details: { campagne_id: s.campagne_id } }),
-    ]);
+    await retirerDiffusion(ctx.env, id, s, "parlorama");
     return json({ session: { id: s.id, consent_diffusion: false } });
   });
 
@@ -120,7 +93,7 @@ export function routesReponses(r: Routeur): void {
         ORDER BY s.cree_le DESC LIMIT ${limite}`,
     ).bind(c.id).all<LigneSession>();
     const { results: reponses } = await ctx.env.DB.prepare(
-      `SELECT r.id, r.session_id, r.etape_id, r.duree_ms, r.son_present, r.statut, r.cree_le
+      `SELECT r.id, r.session_id, r.etape_id, r.duree_ms, r.son_present, r.statut, r.cree_le, r.cle_miniature IS NOT NULL AS miniature
          FROM reponses r JOIN sessions s ON s.id = r.session_id
         WHERE s.campagne_id = ? AND s.purgee_le IS NULL AND r.cle_source IS NOT NULL`,
     ).bind(c.id).all<LigneReponse>();
@@ -152,9 +125,34 @@ export function routesReponses(r: Routeur): void {
         recontact: Boolean(s.recontact),
         // Accord retiré : la session reste visible pour la traçabilité, mais plus aucune vidéo n'est servie.
         reponses: s.retiree_le ? [] : (parSession.get(s.id) ?? []).sort((a, b) => rang(a.etape_id) - rang(b.etape_id))
-          .map(({ session_id: _, ...rep }) => ({ ...rep, son_present: rep.son_present === null ? null : Boolean(rep.son_present) })),
+          .map(({ session_id: _, ...rep }) => ({ ...rep, miniature: Boolean(rep.miniature), son_present: rep.son_present === null ? null : Boolean(rep.son_present) })),
       })),
     });
+  });
+
+  // Miniature d'une réponse (pas de ligne de journal : c'est une vignette de liste, servie au même périmètre).
+  async function reponseAccessible(ctx: Parameters<Parameters<Routeur["get"]>[1]>[0]) {
+    const id = await identifier(ctx.request, ctx.env);
+    exiger(id, "reponses.lire");
+    const rep = await ctx.env.DB.prepare(
+      `SELECT r.id, r.cle_miniature, s.campagne_id, s.id AS session_id, r.etape_id, s.retiree_le, c.client_id
+         FROM reponses r JOIN sessions s ON s.id = r.session_id JOIN campagnes c ON c.id = s.campagne_id WHERE r.id = ?`,
+    ).bind(ctx.params.id).first<{ id: string; cle_miniature: string | null; campagne_id: string; session_id: string; etape_id: string; retiree_le: string | null; client_id: string }>();
+    if (!rep) throw introuvable("Réponse introuvable");
+    verifierAppartenance(id, rep.client_id);
+    if (rep.retiree_le) throw new HttpError(410, "retiree", "Cette réponse n'est plus disponible");
+    return rep;
+  }
+  r.get("/api/espace/reponses/:id/miniature", async (ctx) => servirMiniature(ctx.env, (await reponseAccessible(ctx)).cle_miniature));
+  // Miniature fabriquée par Parlorama pour une réponse enregistrée avant les miniatures. Jamais remplacée.
+  r.ajouter("PUT", "/api/espace/reponses/:id/miniature", async (ctx) => {
+    const rep = await reponseAccessible(ctx);
+    if (rep.cle_miniature) return json({ miniature: true });
+    const corps = await lireMiniature(ctx.request);
+    const cle = `campagnes/${rep.campagne_id}/sessions/${rep.session_id}/${rep.etape_id}.jpg`;
+    await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
+    await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ? WHERE id = ? AND cle_miniature IS NULL").bind(cle, rep.id).run();
+    return json({ miniature: true }, 201);
   });
 
   // Vidéo d'une réponse. Le visionnage est tracé dans le journal (qui, quoi, quand).
@@ -178,7 +176,9 @@ export function routesReponses(r: Routeur): void {
       type: ext === "mp4" ? "video/mp4" : "video/webm",
       nom: `${rep.etape_id}.${ext}`,
       journaliser: () => journaliser(ctx.env.DB, id, {
-        action: "reponse.visionnage", cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id,
+        // Parlorama télécharge une fois les anciennes vidéos pour en tirer une miniature : tracé à part.
+        action: ctx.url.searchParams.get("pour") === "miniature" ? "reponse.miniature" : "reponse.visionnage",
+        cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id,
         details: { campagne_id: rep.campagne_id, session_id: rep.session_id, etape: rep.etape_id },
       }),
     });

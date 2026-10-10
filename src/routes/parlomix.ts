@@ -8,7 +8,7 @@ import { estWhyme, identifier, type Identite } from "../auth/identite.ts";
 import { exiger, peut } from "../auth/droits.ts";
 import { HttpError, conflit, interdit, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal, journaliser } from "../journal.ts";
-import { servirVideo } from "../media.ts";
+import { lireMiniature, servirMiniature, servirVideo } from "../media.ts";
 import { chargerCampagne } from "./campagnes-commun.ts";
 
 export const PARLOMIX_EXTRAITS_MAX = 20;
@@ -17,7 +17,7 @@ export const PARLOMIX_TAILLE_MAX = 95 * 1024 * 1024; // sous la limite d'envoi d
 interface LigneParlomix {
   id: string; campagne_id: string; type: string; session_id: string | null; etape_id: string | null; cabine_id: string | null;
   format: string; titre: string; sessions: string; nb_extraits: number; diffusable: number; statut: string;
-  cle: string | null; type_mime: string | null; octets: number | null; duree_ms: number | null; cree_par: string; cree_le: string;
+  cle: string | null; cle_miniature: string | null; type_mime: string | null; octets: number | null; duree_ms: number | null; cree_par: string; cree_le: string;
 }
 
 /** Sessions de la liste qui ne peuvent plus être montrées (accord retiré ou données purgées). */
@@ -126,12 +126,33 @@ export function routesParlomix(r: Routeur): void {
     exiger(id, "reponses.lire");
     const { p, c } = await chargerParlomix(ctx.env.DB, id, ctx.params.id!);
     if (p.cree_par !== id.email && !(estWhyme(id) && peut(id, "campagnes.gerer"))) throw interdit("Seule la personne qui a créé ce Parlomix, ou WhyMe, peut le supprimer");
-    if (p.cle) await ctx.env.MEDIA.delete(p.cle);
+    const fichiers = [p.cle, p.cle_miniature].filter((x): x is string => Boolean(x));
+    if (fichiers.length) await ctx.env.MEDIA.delete(fichiers);
     await ctx.env.DB.batch([
       ctx.env.DB.prepare("DELETE FROM parlomix WHERE id = ?").bind(p.id),
       ligneJournal(ctx.env.DB, id, { action: "parlomix.suppression", cibleType: "parlomix", cibleId: p.id, clientId: c.client_id, details: { campagne_id: c.id, titre: p.titre } }),
     ]);
     return json({ parlomix: { id: p.id, supprime: true } });
+  });
+
+  // Miniature d'un Parlomix (carte d'ouverture), envoyée par Parlorama avec le film.
+  r.ajouter("PUT", "/api/espace/parlomix/:id/miniature", async (ctx) => {
+    const id = await identifier(ctx.request, ctx.env);
+    exiger(id, "reponses.lire");
+    const { p, c } = await chargerParlomix(ctx.env.DB, id, ctx.params.id!);
+    if (p.cree_par !== id.email) throw interdit("Seule la personne qui a lancé ce montage peut envoyer sa miniature");
+    const corps = await lireMiniature(ctx.request);
+    const cle = `campagnes/${c.id}/parlomix/${p.id}.jpg`;
+    await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
+    await ctx.env.DB.prepare("UPDATE parlomix SET cle_miniature = ? WHERE id = ?").bind(cle, p.id).run();
+    return json({ miniature: true }, 201);
+  });
+  r.get("/api/espace/parlomix/:id/miniature", async (ctx) => {
+    const id = await identifier(ctx.request, ctx.env);
+    exiger(id, "reponses.lire");
+    const { p } = await chargerParlomix(ctx.env.DB, id, ctx.params.id!);
+    if (await sessionsIndisponibles(ctx.env.DB, JSON.parse(p.sessions) as string[])) throw new HttpError(410, "retiree", "Plus disponible");
+    return servirMiniature(ctx.env, p.cle_miniature);
   });
 
   // Parlomix prêts d'une campagne, les plus récents d'abord.
@@ -141,13 +162,13 @@ export function routesParlomix(r: Routeur): void {
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
     const { results } = await ctx.env.DB.prepare(
       `SELECT p.id, p.type, p.session_id, p.etape_id, p.cabine_id, cb.nom AS cabine_nom, p.format, p.titre, p.sessions, p.nb_extraits,
-              p.diffusable, p.type_mime, p.octets, p.duree_ms, p.cree_par, p.cree_le
+              p.diffusable, p.type_mime, p.octets, p.duree_ms, p.cree_par, p.cree_le, p.cle_miniature IS NOT NULL AS miniature
          FROM parlomix p LEFT JOIN cabines cb ON cb.id = p.cabine_id
         WHERE p.campagne_id = ? AND p.statut = 'pret' ORDER BY p.cree_le DESC LIMIT 200`,
     ).bind(c.id).all<LigneParlomix & { cabine_nom: string | null }>();
     const liste = [];
     for (const { sessions, ...p } of results) {
-      liste.push({ ...p, diffusable: Boolean(p.diffusable), disponible: (await sessionsIndisponibles(ctx.env.DB, JSON.parse(sessions) as string[])) === 0 });
+      liste.push({ ...p, miniature: Boolean((p as unknown as { miniature: number }).miniature), diffusable: Boolean(p.diffusable), disponible: (await sessionsIndisponibles(ctx.env.DB, JSON.parse(sessions) as string[])) === 0 });
     }
     return json({ parlomix: liste });
   });

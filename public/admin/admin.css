@@ -119,6 +119,10 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 .video { display: flex; flex-direction: column; gap: 8px; }
 .video .ecran-video { position: relative; aspect-ratio: 16 / 9; border-radius: 16px 16px 5px 16px; overflow: hidden; background: #2E3354; border: 0; padding: 0; cursor: pointer; color: #FFFFFF; }
 .video .ecran-video video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+.video .ecran-video .vignette { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Avec une vignette, le bouton « Lire » se range en bas à gauche pour laisser voir l'image. */
+.video .ecran-video:has(.vignette) .lecture { flex-direction: row; justify-content: flex-start; align-items: flex-end; gap: 6px; padding: 10px 12px; background: linear-gradient(to top, rgba(35, 38, 63, .6), rgba(35, 38, 63, 0) 45%); text-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+.video .ecran-video:has(.vignette) .lecture svg { width: 22px; height: 22px; }
 .video .lecture { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-weight: 600; font-size: 14px; }
 .video .lecture svg { width: 46px; height: 46px; }
 .video .legende { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }

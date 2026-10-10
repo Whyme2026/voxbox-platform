@@ -2,7 +2,7 @@
 // le lecteur vidéo du navigateur démarre tout de suite et peut avancer dans le film sans tout télécharger.
 
 import type { Env } from "./types.ts";
-import { introuvable } from "./http.ts";
+import { HttpError, introuvable } from "./http.ts";
 
 interface Plage { offset: number; length?: number }
 
@@ -48,3 +48,19 @@ export async function servirVideo(
   });
 }
 
+
+/** Miniature JPEG reçue (tablette ou Parlorama) : 300 Ko au plus. */
+export async function lireMiniature(request: Request): Promise<ArrayBuffer> {
+  const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim();
+  if (type !== "image/jpeg") throw new HttpError(415, "format", "Miniature JPEG attendue");
+  const corps = await request.arrayBuffer();
+  if (!corps.byteLength) throw new HttpError(400, "invalide", "Miniature vide");
+  if (corps.byteLength > 300 * 1024) throw new HttpError(413, "trop_lourd", "Miniature trop lourde");
+  return corps;
+}
+
+export async function servirMiniature(env: Env, cle: string | null): Promise<Response> {
+  const objet = cle ? await env.MEDIA.get(cle) : null;
+  if (!objet?.body) throw introuvable("Pas de miniature");
+  return new Response(objet.body, { headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=3600", "x-content-type-options": "nosniff" } });
+}

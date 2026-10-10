@@ -41,10 +41,10 @@ export async function campagneAvecReponses() {
     return { status: res.status, corps: (await res.json()) as any };
   };
   const conf = (await traiter(new Request("http://localhost/api/cabine/config", { headers: { authorization: `Bearer ${tablettes.A!.jeton}` } }), env).then((r) => r.json())) as any;
-  const visiteur = async (cab: string, prenom: string, diffusion: boolean, email?: string) => {
+  const visiteur = async (cab: string, prenom: string, diffusion: boolean, email?: string, code_retrait?: string) => {
     const sid = crypto.randomUUID();
     await tablette(cab, "POST", "/api/cabine/sessions", {
-      id: sid, prenom, consent_interne: true, consent_diffusion: diffusion, email, recontact: Boolean(email),
+      id: sid, prenom, consent_interne: true, consent_diffusion: diffusion, email, recontact: Boolean(email), code_retrait,
       parcours_version_id: conf.campagne.parcours_version_id, consentement_version_id: conf.consentement.id,
     });
     for (const q of ["q-premier-mot", "q-coup-de-coeur"]) {
@@ -57,6 +57,6 @@ export async function campagneAvecReponses() {
   const hugo = await visiteur("A", "Hugo", true);
   const donnees = (await api("GET", `/api/espace/campagnes/${cid}/sessions`, ADMIN)).corps;
   const reponse = (sid: string, etape: string) => donnees.sessions.find((s: any) => s.id === sid).reponses.find((r: any) => r.etape_id === etape).id as string;
-  return { env, db, media, api, cid, camille, lea, hugo, reponse, cabines: { A: tablettes.A!.id, B: tablettes.B!.id } };
+  return { env, db, media, api, cid, camille, lea, hugo, reponse, tablette, visiteur, cabines: { A: tablettes.A!.id, B: tablettes.B!.id } };
 }
 
