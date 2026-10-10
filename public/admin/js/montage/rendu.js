@@ -304,10 +304,11 @@ export function dessinerReponse(ctx, video, bandeau, ecouleMs, th) {
   const vh = video.videoHeight || 9;
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
-  // Recadrage « remplir » : en 9:16, bande centrale de l'image 16:9 ; en 16:9, image entière.
+  // Recadrage « remplir » depuis l'image 4:3 de la cabine : en 9:16, une bande verticale ; en 16:9, on retire de la
+  // hauteur, surtout en bas, pour garder le visage (placé dans le haut de l'image).
   let { sx, sy, sw, sh } = { sx: 0, sy: 0, sw: vw, sh: vh };
   if (W / H < vw / vh) ({ sx, sy, sw, sh } = recadrage(vw, vh));
-  else if (W / H > vw / vh) { sh = Math.round((vw * H) / W); sy = Math.round((vh - sh) / 2); }
+  else if (W / H > vw / vh) { sh = Math.round((vw * H) / W); sy = Math.round((vh - sh) * 0.3); }
   // Image non inversée, comme l'enregistrement (seul l'aperçu de la cabine est en miroir).
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
 

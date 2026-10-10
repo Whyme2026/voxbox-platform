@@ -641,13 +641,16 @@ try {
     const fichier = join(captures, `${scenario}-${r.etape_id}.webm`);
     writeFileSync(fichier, objets.get(r.cle_source)!);
     const flux = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,codec_name", "-of", "csv=p=0", fichier]).toString().trim().split("\n");
+    const image = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", fichier]).toString().trim();
     const volume = spawnSync("ffmpeg", ["-hide_banner", "-i", fichier, "-af", "volumedetect", "-f", "null", "-"]).stderr.toString();
-    bilan.push({ etape: r.etape_id, duree_ms: r.duree_ms, son_detecte_tablette: r.son_present, flux, volume_max: /max_volume: (\S+ dB)/.exec(volume)?.[1] });
+    bilan.push({ etape: r.etape_id, image, duree_ms: r.duree_ms, son_detecte_tablette: r.son_present, flux, volume_max: /max_volume: (\S+ dB)/.exec(volume)?.[1] });
   }
   console.log(JSON.stringify({ scenario, erreurs, bilan }, null, 2));
   for (const b of bilan) {
     assert.ok(b.flux.some((f: string) => f.startsWith("opus")), `${b.etape} : piste son Opus présente`);
     assert.equal(b.son_detecte_tablette, 1, `${b.etape} : voix détectée par la tablette`);
+    const [l, ht] = b.image.split(",").map(Number);
+    assert.ok(l! * 3 === ht! * 4 && l! >= 960, `${b.etape} : image filmée en 4:3 (paysage), reçu ${b.image}`);
   }
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   if (process.env.E2E_ADMIN) await (scenario === "geely" ? visiteAdminGeely() : visiteAdmin());

@@ -12,7 +12,8 @@ export function formatEnregistrement() {
 }
 
 /**
- * Ouvre caméra et micro. Image complète (pas de recadrage) : les formats 16:9 et 9:16 seront produits côté serveur.
+ * Ouvre caméra et micro. Captation en 4:3 (3:4 en portrait), le format natif des capteurs de tablette : image
+ * entière, sans recadrage ; les formats 16:9 et 9:16 du Parlomix en sont tirés au montage.
  * @param {"paysage" | "portrait"} orientation
  */
 export async function ouvrirCamera(orientation) {
@@ -20,8 +21,9 @@ export async function ouvrirCamera(orientation) {
   return navigator.mediaDevices.getUserMedia({
     video: {
       facingMode: "user",
-      width: { ideal: paysage ? 1280 : 720 },
-      height: { ideal: paysage ? 720 : 1280 },
+      width: { ideal: paysage ? 1280 : 960 },
+      height: { ideal: paysage ? 960 : 1280 },
+      aspectRatio: { ideal: paysage ? 4 / 3 : 3 / 4 },
       frameRate: { ideal: 30, max: 30 },
     },
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },

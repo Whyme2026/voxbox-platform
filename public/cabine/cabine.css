@@ -26,6 +26,8 @@
 }
 
 :root {
+  /* Format de l'image filmée (et de son aperçu) : 4:3 en paysage, 3:4 en portrait. */
+  --format-camera: 4 / 3; --format-camera-n: 1.3333;
   /* Jetons surchargés par une marque. */
   --accent: #3F4C8F;      /* vox : la marque parle */
   --parole: #F2D27A;      /* le visiteur répond, l'action */
@@ -221,68 +223,88 @@ button { font: inherit; color: inherit; }
 .case[aria-checked="true"] .boite::after { content: ""; width: 13px; height: 7px; border-left: 3.5px solid var(--sur-accent); border-bottom: 3.5px solid var(--sur-accent); border-radius: 1px; transform: translateY(-2px) rotate(-45deg); }
 .texte-legal { font-size: 15px !important; line-height: 1.5; color: var(--texte-doux); max-height: 22vh; overflow: auto; padding: 12px 16px; border-radius: 16px; background: var(--fond); }
 
-/* --------------------------------------------------------------- question */
-.ecran-question { justify-content: flex-start; }
-.ecran-question .tete { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; }
-.ecran-question .corps {
-  flex: 1; min-height: 0; display: grid; gap: calc(var(--gouttiere) * .6);
-  grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto;
-  grid-template-areas: "camera" "aide" "actions";
-}
-.zone-camera { grid-area: camera; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-.emplacement-camera { flex: 1; min-height: 0; display: grid; }
-.temps { display: flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.barre-temps { flex: 1; height: 10px; border-radius: 5px; background: var(--trait); overflow: hidden; }
-.barre-temps span { display: block; height: 100%; width: 100%; border-radius: 5px; background: var(--accent); transform-origin: left; transform: scaleX(1); }
-.barre-temps[data-etat="rec"] span { background: var(--rec); }
-.aide { grid-area: aide; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-/* Pistes et coup de pouce gardent leur taille. Une question qui a les deux n'a plus la place d'un visuel sur la
-   cabine (il reste sur les cartes du Parlomix) ; sinon le visuel rapetisse s'il manque de place. */
-.aide > * { flex-shrink: 0; }
-.aide > .visuel-question { flex-shrink: 1; min-height: 0; }
-.aide:has(.pistes):has(.coup-de-pouce) > .visuel-question { display: none; }
-.aide .intitule { font-size: 17px; font-weight: 600; color: var(--texte-doux); }
+/* --------------------------------------------------------------- question (disposition V2)
+   La marque parle à gauche : la question, les idées, l'amorce. Le visiteur répond à droite : le temps, son image
+   (même format que l'enregistrement, au plus près de l'objectif) et le bouton juste dessous. Paysage : deux colonnes ;
+   portrait : la même suite, empilée. Toutes les ambiances et habillages partent de cette base. */
+.ecran-question { display: grid; justify-content: stretch; align-content: center; gap: calc(var(--gouttiere) * .7);
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.ecran-question .gauche { display: flex; flex-direction: column; gap: calc(var(--gouttiere) * .5); min-width: 0; }
+.ecran-question .droite { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.ecran-question .tete { display: flex; flex-direction: column; gap: 12px; padding-left: 12px; }
+/* Taille de la question : celle de l'habillage (--question), modulée par la longueur du texte. */
+.ecran-question .question { margin-left: 12px; font-size: calc(var(--question) * 1.1); line-height: 1.12; }
+.ecran-question .question[data-longueur="moyenne"] { font-size: calc(var(--question) * .92); }
+.ecran-question .question[data-longueur="longue"] { font-size: calc(var(--question) * .8); }
+.aide { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; }
+/* Une question qui a pistes et amorce n'a plus la place d'un visuel sur la cabine (il reste sur les cartes du
+   Parlomix) ; sinon le visuel rapetisse s'il manque de place. */
+.ecran-question .gauche > * { flex-shrink: 0; }
+.ecran-question .gauche > .visuel-question { flex-shrink: 1; min-height: 0; }
+.ecran-question .gauche:has(.pistes):has(.coup-de-pouce) > .visuel-question { display: none; }
+.aide .intitule, .coup-de-pouce .intitule { font-size: clamp(14px, 2.2vmin, 17px); font-weight: 600; color: var(--texte-doux); }
 .pistes { display: flex; flex-wrap: wrap; gap: 10px; }
 .pistes span { padding: 9px 18px; border-radius: 20px 20px 20px var(--queue); background: var(--carte); font-size: clamp(16px, 2.7vmin, 19px); font-weight: 600; box-shadow: 0 1px 2px rgba(35, 38, 63, .08); }
-.coup-de-pouce { display: flex; flex-direction: column; gap: 8px; }
-.coup-de-pouce .intitule { align-self: flex-end; margin-right: 12px; }
-.coup-de-pouce .bulle { font-family: var(--titres); font-weight: 500; font-size: clamp(22px, 4.2vmin, 30px); line-height: 1.1; }
-.ecran-question .actions { grid-area: actions; }
+/* L'amorce : la phrase pour se lancer, côté visiteur, qui pointe vers l'image. */
+.coup-de-pouce { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.coup-de-pouce .intitule { margin-right: 12px; }
+.coup-de-pouce .bulle { font-family: var(--titres); font-weight: 500; font-size: clamp(20px, 3.8vmin, 28px); line-height: 1.1; }
+
+.temps { display: flex; align-items: center; gap: 12px; min-height: 30px; margin-right: 12px; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.emplacement-ecoute { display: contents; }
+.barre-temps { flex: 1; min-width: 60px; height: 10px; border-radius: 5px; background: var(--trait); overflow: hidden; }
+.barre-temps span { display: block; height: 100%; width: 100%; border-radius: 5px; background: var(--accent); transform-origin: left; transform: scaleX(1); }
+.barre-temps[data-etat="rec"] span { background: var(--rec); }
+.ecoute { display: inline-flex; align-items: center; gap: 10px; font-family: var(--titres); font-weight: 600; font-size: clamp(16px, 2.8vmin, 20px); white-space: nowrap; }
+.ecoute .onde, .ecoute .ecoute-texte { display: none; }
+.ecoute[data-etat="rec"] .onde { display: inline-flex; }
+.ecoute[data-etat="rec"] .ecoute-texte { display: inline; }
+.ecoute[data-etat="rec"] .lire, .ecoute:not([data-etat]) .lire { display: none; }
+.onde { align-items: center; gap: 4px; height: 26px; }
+.onde i { width: 6px; height: 100%; border-radius: 3px; background: var(--parole); transform: scaleY(.22); transform-origin: 50% 50%; transition: transform 70ms linear; }
+
+/* L'image : 4:3 en paysage (3:4 en portrait), sa largeur bornée par la hauteur disponible. */
+.zone-camera { width: min(100%, calc((100dvh - var(--hors-camera, 360px)) * var(--format-camera-n))); aspect-ratio: var(--format-camera); align-self: center; }
+.zone-camera .emplacement-camera { width: 100%; height: 100%; display: grid; }
+.ecran-question .actions { width: min(100%, calc((100dvh - var(--hors-camera, 360px)) * var(--format-camera-n))); align-self: center; }
+.ecran-question .actions .bouton { flex: 1; }
+.ecran-question .temps { width: min(100%, calc((100dvh - var(--hors-camera, 360px)) * var(--format-camera-n))); align-self: center; }
+/* Avant la prise, le bouton n'est qu'un contour : il s'allume quand on tourne. */
+.ecran-question .bouton:disabled { background: transparent; border: 2.5px dashed color-mix(in srgb, var(--texte) 30%, var(--fond)); box-shadow: none; filter: none; opacity: 1; }
+.ecran-question .bouton:disabled::after { display: none; }
+
 @media (orientation: landscape) {
-  .ecran-question .corps {
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas: "camera aide" "camera actions";
-    column-gap: calc(var(--gouttiere) * .8);
-  }
-  .ecran-question .aide { justify-content: space-between; height: 100%; }
+  .ecran-question { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); grid-template-rows: auto; align-items: start; column-gap: calc(var(--gouttiere) * .85); }
+  .ecran-question .droite { padding-top: 6px; }
+}
+@media (orientation: portrait) {
+  .ecran-question { --hors-camera: 740px; align-content: stretch; }
+  .ecran-question .droite { justify-content: flex-end; }
 }
 
 /* --------------------------------------------------------------- aperçu caméra : bulle du visiteur */
 .apercu { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); background: var(--camera); transition: box-shadow .2s ease; }
 .apercu[data-rec] { box-shadow: 0 0 0 4px color-mix(in srgb, var(--rec) 30%, #FFFFFF); }
-.apercu video, .apercu canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); border-radius: inherit; }
-.compte { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 26px; padding: 16px; border-radius: inherit;
+/* Pas d'arrondi sur l'image elle-même : retournée en miroir, elle mettrait la queue de la bulle du mauvais côté. */
+.apercu video, .apercu canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+/* Tablette qui ne fournit pas le 4:3 : l'image entière, avec des bandes, plutôt qu'une zone filmée cachée. */
+.apercu[data-format="autre"] video, .apercu[data-format="autre"] canvas { object-fit: contain; }
+.compte { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 18px; padding: 16px; border-radius: inherit;
   background: rgba(35, 38, 63, .38); color: #FFFFFF; pointer-events: none; }
-.compte-bulle { display: grid; place-items: center; width: clamp(88px, 17vmin, 124px); height: clamp(80px, 15.5vmin, 112px); border-radius: 44px 44px 44px 12px;
-  background: var(--parole); color: var(--sur-parole); font-family: var(--titres); font-weight: 600; font-size: clamp(52px, 10vmin, 72px); line-height: 1; font-variant-numeric: tabular-nums;
+.compte-bulle { display: grid; place-items: center; width: clamp(68px, 12vmin, 90px); height: clamp(62px, 11vmin, 82px); border-radius: 32px 32px 32px 10px;
+  background: var(--parole); color: var(--sur-parole); font-family: var(--titres); font-weight: 600; font-size: clamp(40px, 7.5vmin, 54px); line-height: 1; font-variant-numeric: tabular-nums;
   animation: respire 1s ease-in-out infinite; }
 @keyframes respire { 50% { transform: scale(1.06); } }
-.compte-texte { font-size: clamp(18px, 3.3vmin, 24px); font-weight: 600; line-height: 1.3; }
-.compte-texte small { display: block; font-weight: 400; font-size: .85em; opacity: .85; }
-.rec { position: absolute; z-index: 1; top: 14px; left: 14px; display: inline-flex; align-items: center; gap: 10px;
-  padding: 7px 15px; border-radius: 999px; background: rgba(35, 38, 63, .62); color: #FFFFFF; font-weight: 700; font-size: 18px; }
+.compte-texte { font-family: var(--titres); font-size: clamp(19px, 3.4vmin, 25px); font-weight: 600; line-height: 1.2; }
+.rec { position: absolute; z-index: 1; top: 12px; left: 12px; display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 13px; border-radius: 999px; background: rgba(35, 38, 63, .62); color: #FFFFFF; font-weight: 700; font-size: 16px; }
 .rec-point { width: 12px; height: 12px; border-radius: 50%; background: var(--rec); animation: pulse 1.4s ease-in-out infinite; }
-.chrono { font-variant-numeric: tabular-nums; font-weight: 600; }
+.chrono { display: none; }
 @keyframes pulse { 50% { opacity: .3; } }
-.ecoute { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; padding: 18px 22px;
-  border-radius: 0 0 var(--queue) var(--rayon); background: linear-gradient(to top, rgba(35, 38, 63, .7), rgba(35, 38, 63, 0));
-  color: #FFFFFF; font-family: var(--titres); font-weight: 500; font-size: clamp(19px, 3.6vmin, 26px); }
-.onde { display: inline-flex; align-items: center; gap: 6px; height: 42px; }
-.onde i { width: 9px; height: 100%; border-radius: 5px; background: var(--parole); transform: scaleY(.22); transform-origin: 50% 50%; transition: transform 70ms linear; }
 
 /* --------------------------------------------------------------- cadrage, choix, pause, reprise */
-.ecran-cadrage .emplacement-camera { min-height: 40vh; }
+.ecran-cadrage .emplacement-camera { flex: 1; min-height: 40vh; display: grid; place-items: center; }
+.ecran-cadrage .apercu { width: auto; max-width: 100%; height: 100%; aspect-ratio: var(--format-camera); }
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
 .option { min-height: 120px; border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); border: 0; background: var(--fond-option, var(--carte)); box-shadow: var(--ombre); cursor: pointer;
   --texte: var(--texte-option, var(--encre)); color: var(--texte);
@@ -325,7 +347,7 @@ button { font: inherit; color: inherit; }
 .visuel-accueil { width: min(100%, 560px); max-height: 34vh; }
 .visuel-question { width: min(100%, 360px); max-height: 18vh; align-self: flex-start; }
 .visuel-fin { width: min(100%, 420px); max-height: 24vh; }
-@media (orientation: portrait) { .visuel-question { display: none; } }
+@media (orientation: portrait) { .visuel-question { display: none; } :root { --format-camera: 3 / 4; --format-camera-n: .75; } }
 
 /* Polices de titre très larges (ex. Michroma) : tailles réduites, graisse normale ; boutons et saisie dans la police du texte. */
 .cabine[data-titres="large"] {
@@ -437,6 +459,7 @@ button { font: inherit; color: inherit; }
 :root[data-ambiance="pop"] .bouton:active { transform: translate(4px, 4px); filter: var(--contour); }
 :root[data-ambiance="pop"] .bouton.secondaire { box-shadow: none; }
 :root[data-ambiance="pop"] .bouton:disabled { filter: var(--contour); opacity: .6; }
+:root[data-ambiance="pop"] .ecran-question .bouton:disabled { filter: none; opacity: 1; border-color: var(--encre); color: color-mix(in srgb, var(--encre) 70%, var(--fond)); }
 :root[data-ambiance="pop"] .actions.droite.arrive .bouton:not(:disabled) { animation: trepigne 2.6s ease-in-out 2s infinite; }
 @keyframes trepigne { 0%, 82%, 100% { transform: none; } 86% { transform: rotate(-3deg) scale(1.04); } 90% { transform: rotate(3deg) scale(1.04); } 94% { transform: rotate(-1.5deg); } }
 
@@ -476,7 +499,7 @@ button { font: inherit; color: inherit; }
 @keyframes boum { 0% { transform: scale(1.35) rotate(-10deg); } 30% { transform: scale(.95) rotate(4deg); } 55%, 100% { transform: scale(1) rotate(0); } }
 :root[data-ambiance="pop"] .rec { background: var(--rec); border: 3px solid var(--encre); box-shadow: 3px 3px 0 var(--encre); transform: rotate(-2deg); }
 :root[data-ambiance="pop"] .rec-point { background: #FFFFFF; }
-:root[data-ambiance="pop"] .onde i { border: 2px solid var(--encre); width: 12px; }
+:root[data-ambiance="pop"] .onde i { border: 2px solid var(--encre); width: 9px; background: var(--accent); }
 
 /* Choix : grosses étiquettes de couleur, chacune penchée à sa façon. */
 :root[data-ambiance="pop"] .option { border: 3px solid var(--encre); box-shadow: 6px 6px 0 var(--encre); font-weight: 700; transition: transform .1s ease, box-shadow .1s ease; }

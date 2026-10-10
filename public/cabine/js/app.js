@@ -43,6 +43,7 @@ const FOND_AMBIANCE = /** @type {Record<string, string>} */ ({ conversation: "#F
 /** @type {Map<string, { nom: string, svg: string }>} */ let visuels = new Map();
 const clavier = creerClavier($("clavier"));
 const apercu = $("apercu");
+const ecoute = $("ecoute");
 const video = /** @type {HTMLVideoElement} */ ($("video"));
 
 // ------------------------------------------------------------------ utilitaires d'affichage
@@ -68,10 +69,13 @@ function afficher(/** @type {(Node|null)[]} */ contenu, /** @type {string} */ ty
   $("cabine").dataset.ecran = type;
   reperes(type);
   scene.replaceChildren(.../** @type {Node[]} */ (contenu.filter(Boolean)));
-  // L'aperçu caméra est un élément unique, déplacé dans l'écran qui le demande.
+  // L'aperçu caméra et l'état de la prise sont des éléments uniques, déplacés dans l'écran qui les demande.
   const place = scene.querySelector(".emplacement-camera");
   if (place) { place.append(apercu); apercu.hidden = false; video.play().catch(() => {}); }
   else if (apercu.parentElement !== document.body) { apercu.hidden = true; document.body.append(apercu); }
+  const placeEcoute = scene.querySelector(".emplacement-ecoute");
+  if (placeEcoute) { placeEcoute.append(ecoute); ecoute.hidden = false; }
+  else if (ecoute.parentElement !== document.body) { ecoute.hidden = true; delete ecoute.dataset.etat; document.body.append(ecoute); }
   const premier = scene.querySelector("button:not([disabled])");
   if (premier instanceof HTMLElement) premier.focus({ preventScroll: true });
   numeroEcran += 1;
@@ -290,6 +294,11 @@ async function preparerCamera() {
     camera = await ouvrirCamera(orientation);
     video.srcObject = camera;
     await video.play().catch(() => {});
+    // L'aperçu montre exactement ce qui est filmé : si la tablette ne fournit pas le 4:3 demandé, l'image entière
+    // est affichée (avec des bandes) plutôt que recadrée.
+    const r = video.videoWidth / video.videoHeight;
+    const attendu = orientation === "paysage" ? 4 / 3 : 3 / 4;
+    if (r && Math.abs(r - attendu) > 0.02) apercu.dataset.format = "autre"; else delete apercu.dataset.format;
     vumetre = creerVumetre(camera);
     return true;
   } catch {
@@ -367,7 +376,8 @@ function prendreMiniature() {
   c.width = 320; c.height = 180;
   const ctx = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
   const ratio = Math.max(320 / l, 180 / ht);
-  ctx.drawImage(source, (320 - l * ratio) / 2, (180 - ht * ratio) / 2, l * ratio, ht * ratio);
+  // Recadrage « remplir », décalé vers le haut pour garder le visage.
+  ctx.drawImage(source, (320 - l * ratio) / 2, (180 - ht * ratio) * 0.3, l * ratio, ht * ratio);
   return new Promise((ok) => c.toBlob((b) => ok(b), "image/jpeg", 0.72));
 }
 
@@ -590,11 +600,11 @@ function ecranErreurCamera() {
   setTimeout(accueil, 8000);
 }
 
-/** Compte à rebours sur l'aperçu : la bulle jaune et « On tourne dans N secondes ». */
+/** Compte à rebours sur l'aperçu : la bulle jaune et « On tourne dans N s ». */
 function compte(/** @type {number} */ n) {
   $("compte").hidden = n <= 0;
   $("compte-chiffre").textContent = n > 0 ? String(n) : "";
-  $("compte-detail").textContent = n > 1 ? `On tourne dans ${n} secondes.` : "On tourne !";
+  $("compte-detail").textContent = n > 1 ? `On tourne dans ${n} s` : "On tourne !";
 }
 
 async function ecranQuestion(/** @type {any} */ e) {
@@ -612,31 +622,33 @@ async function ecranQuestion(/** @type {any} */ e) {
   const barre = h("div", { class: "barre-temps", role: "progressbar", "aria-label": "Temps restant" }, remplissage);
   const secondes = h("span", {}, `${e.dureeMaxSec} s`);
   const aPistes = Boolean(e.pistes?.length || e.aide);
+  const texte = perso(e.texte);
 
+  // Disposition V2 : la marque à gauche (question, idées, amorce), le visiteur à droite (temps, image, bouton).
   afficher([
     h("div", { class: "ecran ecran-question" },
-      h("div", { class: "tete arrive" },
-        h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
-        h("p", { class: "bulle marque grande question" }, perso(e.texte))),
-      h("div", { class: "corps" },
-        h("div", { class: "zone-camera" },
-          h("div", { class: "emplacement-camera" }),
-          h("div", { class: "temps" }, barre, secondes)),
-        h("div", { class: "aide" },
-          aPistes ? h("div", { class: "colonne", style: "gap: 12px" },
-            h("span", { class: "intitule" }, "Des idées, si besoin :"),
-            e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,
-            e.aide ? h("p", { class: "chapo" }, perso(e.aide)) : null) : h("span"),
-          e.coupDePouce ? h("div", { class: "coup-de-pouce" },
-            h("span", { class: "intitule" }, "Pour démarrer"),
-            bulle("visiteur douce", perso(e.coupDePouce))) : null,
-          visuelEtape(e, "visuel-question")),
+      h("section", { class: "gauche", "aria-label": "La question" },
+        h("div", { class: "tete arrive" },
+          h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
+          h("p", { class: "bulle marque grande question", "data-longueur": texte.length > 90 ? "longue" : texte.length > 55 ? "moyenne" : null }, texte)),
+        aPistes ? h("div", { class: "aide" },
+          h("span", { class: "intitule" }, "Des idées, si besoin"),
+          e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,
+          e.aide ? h("p", { class: "chapo" }, perso(e.aide)) : null) : null,
+        e.coupDePouce ? h("div", { class: "coup-de-pouce" },
+          h("span", { class: "intitule" }, "Pour démarrer"),
+          bulle("visiteur douce", perso(e.coupDePouce))) : null,
+        visuelEtape(e, "visuel-question")),
+      h("section", { class: "droite", "aria-label": tv("Votre réponse", "Ta réponse") },
+        h("div", { class: "temps" }, h("div", { class: "emplacement-ecoute" }), barre, secondes),
+        h("div", { class: "zone-camera" }, h("div", { class: "emplacement-camera" })),
         h("div", { class: "actions" }, suivant))),
   ], "question");
+  ecoute.dataset.etat = "lire";
   reperes("question", progression);
 
   let annule = false;
-  annulerEnCours = () => { annule = true; arret?.(); compte(0); $("rec").hidden = true; $("ecoute").hidden = true; delete apercu.dataset.rec; };
+  annulerEnCours = () => { annule = true; arret?.(); compte(0); $("rec").hidden = true; delete ecoute.dataset.etat; delete apercu.dataset.rec; };
   vumetre.reprendre();
   arreterInactivite();
   const temps = (/** @type {number} */ f) => { remplissage.style.transform = `scaleX(${Math.max(0, Math.min(1, f))})`; };
@@ -653,7 +665,7 @@ async function ecranQuestion(/** @type {any} */ e) {
 
   const lancer = () => {
     $("rec").hidden = false;
-    $("ecoute").hidden = false;
+    ecoute.dataset.etat = "rec";
     apercu.dataset.rec = "";
     barre.dataset.etat = "rec";
     suivant.toggleAttribute("disabled", false);
@@ -673,7 +685,7 @@ async function ecranQuestion(/** @type {any} */ e) {
     prise.resultat.then(async (r) => {
       clearTimeout(minuterieMiniature);
       $("rec").hidden = true;
-      $("ecoute").hidden = true;
+      delete ecoute.dataset.etat;
       delete apercu.dataset.rec;
       onde(0);
       $("chrono").textContent = "0:00";

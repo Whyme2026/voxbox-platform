@@ -166,7 +166,18 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   depuis l'habillage au moment du rendu.
 - Limites : le film se fabrique en temps réel (onglet ouvert et visible), 95 Mo au plus par film.
 
-## Format de captation (décision du 10/10/2026, à mettre en œuvre avec les écrans de question V2)
+## Écran de question V2 : la base de toutes les ambiances (10/10/2026)
+- La marque parle à gauche : surtitre, question (taille de l'habillage, modulée par la longueur du texte), idées
+  (pistes), amorce (« Pour démarrer », bulle du visiteur qui pointe vers l'image), visuel éventuel.
+- Le visiteur répond à droite : une seule ligne de temps (« Prenez le temps de lire », puis l'onde et « On vous
+  écoute… » avec la barre et les secondes restantes), son image en 4:3, le bouton juste dessous. Le compte à rebours
+  s'affiche dans l'image ; avant la prise, le bouton n'est qu'un contour en pointillés.
+- Portrait : la même suite empilée, image en 3:4.
+- **Un nouveau thème ne touche pas à la disposition** : il passe par les jetons de couleur, les polices, l'ambiance
+  (`conversation`, `pop`, `marine`…) et les visuels de l'habillage. Maquettes : canevas « Parlopop : direction
+  artistique », lignes V2.
+
+## Format de captation (décision du 10/10/2026, en place)
 - **On filme en 4:3** : 1280 × 960 en paysage, 960 × 1280 (3:4) en portrait, à 2,5 Mb/s comme aujourd'hui (taille des
   fichiers inchangée, environ 19 Mo par minute).
 - Pourquoi : les capteurs des caméras frontales de tablette sont en 4:3 ; le 16:9 n'en est qu'un recadrage, qui
