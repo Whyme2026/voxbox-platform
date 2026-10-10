@@ -981,7 +981,9 @@ async function vueCabines() {
 
   return h("div", {},
     enTete("Cabines", "Une tablette s'appaire une fois avec un code à usage unique, puis joue la campagne qui lui est affectée.",
-      h("button", { type: "button", class: "bouton action", onclick: () => { f.hidden = !f.hidden; if (!f.hidden) nom.focus(); } }, "Nouvelle cabine")),
+      h("div", { class: "boutons" },
+        h("a", { class: "bouton discret", href: "affiche.html", target: "_blank", rel: "noopener" }, "Affiche QR à imprimer"),
+        h("button", { type: "button", class: "bouton action", onclick: () => { f.hidden = !f.hidden; if (!f.hidden) nom.focus(); } }, "Nouvelle cabine"))),
     f,
     cabines.length ? h("div", { class: "cabines" }, ...cabines.map((/** @type {any} */ cab) => carteCabine(cab, jouables)))
       : h("section", { class: "carte vide" }, "Aucune cabine pour l'instant."));

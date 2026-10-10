@@ -17,6 +17,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { join } from "node:path";
 import assert from "node:assert/strict";
 import { demarrerServeur, preparer, objets, db } from "./serveur.ts";
+import { boiteEssai } from "../../src/courriel.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE ?? "/opt/npm-tools/node_modules/playwright");
@@ -126,32 +127,43 @@ async function scenarioDemo() {
 }
 
 
-/** Page publique de retrait, sur téléphone : saisie manuelle du code, puis suppression des réponses. */
+/**
+ * Page du QR code extérieur, sur téléphone : le visiteur saisit son e-mail, reçoit un lien, regarde une vidéo,
+ * puis supprime ses réponses.
+ */
 async function visiteRetrait() {
-  const s = await db.prepare("SELECT id, code_retrait FROM sessions ORDER BY cree_le LIMIT 1").first<any>();
+  const s = await db.prepare("SELECT id FROM sessions ORDER BY cree_le LIMIT 1").first<any>();
+  await db.prepare("UPDATE sessions SET email = 'camille@exemple.fr' WHERE id = ?").bind(s.id).run(); // e-mail donné à l'identification
+  boiteEssai.length = 0;
   const tel = await navigateur.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const p = await tel.newPage();
   p.on("pageerror", (e: Error) => erreurs.push(`retrait : ${e.message}`));
   const photo = (nom: string) => p.screenshot({ path: join(captures, `retrait-${nom}.png`) });
   await p.goto(`http://localhost:${port}/retrait/`);
-  await p.getByLabel("Votre code").fill(`${s.code_retrait.slice(0, 4)}-${s.code_retrait.slice(4, 8)}-${s.code_retrait.slice(8)}`.toLowerCase());
-  await photo("01-saisie");
-  await p.getByRole("button", { name: "Continuer" }).click();
+  await p.getByLabel("Votre e-mail").fill("Camille@Exemple.fr");
+  await photo("01-email");
+  await p.getByRole("button", { name: "Recevoir mon lien" }).click();
+  await p.getByRole("heading", { name: "C'est envoyé" }).waitFor();
+  await photo("02-envoye");
+  assert.equal(boiteEssai.length, 1, "un e-mail envoyé");
+  const lien = /https?:\/\/\S+#acces=[\w-]+/.exec(boiteEssai[0]!.texte)?.[0] ?? "";
+  assert.ok(lien.startsWith(`http://localhost:${port}/retrait/#acces=`), `lien d'accès : ${lien}`);
+  await p.goto(lien);
   await p.getByRole("heading", { name: "Bonjour Camille" }).waitFor();
-  await photo("02-choix");
-  await p.getByRole("button", { name: "Supprimer mes réponses" }).click();
+  await p.locator(".ecran-video").first().click();
+  await p.locator(".ecran-video video").first().waitFor();
+  await p.waitForTimeout(800);
+  await photo("03-mes-videos");
+  await p.getByRole("button", { name: "Supprimer ces réponses" }).click();
   await p.getByRole("heading", { name: "Vous confirmez ?" }).waitFor();
-  await photo("03-confirmation");
+  await photo("04-confirmation");
   await p.getByRole("button", { name: "Oui, supprimer mes réponses" }).click();
-  await p.getByText("Mes réponses sont supprimées").waitFor();
-  await photo("04-termine");
-  // Lien direct après coup : la page dit que c'est déjà fait.
-  await p.goto(`http://localhost:${port}/retrait/#${s.code_retrait}`);
-  await p.reload();
-  await p.getByText("Mes réponses sont supprimées").waitFor();
+  await p.getByRole("heading", { name: "Plus aucune vidéo" }).waitFor();
+  await photo("05-termine");
   await tel.close();
-  const apres = await db.prepare("SELECT retiree_le, prenom FROM sessions WHERE id = ?").bind(s.id).first<any>();
+  const apres = await db.prepare("SELECT retiree_le, email FROM sessions WHERE id = ?").bind(s.id).first<any>();
   assert.ok(apres.retiree_le, "session retirée par le visiteur");
+  assert.equal(apres.email, null, "e-mail effacé");
   const restes = await db.prepare("SELECT COUNT(*) AS n FROM reponses WHERE session_id = ? AND (cle_source IS NOT NULL OR cle_miniature IS NOT NULL)").bind(s.id).first<any>();
   assert.equal(restes.n, 0, "vidéos et miniatures effacées");
   assert.ok(![...objets.keys()].some((k) => k.includes(s.id)), "plus aucun fichier de la session dans le stockage");

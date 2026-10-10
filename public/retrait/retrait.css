@@ -47,3 +47,17 @@ button[disabled] { opacity: .55; cursor: wait; }
 .champ input { padding: 14px 16px; border-radius: 14px; border: 2px solid var(--trait); background: #FFFFFF; font-family: var(--titres); font-size: 22px; letter-spacing: .12em; text-transform: uppercase; }
 .erreur { color: var(--rec); font-weight: 600; margin: 0; }
 .pied { margin-top: 28px; color: var(--texte-doux); font-size: 13px; text-align: center; }
+
+/* Mes vidéos (lien reçu par e-mail) */
+.passage { display: flex; flex-direction: column; gap: 10px; }
+.passage .doux { margin: 0; }
+.passage-tete { margin: 0; font-size: 18px; }
+.petit { font-size: 14px; }
+.videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.video { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.ecran-video { position: relative; aspect-ratio: 4 / 3; padding: 0; border-radius: 16px 16px 5px 16px; overflow: hidden; background: #2E3354; color: #FFFFFF;
+  font-family: var(--titres); font-size: 16px; display: grid; place-items: center; }
+.ecran-video video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+.video figcaption { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; }
+.passage .choix { margin-top: 4px; }
+.champ input[type="email"] { text-transform: none; letter-spacing: 0; font-family: "Gabarito", system-ui, sans-serif; font-size: 19px; }

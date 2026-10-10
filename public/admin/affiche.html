@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Affiche QR · Parlopop</title>
+  <style>
+    @font-face { font-family: "Fredoka"; src: url("../polices/fredoka.woff") format("woff"); font-weight: 300 700; }
+    @font-face { font-family: "Gabarito"; src: url("../polices/gabarito.woff") format("woff"); font-weight: 400 900; }
+    @page { size: A4 portrait; margin: 0; }
+    :root { --vox: #3F4C8F; --parole: #F2D27A; --encre: #23263F; --doux: #5D6280; }
+    * { box-sizing: border-box; }
+    html { background: #E4E6EE; }
+    body { margin: 0; font-family: "Gabarito", system-ui, sans-serif; color: var(--encre); }
+    .barre { display: flex; justify-content: center; gap: 12px; padding: 16px; }
+    .barre button { font: 600 16px "Fredoka", sans-serif; padding: 12px 22px; border: 0; border-radius: 22px 22px 6px 22px; background: var(--parole); color: var(--encre); cursor: pointer; }
+    .feuille { width: 210mm; height: 297mm; margin: 0 auto 24px; background: #FFFFFF; padding: 22mm 20mm 16mm; display: flex; flex-direction: column; align-items: center; gap: 9mm; box-shadow: 0 10px 40px -20px rgba(35, 38, 63, .4); }
+    .logo { display: flex; flex-direction: column; align-items: center; }
+    .marque { display: flex; align-items: center; gap: 5mm; }
+    .marque svg { width: 22mm; height: auto; }
+    .marque span { font: 600 19mm/1 "Fredoka", sans-serif; letter-spacing: -0.02em; }
+    .by { align-self: flex-end; font-size: 5mm; color: var(--doux); } .by strong { color: var(--encre); }
+    .bulles { display: flex; flex-direction: column; gap: 4mm; width: 100%; }
+    .bulle { position: relative; margin: 0; padding: 4mm 7mm; font: 600 11mm/1.15 "Fredoka", sans-serif; width: fit-content; }
+    .bulle::after { content: ""; position: absolute; bottom: 0; width: 7mm; height: 7mm; background: inherit; }
+    .marque-parle { background: var(--vox); color: #FFFFFF; border-radius: 9mm 9mm 9mm 2mm; margin-left: 3mm; }
+    .marque-parle::after { left: -3mm; clip-path: path("M26 0C26 15 18 23 0 26H26Z"); }
+    .client-repond::after { right: -3mm; clip-path: path("M0 0C0 15 8 23 26 26H0Z"); }
+    .client-repond { align-self: flex-end; background: var(--parole); border-radius: 9mm 9mm 2mm 9mm; margin-right: 3mm; font-size: 8mm; }
+    .qr { width: 95mm; height: 95mm; flex: none; }
+    .texte { text-align: center; font-size: 6mm; line-height: 1.35; max-width: 150mm; margin: 0; }
+    .adresse { font: 600 5mm "Fredoka", sans-serif; color: var(--vox); margin: 0; }
+    .pied { margin-top: auto; font-size: 3.6mm; color: var(--doux); text-align: center; }
+    @media print { html { background: none; } .barre { display: none; } .feuille { margin: 0; box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <div class="barre"><button type="button" onclick="print()">Imprimer ou enregistrer en PDF</button></div>
+  <main class="feuille">
+    <div class="logo" role="img" aria-label="Parlopop by whyme">
+      <div class="marque">
+        <svg viewBox="0 0 48 40" aria-hidden="true"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z" fill="#3F4C8F"/><g fill="#F2D27A"><rect x="13" y="13" width="3.6" height="7" rx="1.8"/><rect x="19.6" y="9.5" width="3.6" height="14" rx="1.8"/><rect x="26.2" y="11.5" width="3.6" height="10" rx="1.8"/><rect x="32.8" y="14" width="3.6" height="5" rx="1.8"/></g></svg>
+        <span aria-hidden="true">Parlopop</span>
+      </div>
+      <span class="by" aria-hidden="true">by <strong>whyme</strong></span>
+    </div>
+    <div class="bulles">
+      <p class="bulle marque-parle">Vous changez d'avis ?</p>
+      <p class="bulle client-repond">Je retrouve mes vidéos</p>
+    </div>
+    <svg class="qr" id="qr" role="img" aria-label="QR code vers la page Parlopop pour retrouver ses vidéos" shape-rendering="crispEdges"></svg>
+    <p class="texte">Scannez ce code avec l'appareil photo de votre téléphone, puis saisissez l'e-mail donné dans la cabine. Vous pourrez revoir vos vidéos, retirer votre accord ou les supprimer, à tout moment.</p>
+    <p class="adresse" id="adresse"></p>
+    <p class="pied">Parlopop by whyme, pour le compte de la marque qui vous a interrogé. Vos vidéos sont hébergées dans l'Union européenne.</p>
+  </main>
+  <script type="module">
+    import { genererQR, cheminQR } from "../cabine/js/qr.js";
+    const adresse = `${location.origin}/retrait/`;
+    const { d, cote } = cheminQR(genererQR(adresse));
+    const svg = document.getElementById("qr");
+    svg.setAttribute("viewBox", `0 0 ${cote} ${cote}`);
+    svg.innerHTML = `<rect width="${cote}" height="${cote}" fill="#FFFFFF"/><path d="${d}" fill="#23263F"/>`;
+    document.getElementById("adresse").textContent = adresse.replace(/^https?:\/\//, "");
+  </script>
+</body>
+</html>

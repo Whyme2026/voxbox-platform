@@ -56,6 +56,10 @@ export interface Env {
   ACCESS_TEAM_DOMAIN?: string;
   /** Audience (AUD) de l'application Cloudflare Access qui protège la plateforme. */
   ACCESS_AUD?: string;
+  /** Clé d'API Brevo (secret Cloudflare) pour les e-mails transactionnels ; absente : pas d'envoi hors développement. */
+  BREVO_CLE?: string;
+  /** Adresse d'expédition des e-mails (domaine vérifié chez Brevo). */
+  COURRIEL_EXPEDITEUR?: string;
   /** Version déployée du Worker (liaison « version_metadata » de Cloudflare) : change à chaque déploiement. */
   VERSION_DEPLOIEMENT?: { id: string; tag?: string; timestamp?: string };
 }

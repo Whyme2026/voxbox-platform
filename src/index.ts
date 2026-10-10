@@ -11,6 +11,7 @@ import { routesCabine } from "./routes/cabine.ts";
 import { routesReponses } from "./routes/reponses.ts";
 import { routesParlomix } from "./routes/parlomix.ts";
 import { routesRetrait } from "./routes/retrait.ts";
+import { routesAcces } from "./routes/acces.ts";
 
 export const VERSION = "0.1.0";
 
@@ -43,6 +44,7 @@ export function construireRouteur(): Routeur {
   routesReponses(r);
   routesParlomix(r);
   routesRetrait(r);
+  routesAcces(r);
   return r;
 }
 

@@ -18,15 +18,20 @@ espace client ─────┘        └────────────�
 - **Cabine** (`/cabine/`, `/api/cabine/*`) : jamais Cloudflare Access. La tablette est appairée une fois avec un code
   à usage unique (fiche cabine, espace WhyMe) et reçoit un jeton secret ; seule son empreinte SHA-256 est stockée.
   Un nouveau code révoque l'ancienne tablette. ⚠ Ces chemins doivent être exclus de la protection Access (règle « bypass »).
-- **Retrait par le visiteur** (`/retrait/`, `/api/retrait/*`) : public, jamais Cloudflare Access (⚠ règle « bypass »
-  à ajouter, comme pour la cabine). Décision du 10/10/2026 : **plus de QR code propre à chaque session sur l'écran de
-  fin**. Un QR code fixe est affiché à l'extérieur de la cabine ; l'écran de fin le rappelle (« Vous changez d'avis ?
-  Scannez le QR code à l'extérieur de la cabine… »). L'e-mail demandé à l'identification sert à retrouver ses vidéos
-  et à changer d'avis ; il reste facultatif (on peut aussi écrire au contact RGPD) et ne vaut pas accord pour être
-  recontacté, qui reste une case séparée. **À construire** : la page derrière ce QR code (saisie de l'e-mail, lien
-  envoyé, accès aux vidéos, retrait). En attendant, la page `/retrait/` fonctionne avec le code de retrait de la
-  session (10 caractères sans O/0 ni I/1, tiré par la tablette), mêmes effets que le retrait depuis Parlorama
-  (`src/rgpd/retrait.ts`), journalisé « visiteur (lien de retrait) ».
+- **Retrait par le visiteur** (`/retrait/`, `/api/acces/*`, `/api/retrait/*`) : public, jamais Cloudflare Access
+  (⚠ règle « bypass »). Décision du 10/10/2026 : plus de QR code propre à chaque session sur l'écran de fin, qui
+  rappelle seulement le **QR code fixe affiché à l'extérieur de la cabine** (affiche imprimable : Parlorama > Cabines >
+  « Affiche QR à imprimer », `public/admin/affiche.html`). Ce QR code ouvre `/retrait/` :
+  1. le visiteur saisit l'e-mail donné à l'identification ; si des passages y correspondent, un lien valable une heure
+     lui est envoyé (`src/routes/acces.ts`, `src/courriel.ts`) ; la réponse est la même dans tous les cas (on ne révèle
+     pas qui est passé en cabine) ; trois demandes par heure au plus par adresse ; seule l'empreinte SHA-256 du jeton
+     est gardée, et les demandes de plus d'un jour sont effacées (migration `0007_acces_visiteur.sql`) ;
+  2. le lien `/retrait/#acces=<jeton>` montre ses passages (toutes marques confondues : ce sont ses propres données) et
+     ses vidéos ; pour chacun, « retirer seulement l'accord de diffusion » ou « supprimer ces réponses » (mêmes effets
+     que depuis Parlorama, `src/rgpd/retrait.ts`). Le jeton passe dans l'en-tête `x-acces`, jamais dans une adresse.
+     Visionnages et retraits sont journalisés « visiteur (accès par e-mail) ».
+  L'e-mail reste facultatif (sans lui : contact RGPD de la marque) et ne vaut pas accord pour être recontacté (case
+  séparée). L'ancien lien par code de retrait (`/retrait/#<code>`, `/api/retrait/<code>`) reste reconnu.
 - **Développement local** : `AUTH_MODE=dev` et en-tête `X-Dev-Email`, refusé hors `localhost` et en production.
 
 ## Rôles
