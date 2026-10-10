@@ -7,6 +7,7 @@ import { identifier } from "../auth/identite.ts";
 import { exiger, verifierAppartenance } from "../auth/droits.ts";
 import { HttpError, introuvable, json } from "../http.ts";
 import { journaliser } from "../journal.ts";
+import { servirVideo } from "../media.ts";
 import { chargerCampagne } from "./campagnes-commun.ts";
 
 interface LigneSession {
@@ -83,19 +84,14 @@ export function routesReponses(r: Routeur): void {
     verifierAppartenance(id, rep.client_id);
     if (rep.retiree_le || rep.purgee_le) throw new HttpError(410, "retiree", "Cette réponse n'est plus disponible");
     if (!rep.cle_source) throw introuvable("Vidéo pas encore reçue");
-    const objet = await ctx.env.MEDIA.get(rep.cle_source);
-    if (!objet?.body) throw introuvable("Vidéo introuvable dans le stockage");
-    await journaliser(ctx.env.DB, id, {
-      action: "reponse.visionnage", cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id,
-      details: { campagne_id: rep.campagne_id, session_id: rep.session_id, etape: rep.etape_id },
-    });
-    return new Response(objet.body, {
-      headers: {
-        "content-type": objet.httpMetadata?.contentType ?? (rep.cle_source.endsWith(".mp4") ? "video/mp4" : "video/webm"),
-        "content-length": String(objet.size),
-        "cache-control": "private, no-store",
-        "content-disposition": `inline; filename="${rep.etape_id}.${rep.cle_source.endsWith(".mp4") ? "mp4" : "webm"}"`,
-      },
+    const ext = rep.cle_source.endsWith(".mp4") ? "mp4" : "webm";
+    return servirVideo(ctx.request, ctx.env, rep.cle_source, {
+      type: ext === "mp4" ? "video/mp4" : "video/webm",
+      nom: `${rep.etape_id}.${ext}`,
+      journaliser: () => journaliser(ctx.env.DB, id, {
+        action: "reponse.visionnage", cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id,
+        details: { campagne_id: rep.campagne_id, session_id: rep.session_id, etape: rep.etape_id },
+      }),
     });
   });
 }

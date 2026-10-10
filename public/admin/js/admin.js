@@ -378,28 +378,57 @@ async function vueReponses(/** @type {any} */ c) {
     puces, zone);
 }
 
+/** En local, l'identité passe par un en-tête : la vidéo est téléchargée puis lue. En ligne, le lecteur la lit en continu. */
+const lectureDirecte = () => !["localhost", "127.0.0.1"].includes(location.hostname);
+
+/** Message compréhensible pour une coupure réseau (« Failed to fetch ») ou une session expirée. */
+function messageReseau(/** @type {unknown} */ e) {
+  return e instanceof TypeError
+    ? "Connexion interrompue pendant le chargement. Réessayez ; si cela continue, rechargez la page (votre session a peut-être expiré)."
+    : /** @type {Error} */ (e).message;
+}
+
+/** Téléchargement avec une nouvelle tentative en cas de coupure réseau. */
+async function telechargerVideo(/** @type {string} */ url) {
+  for (let essai = 1; ; essai++) {
+    try {
+      const res = await fetch(url, { headers: enTetesDev(), credentials: "same-origin" });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Vidéo indisponible");
+      return await res.blob();
+    } catch (e) {
+      if (!(e instanceof TypeError) || essai >= 2) throw e;
+    }
+  }
+}
+
+/**
+ * Remplace le contenu d'un écran par le lecteur vidéo. En ligne, lecture en continu (démarrage immédiat) ;
+ * en local, téléchargement complet. Renvoie l'adresse à utiliser pour « Télécharger ».
+ */
+async function lireDans(/** @type {HTMLElement} */ ecran, /** @type {string} */ url) {
+  ecran.replaceChildren(h("span", { class: "lecture" }, "Chargement…"));
+  const source = lectureDirecte() ? url : URL.createObjectURL(await telechargerVideo(url));
+  const v = /** @type {HTMLVideoElement} */ (h("video", { src: source, controls: true, playsinline: true, preload: "auto" }));
+  v.addEventListener("error", () => {
+    ecran.replaceChildren(h("span", { class: "lecture" }, "Lecture impossible : connexion interrompue ou session expirée. Rechargez la page puis réessayez."));
+  });
+  ecran.replaceChildren(v);
+  v.play().catch(() => {});
+  return lectureDirecte() ? `${url}?telecharger=1` : source;
+}
+
 function tuileVideo(/** @type {any} */ r, /** @type {string} */ titre, /** @type {string} */ sous = "") {
   const ecran = h("button", { type: "button", class: "ecran-video", "aria-label": `Lire la réponse : ${titre}` },
     h("span", { class: "lecture" }, icone(ICONES.lecture), "Lire"));
   ecran.addEventListener("click", async () => {
     if (ecran.querySelector("video")) return;
-    ecran.replaceChildren(h("span", { class: "lecture" }, "Chargement…"));
-    try {
-      const res = await fetch(`/api/espace/reponses/${r.id}/video`, { headers: enTetesDev(), credentials: "same-origin" });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Vidéo indisponible");
-      const url = URL.createObjectURL(await res.blob());
-      const v = /** @type {HTMLVideoElement} */ (h("video", { src: url, controls: true, playsinline: true }));
-      ecran.replaceChildren(v);
-      v.play().catch(() => {});
-    } catch (e) {
-      ecran.replaceChildren(h("span", { class: "lecture" }, /** @type {Error} */ (e).message));
-    }
+    try { await lireDans(ecran, `/api/espace/reponses/${r.id}/video`); }
+    catch (e) { ecran.replaceChildren(h("span", { class: "lecture" }, messageReseau(e))); }
   });
   return h("div", { class: "video" }, ecran,
     h("div", { class: "legende" }, h("strong", {}, titre), h("span", {}, sous || duree(r.duree_ms))),
     r.son_present === false ? h("span", { class: "pastille", "data-ton": "rouge" }, "Son non détecté") : null);
 }
-
 
 // ------------------------------------------------------------------ Parlomix (montages)
 
@@ -486,9 +515,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       for (const [i, x] of choix.entries()) {
         detail.textContent = `Réponse ${i + 1} sur ${choix.length} : téléchargement et coupe des blancs`;
         avancer(i / choix.length);
-        const res = await fetch(`/api/espace/reponses/${x.id}/video`, { headers: enTetesDev(), credentials: "same-origin" });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Vidéo indisponible");
-        const blob = await res.blob();
+        const blob = await telechargerVideo(`/api/espace/reponses/${x.id}/video`);
         videos.set(x.id, blob);
         const a = await analyserReponse(blob);
         const dureeMs = a.dureeMs || x.dureeMs;
@@ -533,7 +560,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       toast("Parlomix prêt.");
       dessinerListe((await api(`/api/espace/campagnes/${c.id}/parlomix`)).parlomix);
     } catch (e) {
-      suivi.replaceChildren(h("strong", { style: "color: var(--rouge)" }, `Le montage a échoué : ${/** @type {Error} */ (e).message}`));
+      suivi.replaceChildren(h("strong", { style: "color: var(--rouge)" }, `Le montage a échoué : ${messageReseau(e)}`));
     } finally {
       lancer.disabled = false;
     }
@@ -558,19 +585,13 @@ function tuileParlomix(/** @type {any} */ p) {
   const telecharger = h("a", { class: "bouton discret petit", hidden: true }, "Télécharger");
   ecran.addEventListener("click", async () => {
     if (ecran.querySelector("video")) return;
-    ecran.replaceChildren(h("span", { class: "lecture" }, "Chargement…"));
     try {
-      const res = await fetch(`/api/espace/parlomix/${p.id}/video`, { headers: enTetesDev(), credentials: "same-origin" });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Film indisponible");
-      const url = URL.createObjectURL(await res.blob());
-      const v = /** @type {HTMLVideoElement} */ (h("video", { src: url, controls: true, playsinline: true }));
-      ecran.replaceChildren(v);
-      telecharger.setAttribute("href", url);
+      const lien = await lireDans(ecran, `/api/espace/parlomix/${p.id}/video`);
+      telecharger.setAttribute("href", lien);
       telecharger.setAttribute("download", `parlomix-${p.titre.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}-${p.format.replace(":", "x")}.${p.type_mime === "video/mp4" ? "mp4" : "webm"}`);
       telecharger.hidden = false;
-      v.play().catch(() => {});
     } catch (e) {
-      ecran.replaceChildren(h("span", { class: "lecture" }, /** @type {Error} */ (e).message));
+      ecran.replaceChildren(h("span", { class: "lecture" }, messageReseau(e)));
     }
   });
   return h("div", { class: "video" }, ecran,

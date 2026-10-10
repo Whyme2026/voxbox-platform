@@ -23,9 +23,12 @@ const media: R2Bucket = {
     objets.set(key, octets);
     return { key, size: octets.byteLength };
   },
-  async get(key) {
+  async get(key, options) {
     const o = objets.get(key);
-    return o ? { key, size: o.byteLength, body: new Response(o).body ?? undefined, httpMetadata: { contentType: key.endsWith(".mp4") ? "video/mp4" : "video/webm" } } : null;
+    if (!o) return null;
+    const r = options?.range;
+    const octets = r ? o.slice(r.offset, r.length === undefined ? undefined : r.offset + r.length) : o;
+    return { key, size: o.byteLength, body: new Response(octets).body ?? undefined, httpMetadata: { contentType: key.endsWith(".mp4") ? "video/mp4" : "video/webm" } };
   },
   async delete(keys) { for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k); },
 };

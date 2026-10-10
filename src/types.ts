@@ -28,7 +28,7 @@ export interface R2Object {
 
 export interface R2Bucket {
   put(key: string, value: ReadableStream | ArrayBuffer | string | null, options?: Record<string, unknown>): Promise<R2Object | null>;
-  get(key: string): Promise<R2Object | null>;
+  get(key: string, options?: { range?: { offset: number; length?: number } }): Promise<R2Object | null>;
   delete(keys: string | string[]): Promise<void>;
 }
 

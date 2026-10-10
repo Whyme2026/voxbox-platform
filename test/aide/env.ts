@@ -17,9 +17,12 @@ export function creerR2(): R2Bucket & { objets: Map<string, { taille: number; ty
       objets.set(key, { taille: octets.byteLength, type, octets });
       return { key, size: octets.byteLength };
     },
-    async get(key) {
+    async get(key, options) {
       const o = objets.get(key);
-      return o ? { key, size: o.taille, body: new Response(o.octets).body ?? undefined, httpMetadata: { contentType: o.type } } : null;
+      if (!o) return null;
+      const r = options?.range;
+      const octets = r ? o.octets.slice(r.offset, r.length === undefined ? undefined : r.offset + r.length) : o.octets;
+      return { key, size: o.taille, body: new Response(octets).body ?? undefined, httpMetadata: { contentType: o.type } };
     },
     async delete(keys) {
       for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k);

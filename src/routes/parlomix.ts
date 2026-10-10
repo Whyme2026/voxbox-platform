@@ -8,6 +8,7 @@ import { identifier, type Identite } from "../auth/identite.ts";
 import { exiger } from "../auth/droits.ts";
 import { HttpError, conflit, interdit, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal, journaliser } from "../journal.ts";
+import { servirVideo } from "../media.ts";
 import { chargerCampagne } from "./campagnes-commun.ts";
 
 export const PARLOMIX_EXTRAITS_MAX = 20;
@@ -146,15 +147,11 @@ export function routesParlomix(r: Routeur): void {
     if (await sessionsIndisponibles(ctx.env.DB, JSON.parse(p.sessions) as string[])) {
       throw new HttpError(410, "retiree", "Une personne de ce montage a retiré son accord : il n'est plus disponible");
     }
-    const objet = await ctx.env.MEDIA.get(p.cle);
-    if (!objet?.body) throw introuvable("Film introuvable dans le stockage");
-    await journaliser(ctx.env.DB, id, { action: "parlomix.visionnage", cibleType: "parlomix", cibleId: p.id, clientId: c.client_id, details: { campagne_id: c.id } });
     const ext = p.type_mime === "video/mp4" ? "mp4" : "webm";
-    return new Response(objet.body, {
-      headers: {
-        "content-type": p.type_mime ?? "video/webm", "content-length": String(objet.size), "cache-control": "private, no-store",
-        "content-disposition": `inline; filename="parlomix-${p.id.slice(0, 8)}.${ext}"`,
-      },
+    return servirVideo(ctx.request, ctx.env, p.cle, {
+      type: p.type_mime ?? "video/webm",
+      nom: `parlomix-${p.titre}-${p.format.replace(":", "x")}.${ext}`,
+      journaliser: () => journaliser(ctx.env.DB, id, { action: "parlomix.visionnage", cibleType: "parlomix", cibleId: p.id, clientId: c.client_id, details: { campagne_id: c.id } }),
     });
   });
 }

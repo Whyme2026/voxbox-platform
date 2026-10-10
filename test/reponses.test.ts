@@ -97,3 +97,21 @@ test("liste des campagnes WhyMe : nombre de sessions et de réponses", async () 
   assert.equal(c.nb_sessions, 1);
   assert.equal(c.nb_reponses, 1);
 });
+
+test("vidéo : lecture par morceaux (Range), un seul visionnage journalisé", async () => {
+  const { env, db, api, cid, octets } = await avecUneReponse();
+  const rep = (await api("GET", `/api/espace/campagnes/${cid}/sessions`, ADMIN)).corps.sessions[0].reponses[0];
+  const lire = (range: string) => traiter(new Request(`http://localhost/api/espace/reponses/${rep.id}/video`, { headers: { "x-dev-email": ADMIN, range } }), env);
+  const debut = await lire("bytes=0-3");
+  assert.equal(debut.status, 206);
+  assert.equal(debut.headers.get("content-range"), `bytes 0-3/${octets.length}`);
+  assert.equal(debut.headers.get("accept-ranges"), "bytes");
+  assert.deepEqual(new Uint8Array(await debut.arrayBuffer()), octets.slice(0, 4));
+  const suite = await lire("bytes=4-");
+  assert.equal(suite.status, 206);
+  assert.equal(suite.headers.get("content-range"), `bytes 4-${octets.length - 1}/${octets.length}`);
+  assert.deepEqual(new Uint8Array(await suite.arrayBuffer()), octets.slice(4));
+  assert.equal((await lire("bytes=999-")).status, 416);
+  const j = await db.prepare("SELECT COUNT(*) AS n FROM journal WHERE action = 'reponse.visionnage'").first<any>();
+  assert.equal(j.n, 1, "seul le morceau du début compte comme un visionnage");
+});

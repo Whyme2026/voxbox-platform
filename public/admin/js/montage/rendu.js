@@ -346,7 +346,7 @@ export async function fabriquer(o) {
 
   const flux = canevas.captureStream(IMAGES_PAR_SECONDE);
   for (const piste of sortieSon.stream.getAudioTracks()) flux.addTrack(piste);
-  const enregistreur = new MediaRecorder(flux, { mimeType: type, videoBitsPerSecond: plan.format === "9:16" ? 4_000_000 : 5_000_000, audioBitsPerSecond: 160_000 });
+  const enregistreur = new MediaRecorder(flux, { mimeType: type, videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 });
   /** @type {Blob[]} */ const morceaux = [];
   enregistreur.ondataavailable = (e) => { if (e.data.size) morceaux.push(e.data); };
   const arrete = new Promise((ok) => { enregistreur.onstop = ok; });
