@@ -651,7 +651,28 @@ async function signal() {
 
 // ------------------------------------------------------------------ démarrage
 
+/** Aperçu depuis l'éditeur de Parlorama : le brouillon est joué tel quel, rien n'est envoyé ni enregistré. */
+const APERCU = new URLSearchParams(location.search).get("apercu") === "1";
+
+async function demarrerApercu() {
+  try { config = JSON.parse(localStorage.getItem("voxbox.apercu") ?? "null"); } catch { config = null; }
+  if (!config?.parcours) {
+    return afficher([h("div", { class: "ecran" }, h("h1", {}, "Aperçu indisponible"), h("p", { class: "chapo" }, "Rouvrez l'aperçu depuis l'éditeur de parcours de Parlorama."))], "erreur");
+  }
+  moteur = creerMoteur(config.parcours);
+  appliquerHabillage();
+  document.body.append(h("div", { class: "bandeau-apercu" }, "Aperçu : rien n'est enregistré"));
+  await preparerCamera();
+  accueil();
+  // Mise à jour en direct quand l'éditeur rouvre l'aperçu avec un nouveau brouillon.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "voxbox.apercu" || !e.newValue) return;
+    try { config = JSON.parse(e.newValue); moteur = creerMoteur(config.parcours); appliquerHabillage(); accueil(); } catch { /* brouillon illisible */ }
+  });
+}
+
 async function demarrer() {
+  if (APERCU) return demarrerApercu();
   if (!formatEnregistrement()) {
     return afficher([h("div", { class: "ecran" }, h("h1", {}, "Navigateur non compatible"), h("p", { class: "chapo" }, "Ce navigateur ne sait pas enregistrer la vidéo avec le son. Utilisez Chrome à jour."))], "erreur");
   }

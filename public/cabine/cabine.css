@@ -286,3 +286,7 @@ button { font: inherit; color: inherit; }
   .arrive, .ecrit i, .rec-point, .compte-bulle, .decor svg, .retour .barre span, .champ .valeur::after { animation: none !important; }
   .envol { display: none !important; }
 }
+
+/* Aperçu depuis Parlorama */
+.bandeau-apercu { position: fixed; z-index: 10; top: 10px; left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 16px 16px 16px 5px;
+  background: var(--texte); color: var(--fond); font-size: 14px; font-weight: 600; pointer-events: none; opacity: .85; }

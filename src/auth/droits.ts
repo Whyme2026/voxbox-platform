@@ -13,15 +13,16 @@ export type Action =
   | "campagnes.valider"      // valider questions et textes avant lancement
   | "cabines.gerer"
   | "reponses.lire"
+  | "visiteurs.gerer"        // supprimer les données d'un visiteur, retirer son accord de diffusion
   | "journal.lire";
 
 const MATRICE: Record<Role, readonly Action[]> = {
   admin_whyme: [
     "clients.gerer", "utilisateurs.gerer", "campagnes.gerer", "campagnes.lire",
-    "campagnes.valider", "cabines.gerer", "reponses.lire", "journal.lire",
+    "campagnes.valider", "cabines.gerer", "reponses.lire", "visiteurs.gerer", "journal.lire",
   ],
-  operateur_whyme: ["campagnes.gerer", "campagnes.lire", "cabines.gerer", "reponses.lire"],
-  validateur_client: ["campagnes.lire", "campagnes.valider", "reponses.lire"],
+  operateur_whyme: ["campagnes.gerer", "campagnes.lire", "cabines.gerer", "reponses.lire", "visiteurs.gerer"],
+  validateur_client: ["campagnes.lire", "campagnes.valider", "reponses.lire", "visiteurs.gerer"],
   lecteur_client: ["campagnes.lire", "reponses.lire"],
 };
 

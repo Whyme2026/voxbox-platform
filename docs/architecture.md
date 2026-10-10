@@ -59,7 +59,22 @@ Une page sans compilation (`public/admin/`), même direction artistique, protég
   affectation, code d'appairage), clients, comptes, journal.
 - Comptes client : leurs campagnes et leurs réponses uniquement, validation des questions et des textes.
 - Vidéos : `GET /api/espace/reponses/:id/video`, droit `reponses.lire`, cloisonnement par client,
-  **chaque visionnage est journalisé** ; plus rien n'est servi si le visiteur a retiré son accord.
+  **chaque visionnage est journalisé** ; plus rien n'est servi si le visiteur a retiré son accord. Lecture en continu
+  (requêtes partielles « Range ») ; un seul visionnage journalisé par lecture.
+- Modifier et supprimer : fiches client (couleurs, logo PNG/JPEG/WebP envoyé dans R2 et servi publiquement par
+  `/api/cabine/logo/<client>.<ext>`, SVG refusé), rôle des comptes, nom/dates/conservation des campagnes (durée figée
+  une fois active ; la changer régénère les textes et remet en brouillon), suppression d'un brouillon sans visiteur,
+  cabines (renommer ; supprimer, ou retirer si déjà utilisée), Parlomix (auteur ou WhyMe).
+- Visiteurs (droit `visiteurs.gerer` : WhyMe et validateurs du client) : **retrait d'accord** (vidéos, réponses et
+  Parlomix où la personne apparaît supprimés, session anonymisée, trace dans le journal sans le prénom) et retrait du
+  seul accord de diffusion. Recherche par prénom, filtre par cabine, **export CSV** (e-mail seulement si la personne
+  accepte d'être recontactée, export journalisé).
+- **Éditeur de parcours** (`public/admin/js/editeur.js`) : étapes en cartes (ajouter, déplacer, dupliquer, supprimer),
+  champs par type, renvois (« Ensuite », options d'un choix), vérification par le serveur
+  (`POST /api/admin/parcours/valider`, mêmes règles qu'à l'enregistrement), modèles (parcours neutre, copie d'une
+  autre campagne), mode JSON, **aperçu dans la vraie cabine** (`/cabine/?apercu=1`, brouillon passé par le stockage
+  du navigateur, rien n'est envoyé). Les identifiants d'étape ne changent plus une fois créés : les réponses y sont
+  rattachées d'une version à l'autre.
 
 ## Parlomix (montages)
 Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le navigateur de la personne qui le lance

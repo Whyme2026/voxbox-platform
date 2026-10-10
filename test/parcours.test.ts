@@ -86,3 +86,9 @@ test("les bulles d'accueil sont limitées à 3 textes courts", () => {
   demo.etapes[0].bulles = ["x".repeat(121)];
   assert.ok(validerParcours(demo).some((p) => p.includes("bulles")));
 });
+
+test("le modèle « parcours neutre » de l'éditeur est identique au parcours de démonstration", () => {
+  const demo = readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8");
+  const modele = readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours-neutre.json"), "utf8");
+  assert.deepEqual(JSON.parse(modele), JSON.parse(demo));
+});

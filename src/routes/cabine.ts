@@ -174,6 +174,23 @@ export function routesCabine(r: Routeur): void {
     return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent } }, 201);
   });
 
+  // Logo d'un client, public (ce n'est pas une donnée personnelle) : affiché par la cabine et dans les Parlomix.
+  r.get("/api/cabine/logo/:fichier", async (ctx) => {
+    const m = /^([0-9a-f-]{36})\.(png|jpg|webp)$/.exec(ctx.params.fichier ?? "");
+    if (!m) throw introuvable("Logo introuvable");
+    const client = await ctx.env.DB.prepare("SELECT logo_url FROM clients WHERE id = ?").bind(m[1]).first<{ logo_url: string | null }>();
+    if (!client?.logo_url?.startsWith(`/api/cabine/logo/${m[1]}.${m[2]}`)) throw introuvable("Logo introuvable");
+    const objet = await ctx.env.MEDIA.get(`clients/${m[1]}/logo.${m[2]}`);
+    if (!objet?.body) throw introuvable("Logo introuvable");
+    return new Response(objet.body, {
+      headers: {
+        "content-type": m[2] === "png" ? "image/png" : m[2] === "jpg" ? "image/jpeg" : "image/webp",
+        "x-content-type-options": "nosniff",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  });
+
   // Signal de vie de la tablette, toutes les minutes environ.
   r.post("/api/cabine/signal", async (ctx) => {
     const cab = await authentifierCabine(ctx.request, ctx.env.DB);

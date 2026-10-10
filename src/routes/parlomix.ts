@@ -4,8 +4,8 @@
 
 import type { Routeur } from "../routeur.ts";
 import type { D1Database } from "../types.ts";
-import { identifier, type Identite } from "../auth/identite.ts";
-import { exiger } from "../auth/droits.ts";
+import { estWhyme, identifier, type Identite } from "../auth/identite.ts";
+import { exiger, peut } from "../auth/droits.ts";
 import { HttpError, conflit, interdit, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal, journaliser } from "../journal.ts";
 import { servirVideo } from "../media.ts";
@@ -118,6 +118,20 @@ export function routesParlomix(r: Routeur): void {
     await ctx.env.DB.prepare("UPDATE parlomix SET statut = 'pret', cle = ?, type_mime = ?, octets = ?, duree_ms = ?, pret_le = ? WHERE id = ? AND statut = 'attendu'")
       .bind(cle, type, corps.byteLength, duree, maintenant(), p.id).run();
     return json({ parlomix: { id: p.id, statut: "pret", octets: corps.byteLength } });
+  });
+
+  // Suppression d'un Parlomix (raté, obsolète) : par la personne qui l'a créé, ou par WhyMe.
+  r.ajouter("DELETE", "/api/espace/parlomix/:id", async (ctx) => {
+    const id = await identifier(ctx.request, ctx.env);
+    exiger(id, "reponses.lire");
+    const { p, c } = await chargerParlomix(ctx.env.DB, id, ctx.params.id!);
+    if (p.cree_par !== id.email && !(estWhyme(id) && peut(id, "campagnes.gerer"))) throw interdit("Seule la personne qui a créé ce Parlomix, ou WhyMe, peut le supprimer");
+    if (p.cle) await ctx.env.MEDIA.delete(p.cle);
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("DELETE FROM parlomix WHERE id = ?").bind(p.id),
+      ligneJournal(ctx.env.DB, id, { action: "parlomix.suppression", cibleType: "parlomix", cibleId: p.id, clientId: c.client_id, details: { campagne_id: c.id, titre: p.titre } }),
+    ]);
+    return json({ parlomix: { id: p.id, supprime: true } });
   });
 
   // Parlomix prêts d'une campagne, les plus récents d'abord.

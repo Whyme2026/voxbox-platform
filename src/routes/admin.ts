@@ -4,7 +4,7 @@
 import type { Contexte, Routeur } from "../routeur.ts";
 import { identifier, estWhyme, ROLES_CLIENT, ROLES_WHYME, type Identite, type Role } from "../auth/identite.ts";
 import { exiger, type Action } from "../auth/droits.ts";
-import { conflit, interdit, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
+import { HttpError, conflit, interdit, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal } from "../journal.ts";
 import { validerParcours } from "../parcours/schema.ts";
 import { empreinte, genererTextes, type FicheClient } from "../rgpd/consentement.ts";
@@ -26,6 +26,8 @@ export function slugifier(s: string): string {
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Formats de logo acceptés (le SVG est exclu : il peut contenir du code). */
+const LOGOS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function couleurs(v: unknown): string {
@@ -136,14 +138,41 @@ export function routesAdmin(r: Routeur): void {
     if (d.actif !== undefined && typeof d.actif !== "boolean") throw invalide("actif : vrai ou faux attendu");
     const actif = d.actif === undefined ? u.actif : d.actif ? 1 : 0;
     if (u.email === id.email && actif === 0) throw conflit("Vous ne pouvez pas désactiver votre propre compte");
-    await ctx.env.DB.batch([
-      ctx.env.DB.prepare("UPDATE utilisateurs SET actif = ? WHERE id = ?").bind(actif, u.id),
-      ligneJournal(ctx.env.DB, id, {
-        action: actif ? "utilisateur.reactivation" : "utilisateur.desactivation",
-        cibleType: "utilisateur", cibleId: u.id, clientId: u.client_id, details: { email: u.email },
-      }),
-    ]);
-    return json({ utilisateur: { ...u, actif } });
+    const ecritures = [];
+    if (actif !== u.actif) {
+      ecritures.push(
+        ctx.env.DB.prepare("UPDATE utilisateurs SET actif = ? WHERE id = ?").bind(actif, u.id),
+        ligneJournal(ctx.env.DB, id, {
+          action: actif ? "utilisateur.reactivation" : "utilisateur.desactivation",
+          cibleType: "utilisateur", cibleId: u.id, clientId: u.client_id, details: { email: u.email },
+        }),
+      );
+    }
+    // Changement de rôle (et de client pour un compte client).
+    let role = u.role;
+    let clientId = u.client_id;
+    if (d.role !== undefined) {
+      role = d.role as Role;
+      if (![...ROLES_WHYME, ...ROLES_CLIENT].includes(role)) throw invalide("role : valeur inconnue");
+      if (u.email === id.email && role !== u.role) throw conflit("Vous ne pouvez pas changer votre propre rôle");
+      clientId = ROLES_CLIENT.includes(role) ? (texte(d, "client_id", { max: 64 }) ?? u.client_id) : null;
+      if (ROLES_CLIENT.includes(role)) {
+        if (!clientId) throw invalide("client_id : obligatoire pour un compte client");
+        const c = await ctx.env.DB.prepare("SELECT 1 FROM clients WHERE id = ?").bind(clientId).first();
+        if (!c) throw invalide("client_id : client inconnu");
+      }
+      if (role !== u.role || clientId !== u.client_id) {
+        ecritures.push(
+          ctx.env.DB.prepare("UPDATE utilisateurs SET role = ?, client_id = ? WHERE id = ?").bind(role, clientId, u.id),
+          ligneJournal(ctx.env.DB, id, {
+            action: "utilisateur.role", cibleType: "utilisateur", cibleId: u.id, clientId: clientId ?? u.client_id,
+            details: { email: u.email, avant: u.role, apres: role },
+          }),
+        );
+      }
+    }
+    if (ecritures.length) await ctx.env.DB.batch(ecritures);
+    return json({ utilisateur: { ...u, actif, role, client_id: clientId } });
   });
 
   // ---------------------------------------------------------------- campagnes
@@ -344,6 +373,95 @@ export function routesAdmin(r: Routeur): void {
       ligneJournal(ctx.env.DB, id, { action: "cabine.nouveau_code", cibleType: "cabine", cibleId: ctx.params.id }),
     ]);
     return json({ cabine: { id: ctx.params.id, code_appairage: code } });
+  });
+
+  // ---------------------------------------------------------------- logo du client
+  // Envoyé ici, stocké dans R2, servi publiquement par /api/cabine/logo/<client>.<ext> (la cabine l'affiche).
+  r.ajouter("PUT", "/api/admin/clients/:id/logo", async (ctx) => {
+    const id = await whyme(ctx, "clients.gerer");
+    const c = await ctx.env.DB.prepare("SELECT id FROM clients WHERE id = ?").bind(ctx.params.id).first<{ id: string }>();
+    if (!c) throw introuvable("Client introuvable");
+    const type = (ctx.request.headers.get("content-type") ?? "").split(";")[0]!.trim();
+    const ext = LOGOS[type];
+    if (!ext) throw new HttpError(415, "format", "Logo PNG, JPEG ou WebP attendu (le SVG n'est pas accepté)");
+    const corps = await ctx.request.arrayBuffer();
+    if (!corps.byteLength) throw invalide("Logo vide");
+    if (corps.byteLength > 1024 * 1024) throw new HttpError(413, "trop_lourd", "Logo trop lourd (1 Mo au plus)");
+    await ctx.env.MEDIA.put(`clients/${c.id}/logo.${ext}`, corps, { httpMetadata: { contentType: type } });
+    const url = `/api/cabine/logo/${c.id}.${ext}?v=${Date.now()}`;
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("UPDATE clients SET logo_url = ?, maj_le = ? WHERE id = ?").bind(url, maintenant(), c.id),
+      ligneJournal(ctx.env.DB, id, { action: "client.logo", cibleType: "client", cibleId: c.id, clientId: c.id }),
+    ]);
+    return json({ client: { id: c.id, logo_url: url } });
+  });
+
+  // ---------------------------------------------------------------- modification et suppression de campagne
+  r.patch("/api/admin/campagnes/:id", async (ctx) => {
+    const id = await whyme(ctx, "campagnes.gerer");
+    const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
+    if (c.statut === "close") throw conflit("Une campagne close ne se modifie plus");
+    const d = await lireJson(ctx.request);
+    const nom = d.nom === undefined ? c.nom : texte(d, "nom", { requis: true, max: 120 })!;
+    const debut = d.debut === undefined ? c.debut : (texte(d, "debut", { max: 10 }) ?? null);
+    const fin = d.fin === undefined ? c.fin : (texte(d, "fin", { max: 10 }) ?? null);
+    if ((debut && !DATE.test(debut)) || (fin && !DATE.test(fin))) throw invalide("dates au format AAAA-MM-JJ");
+    if (debut && fin && fin < debut) throw invalide("La fin précède le début");
+    const conservation = d.conservation_jours === undefined ? c.conservation_jours : Number(d.conservation_jours);
+    if (!Number.isInteger(conservation) || conservation < 1 || conservation > 1095) throw invalide("conservation_jours : entre 1 et 1095");
+    const ecritures = [];
+    const now = maintenant();
+    if (conservation !== c.conservation_jours) {
+      // La durée figure dans les textes acceptés par les visiteurs : on ne la change qu'avant l'activation,
+      // et les textes sont régénérés (nouvelle version), ce qui remet la campagne en brouillon.
+      if (c.statut === "active") throw conflit("La durée de conservation d'une campagne active ne se modifie plus : elle figure dans les textes acceptés par les visiteurs");
+      const fiche = await ctx.env.DB.prepare("SELECT nom, raison_sociale, contact_rgpd FROM clients WHERE id = ?").bind(c.client_id).first<FicheClient>();
+      if (c.consentement_version_id && fiche) {
+        const textes = genererTextes(fiche, conservation);
+        const der = await ctx.env.DB.prepare("SELECT MAX(numero) AS n FROM consentement_versions WHERE campagne_id = ?").bind(c.id).first<{ n: number | null }>();
+        const v = { id: nouvelId(), numero: (der?.n ?? 0) + 1 };
+        ecritures.push(
+          ctx.env.DB.prepare("INSERT INTO consentement_versions (id, campagne_id, numero, texte_interne, texte_diffusion, empreinte, cree_par, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(v.id, c.id, v.numero, textes.texte_interne, textes.texte_diffusion, await empreinte(textes), id.email, now),
+          ctx.env.DB.prepare("UPDATE campagnes SET consentement_version_id = ? WHERE id = ?").bind(v.id, c.id),
+        );
+      }
+      ecritures.push(ctx.env.DB.prepare("UPDATE campagnes SET statut = 'brouillon', validee_par = NULL, validee_le = NULL WHERE id = ?").bind(c.id));
+    }
+    ecritures.unshift(
+      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, maj_le = ? WHERE id = ?").bind(nom, debut, fin, conservation, now, c.id),
+    );
+    ecritures.push(ligneJournal(ctx.env.DB, id, {
+      action: "campagne.modification", cibleType: "campagne", cibleId: c.id, clientId: c.client_id,
+      details: { nom: nom !== c.nom ? nom : undefined, debut, fin, conservation_jours: conservation !== c.conservation_jours ? conservation : undefined },
+    }));
+    await ctx.env.DB.batch(ecritures);
+    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation } });
+  });
+
+  // Suppression d'un brouillon jamais joué (aucun visiteur). Les cabines affectées sont libérées.
+  r.ajouter("DELETE", "/api/admin/campagnes/:id", async (ctx) => {
+    const id = await whyme(ctx, "campagnes.gerer");
+    const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
+    if (c.statut !== "brouillon") throw conflit("Seule une campagne en brouillon peut être supprimée ; une campagne active se clôt");
+    const n = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM sessions WHERE campagne_id = ?").bind(c.id).first<{ n: number }>();
+    if ((n?.n ?? 0) > 0) throw conflit("Cette campagne a déjà des visiteurs : elle ne peut pas être supprimée");
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("UPDATE cabines SET campagne_id = NULL WHERE campagne_id = ?").bind(c.id),
+      ctx.env.DB.prepare("UPDATE campagnes SET parcours_version_id = NULL, consentement_version_id = NULL WHERE id = ?").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM parcours_versions WHERE campagne_id = ?").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM consentement_versions WHERE campagne_id = ?").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM campagnes WHERE id = ?").bind(c.id),
+      ligneJournal(ctx.env.DB, id, { action: "campagne.suppression", cibleType: "campagne", cibleId: c.id, clientId: c.client_id, details: { nom: c.nom } }),
+    ]);
+    return json({ campagne: { id: c.id, supprimee: true } });
+  });
+
+  // Vérification d'un parcours sans l'enregistrer (éditeur de Parlorama).
+  r.post("/api/admin/parcours/valider", async (ctx) => {
+    await whyme(ctx, "campagnes.gerer");
+    const d = await lireJson(ctx.request);
+    return json({ problemes: validerParcours(d.config) });
   });
 
   // ---------------------------------------------------------------- journal

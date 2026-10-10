@@ -9,7 +9,7 @@ import { changerStatut, chargerCampagne, detailCampagne } from "./campagnes-comm
 
 const ACTIONS: Action[] = [
   "clients.gerer", "utilisateurs.gerer", "campagnes.gerer", "campagnes.lire",
-  "campagnes.valider", "cabines.gerer", "reponses.lire", "journal.lire",
+  "campagnes.valider", "cabines.gerer", "reponses.lire", "visiteurs.gerer", "journal.lire",
 ];
 
 export function routesEspace(r: Routeur): void {

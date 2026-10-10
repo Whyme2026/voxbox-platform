@@ -174,3 +174,48 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 .titre-cabine { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .renommage { display: flex; gap: 8px; align-items: center; }
 .renommage input { flex: 1; min-width: 0; min-height: 38px; padding: 6px 12px; border-radius: 12px; border: 1.5px solid var(--vox); font-family: var(--titres); font-weight: 600; font-size: 18px; }
+
+.logo-client { max-height: 56px; max-width: 160px; object-fit: contain; border-radius: 8px; background: var(--fond); padding: 4px; }
+.logo-client.petit { max-height: 28px; max-width: 80px; padding: 2px; }
+.ligne-logo { display: flex; align-items: center; gap: 12px; font-weight: 400; }
+.choix-compact { min-height: 34px; padding: 4px 8px; border-radius: 10px; border: 1.5px solid var(--trait); background: var(--carte); font-size: 14px; }
+.ligne-role { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.barre-reponses { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.recherche { min-height: 34px; padding: 4px 12px; border-radius: 17px; border: 1.5px solid var(--trait); background: var(--carte); font-size: 14px; min-width: 200px; }
+.actions-visiteur { padding-top: 10px; border-top: 1px solid var(--trait); }
+
+/* Éditeur de parcours */
+.editeur { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.panneau-editeur { position: sticky; top: 16px; }
+.entete-parcours { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; }
+.editeur-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.etape-editeur { border-radius: 16px; background: var(--fond); }
+.etape-editeur.ouverte { background: var(--carte); box-shadow: inset 0 0 0 2px var(--vox-pale); }
+.tete-etape { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.ouvrir-etape { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: none; cursor: pointer; text-align: left; padding: 4px; }
+.ouvrir-etape .num { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 12px 12px 12px 4px; background: var(--doux); color: #FFFFFF; font-family: var(--titres); font-weight: 600; }
+.ouvrir-etape .num.question { background: var(--vox); }
+.ouvrir-etape .texte { min-width: 0; display: flex; flex-direction: column; }
+.ouvrir-etape .texte strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ouvrir-etape .texte span { font-size: 13px; color: var(--doux); }
+.actions-etape { display: flex; gap: 4px; flex: none; }
+.actions-etape .bouton { padding: 0 10px; }
+.corps-etape { display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 16px 58px; }
+.corps-etape .champ textarea { min-height: 56px; font-family: inherit; font-size: 15px; }
+.description-etape { margin: 0; font-size: 14px; color: var(--doux); }
+.ligne-liste { display: flex; gap: 6px; align-items: center; }
+.ligne-liste input, .ligne-liste select { flex: 1; min-width: 0; min-height: 38px; padding: 6px 10px; border-radius: 10px; border: 1.5px solid var(--trait); background: var(--carte); }
+.ajout-etape summary { list-style: none; display: inline-flex; cursor: pointer; }
+.ajout-etape summary::-webkit-details-marker { display: none; }
+.types-etapes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
+.type-etape { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border: 0; border-radius: 14px 14px 14px 4px; background: var(--fond); cursor: pointer; }
+.type-etape:hover { background: var(--vox-pale); }
+.type-etape span { font-size: 13px; color: var(--doux); }
+.verif-ok { color: var(--vert); }
+.verif-ko { color: var(--rouge); }
+.detail-verif { font-size: 13px; color: var(--doux); }
+.etat-editeur { font-size: 13px; color: var(--doux); min-height: 1em; }
+.expert summary { cursor: pointer; font-size: 14px; color: var(--doux); }
+.json-editeur { width: 100%; min-height: 260px; margin: 10px 0; font-family: ui-monospace, Menlo, monospace; font-size: 12px; border-radius: 12px; border: 1.5px solid var(--trait); padding: 10px; }
+@media (max-width: 1100px) { .editeur { grid-template-columns: 1fr; } .panneau-editeur { position: static; } }

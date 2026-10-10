@@ -170,7 +170,7 @@ async function visiteAdmin() {
   await admin.locator(".question-texte").waitFor();
   await photo("05-reponses-par-question");
   await admin.getByRole("tab", { name: "Parcours" }).click();
-  await admin.locator(".etapes").waitFor();
+  await admin.locator(".editeur-etapes").waitFor();
   await photo("06-parcours");
   await admin.getByRole("tab", { name: "Consentement" }).click();
   await admin.getByText("Usage interne (obligatoire)").waitFor();
@@ -215,8 +215,67 @@ async function visiteAdmin() {
   await admin.getByRole("link", { name: "Journal" }).click();
   await admin.getByRole("cell", { name: "Vidéo visionnée" }).first().waitFor();
   await photo("11-journal");
+  await visiteEdition(admin, photo);
   if (process.env.E2E_PARLOMIX) await visiteParlomix(admin, photo);
   await admin.close();
+}
+
+/** Modifications : fiche client et logo, rôle d'un compte, éditeur de parcours et aperçu, actions sur un visiteur. */
+async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) {
+  // Fiche client : couleurs et logo.
+  await admin.getByRole("link", { name: "Clients" }).click();
+  await admin.getByRole("row", { name: /Maison Lumière/ }).getByRole("button", { name: "Modifier" }).click();
+  await admin.locator("form input[type=file]").setInputFiles(process.env.E2E_LOGO ?? "/tmp/claude-0/e2e/logo-essai.png");
+  await admin.getByRole("button", { name: "Enregistrer" }).click();
+  await admin.locator("img.logo-client.petit").first().waitFor();
+  await photo("15-client-logo");
+  // Rôle d'un compte.
+  await admin.getByRole("link", { name: "Comptes" }).click();
+  await admin.getByLabel("Rôle de marketing@maison-lumiere.test").selectOption("validateur_client");
+  await admin.getByRole("button", { name: "Enregistrer" }).click();
+  await admin.getByText("Rôle modifié").waitFor();
+  // Nouvelle campagne en brouillon et éditeur de parcours.
+  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.getByRole("button", { name: "Nouvelle campagne" }).click();
+  await admin.getByLabel("Client").selectOption({ label: "Maison Lumière" });
+  await admin.getByLabel("Nom de la campagne").fill("Printemps en boutique");
+  await admin.getByRole("button", { name: "Créer la campagne" }).click();
+  await admin.getByRole("heading", { name: "Printemps en boutique" }).waitFor();
+  await admin.getByRole("tab", { name: "Parcours" }).click();
+  await admin.getByRole("button", { name: "Parcours neutre Parlopop (démo)" }).click();
+  await admin.getByText("Parcours valide").waitFor();
+  await admin.getByRole("button", { name: /Le coup de cœur/ }).click();
+  await admin.locator("#ed-q-coup-de-coeur-texte").fill("Qu'est-ce qui vous a fait sourire en boutique ?");
+  await admin.locator("summary", { hasText: "Ajouter une étape" }).click();
+  await admin.locator(".type-etape strong", { hasText: /^Question$/ }).click();
+  await admin.getByText("Parcours valide").waitFor();
+  await photo("16-editeur-parcours");
+  // Aperçu dans la vraie cabine.
+  const [cabine] = await Promise.all([admin.waitForEvent("popup"), admin.getByRole("button", { name: "Aperçu dans la cabine" }).click()]);
+  await cabine.setViewportSize({ width: 1280, height: 720 });
+  await cabine.getByText("Une minute pour dire").waitFor();
+  await cabine.getByText("Aperçu : rien n'est enregistré").waitFor();
+  await cabine.waitForTimeout(1800);
+  await cabine.screenshot({ path: join(captures, "admin-17-apercu-cabine.png") });
+  await cabine.close();
+  await admin.getByRole("button", { name: "Enregistrer la version" }).click();
+  await admin.getByText("Nouvelle version du parcours enregistrée").waitFor();
+  const v = await db.prepare("SELECT p.config FROM parcours_versions p JOIN campagnes c ON c.parcours_version_id = p.id WHERE c.nom = 'Printemps en boutique'").first<any>();
+  const config = JSON.parse(v.config);
+  assert.equal(config.etapes.filter((e: any) => e.type === "question").length, 6, "5 questions du modèle + 1 ajoutée");
+  assert.ok(config.etapes.some((e: any) => e.texte === "Qu'est-ce qui vous a fait sourire en boutique ?"));
+  // Actions sur un visiteur dans la campagne de démo : retrait de l'accord de diffusion, recherche.
+  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.getByRole("link", { name: "Démo Parlopop (neutre)" }).click();
+  await admin.getByLabel("Rechercher un prénom").fill("cam");
+  await admin.locator(".session").first().waitFor();
+  assert.equal(await admin.locator(".session").count(), 1);
+  await admin.getByRole("button", { name: "Retirer l'accord de diffusion" }).click();
+  await admin.getByRole("button", { name: "Confirmer : usage interne seulement" }).click();
+  await admin.getByText("Accord de diffusion retiré").waitFor();
+  await admin.getByLabel("Rechercher un prénom").fill("cam");
+  await admin.locator(".session", { hasText: "Usage interne seulement" }).waitFor();
+  await photo("18-reponses-actions");
 }
 
 /** Parlomix : un montage par personne (16:9 et 9:16) et un montage par question, vérifiés avec ffprobe. */

@@ -2,6 +2,8 @@
 // Parlorama, l'interface de Parlopop : WhyMe (clients, campagnes, cabines, comptes, journal) et clients (leurs campagnes, leurs réponses).
 // Une seule page, navigation par ancre (#/campagnes/…). Tout le texte venant de la base est inséré en texte, jamais en HTML.
 
+import { h } from "./dom.js";
+import { editeurParcours } from "./editeur.js";
 import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
 import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon } from "./montage/rendu.js";
 
@@ -12,19 +14,6 @@ const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.get
 const contenu = $("contenu");
 
 // ------------------------------------------------------------------ utilitaires
-
-/** h("p", { class: "x" }, "texte", enfant…) */
-function h(/** @type {string} */ tag, /** @type {Record<string, any>} */ attrs = {}, /** @type {any[]} */ ...enfants) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === undefined || v === null || v === false) continue;
-    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-    else if (k === "class") el.className = v;
-    else el.setAttribute(k, v === true ? "" : String(v));
-  }
-  for (const e of enfants.flat()) if (e !== null && e !== undefined && e !== false) el.append(e instanceof Node ? e : String(e));
-  return el;
-}
 
 /** Icône SVG à partir d'un tracé (aucune donnée externe). */
 function icone(/** @type {string} */ d) {
@@ -105,7 +94,10 @@ const ROLES = /** @type {Record<string, string>} */ ({
   admin_whyme: "Administrateur WhyMe", operateur_whyme: "Opérateur WhyMe", validateur_client: "Validateur (client)", lecteur_client: "Lecteur (client)",
 });
 const ACTIONS = /** @type {Record<string, string>} */ ({
-  "client.creation": "Client créé", "client.modification": "Client modifié",
+  "client.creation": "Client créé", "client.modification": "Client modifié", "client.logo": "Logo du client",
+  "utilisateur.role": "Rôle modifié", "campagne.modification": "Campagne modifiée", "campagne.suppression": "Campagne supprimée",
+  "campagne.export": "Export des visiteurs", "session.retrait": "Retrait d'accord d'un visiteur", "session.diffusion_retiree": "Accord de diffusion retiré",
+  "parlomix.suppression": "Parlomix supprimé",
   "utilisateur.creation": "Compte créé", "utilisateur.desactivation": "Compte désactivé", "utilisateur.reactivation": "Compte réactivé",
   "campagne.creation": "Campagne créée", "campagne.parcours": "Nouveau parcours", "campagne.consentement": "Nouveaux textes de consentement",
   "campagne.statut.validee": "Campagne validée", "campagne.statut.active": "Campagne activée", "campagne.statut.close": "Campagne close",
@@ -294,6 +286,15 @@ async function vueCampagne(/** @type {string} */ id) {
     await api(`/api/admin/campagnes/${c.id}/statut`, { methode: "POST", corps: { statut: cible } });
     toast(message); router();
   };
+  if (peut("campagnes.gerer") && estWhyme() && c.statut !== "close") {
+    actions.append(h("button", { type: "button", class: "bouton discret", onclick: () => { edition.hidden = !edition.hidden; } }, "Modifier"));
+  }
+  if (peut("campagnes.gerer") && estWhyme() && c.statut === "brouillon") {
+    actions.append(boutonConfirme("Supprimer", "Confirmer la suppression", async () => {
+      await api(`/api/admin/campagnes/${c.id}`, { methode: "DELETE" });
+      toast("Campagne supprimée."); location.hash = "#/campagnes";
+    }, "bouton danger"));
+  }
   if (peut("campagnes.gerer")) {
     if (c.statut === "brouillon" && peut("campagnes.valider")) actions.append(boutonConfirme("Valider", "Confirmer la validation", () => changer("validee", "Campagne validée."), "bouton discret"));
     if (c.statut === "validee") actions.append(
@@ -314,6 +315,28 @@ async function vueCampagne(/** @type {string} */ id) {
     c.validee_par ? `validée par ${c.validee_par}` : null,
   ].filter(Boolean).join(" · ");
 
+  // Modification du nom, des dates et de la durée de conservation.
+  const edition = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire", style: "margin-bottom: 18px", hidden: true },
+    champ("Nom de la campagne", h("input", { name: "nom", required: true, maxlength: 120, value: c.nom })),
+    champ("Début", h("input", { name: "debut", type: "date", value: c.debut ?? null })),
+    champ("Fin", h("input", { name: "fin", type: "date", value: c.fin ?? null })),
+    champ("Conservation des vidéos (jours)", h("input", { name: "conservation_jours", type: "number", min: 1, max: 1095, value: c.conservation_jours, disabled: c.statut === "active" })),
+    c.statut === "active" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "La durée de conservation ne change plus une fois la campagne active : elle figure dans les textes acceptés par les visiteurs.")
+      : c.statut === "validee" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Changer la durée régénère les textes de consentement et remet la campagne en brouillon (nouvelle validation du client).") : null,
+    h("div", { class: "boutons large" }, h("button", { type: "submit", class: "bouton" }, "Enregistrer"),
+      h("button", { type: "button", class: "bouton discret", onclick: () => { edition.hidden = true; } }, "Annuler"))));
+  edition.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const v = valeurs(edition);
+    try {
+      await api(`/api/admin/campagnes/${c.id}`, { methode: "PATCH", corps: {
+        nom: v.nom, debut: v.debut || null, fin: v.fin || null,
+        ...(c.statut === "active" ? {} : { conservation_jours: Number(v.conservation_jours) }),
+      } });
+      toast("Campagne enregistrée."); router();
+    } catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); }
+  });
+
   const zone = h("div", {});
   const onglets = [["reponses", "Réponses"], ["parlomix", "Parlomix"], ["parcours", "Parcours"], ["consentement", "Consentement"]];
   const barre = h("div", { class: "onglets", role: "tablist" }, ...onglets.map(([cle, libelle]) =>
@@ -321,13 +344,13 @@ async function vueCampagne(/** @type {string} */ id) {
 
   const options = new URLSearchParams(location.hash.split("?")[1] ?? "");
   if (onglet === "parlomix") zone.append(peut("reponses.lire") ? await vueParlomix(c, options) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
-  else if (onglet === "parcours") zone.append(vueParcours(c));
+  else if (onglet === "parcours") zone.append(await vueParcours(c));
   else if (onglet === "consentement") zone.append(vueConsentement(c));
   else zone.append(peut("reponses.lire") ? await vueReponses(c) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
 
   return h("div", {},
     enTete(c.nom, h("span", {}, statut(c.statut), " ", infos), actions, h("a", { href: "#/campagnes" }, "Campagnes")),
-    barre, zone);
+    edition, barre, zone);
 }
 
 /** Réponses : par visiteur, ou toutes les réponses à une même question (pour écouter ce que les gens disent d'un sujet). */
@@ -342,6 +365,15 @@ async function vueReponses(/** @type {any} */ c) {
   const questions = Object.fromEntries(donnees.questions.map((/** @type {any} */ q) => [q.id, q]));
   const zone = h("div", { class: "sessions" });
   let filtre = "";
+  // Recherche par prénom et filtre par cabine.
+  const recherche = /** @type {HTMLInputElement} */ (h("input", { type: "search", placeholder: "Rechercher un prénom", "aria-label": "Rechercher un prénom", class: "recherche" }));
+  const cabinesVues = [...new Map(donnees.sessions.filter((/** @type {any} */ s) => s.cabine_id).map((/** @type {any} */ s) => [s.cabine_id, s.cabine_nom])).entries()];
+  const choixCabine = /** @type {HTMLSelectElement} */ (h("select", { class: "choix-compact", "aria-label": "Cabine" }, h("option", { value: "" }, "Toutes les cabines"),
+    ...cabinesVues.map(([id, nom]) => h("option", { value: id }, nom ?? "Cabine"))));
+  const garde = (/** @type {any} */ s) => (!choixCabine.value || s.cabine_id === choixCabine.value)
+    && (!recherche.value.trim() || String(s.prenom).toLocaleLowerCase("fr").includes(recherche.value.trim().toLocaleLowerCase("fr")));
+  recherche.addEventListener("input", () => dessiner());
+  choixCabine.addEventListener("change", () => dessiner());
   const puces = h("div", { class: "puces", role: "group", "aria-label": "Filtrer par question" });
   const dessinerPuces = () => puces.replaceChildren(
     h("button", { type: "button", class: "puce", "aria-pressed": String(!filtre), onclick: () => { filtre = ""; dessiner(); } }, "Par visiteur"),
@@ -349,8 +381,10 @@ async function vueReponses(/** @type {any} */ c) {
 
   const dessiner = () => {
     dessinerPuces();
+    const visibles = donnees.sessions.filter(garde);
+    if (!visibles.length) { zone.replaceChildren(h("section", { class: "carte vide" }, "Aucun visiteur ne correspond à cette recherche.")); return; }
     if (!filtre) {
-      zone.replaceChildren(...donnees.sessions.map((/** @type {any} */ s) => h("article", { class: "carte session" },
+      zone.replaceChildren(...visibles.map((/** @type {any} */ s) => h("article", { class: "carte session" },
         h("div", { class: "session-tete" },
           h("span", { class: "prenom" }, s.prenom),
           h("span", { class: "quand" }, `${date(s.cree_le)}${s.cabine_nom ? ` · ${s.cabine_nom}` : ""}`),
@@ -359,10 +393,19 @@ async function vueReponses(/** @type {any} */ c) {
             : h("span", { class: "pastille" }, "Usage interne seulement"),
           s.recontact ? h("span", { class: "pastille", "data-ton": "vox" }, "Accepte d'être recontacté") : null,
           s.reponses.length && !s.retiree_le ? h("a", { class: "bouton discret petit", style: "margin-left: auto", href: `#/campagnes/${c.id}?onglet=parlomix&personne=${s.id}` }, "Parlomix de cette personne") : null),
+        peut("visiteurs.gerer") && !s.retiree_le ? h("div", { class: "boutons actions-visiteur" },
+          s.consent_diffusion ? boutonConfirme("Retirer l'accord de diffusion", "Confirmer : usage interne seulement", async () => {
+            await api(`/api/espace/sessions/${s.id}/diffusion-retiree`, { methode: "POST", corps: {} });
+            toast("Accord de diffusion retiré : ses vidéos restent pour l'usage interne."); router();
+          }, "bouton discret petit") : null,
+          boutonConfirme("Supprimer ses données (retrait d'accord)", "Confirmer : vidéos et Parlomix supprimés définitivement", async () => {
+            const r = await api(`/api/espace/sessions/${s.id}/retrait`, { methode: "POST", corps: {} });
+            toast(`Données supprimées : ${r.session.videos_supprimees} vidéo(s), ${r.session.parlomix_supprimes} Parlomix.`); router();
+          }, "bouton danger petit")) : null,
         s.reponses.length ? h("div", { class: "videos" }, ...s.reponses.map((/** @type {any} */ r) => tuileVideo(r, questions[r.etape_id]?.titre ?? r.etape_id)))
           : h("p", { class: "vide", style: "padding: 0; text-align: left" }, s.retiree_le ? "Les vidéos ne sont plus disponibles." : "Réponses en cours d'envoi depuis la cabine."))));
     } else {
-      const toutes = donnees.sessions.flatMap((/** @type {any} */ s) => s.reponses.filter((/** @type {any} */ r) => r.etape_id === filtre).map((/** @type {any} */ r) => ({ r, s })));
+      const toutes = visibles.flatMap((/** @type {any} */ s) => s.reponses.filter((/** @type {any} */ r) => r.etape_id === filtre).map((/** @type {any} */ r) => ({ r, s })));
       zone.replaceChildren(h("section", { class: "carte" },
         h("div", { style: "display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px" },
           h("p", { class: "question-texte" }, questions[filtre]?.texte || questions[filtre]?.titre),
@@ -372,9 +415,21 @@ async function vueReponses(/** @type {any} */ c) {
     }
   };
   dessiner();
+  const exporter = h("a", { class: "bouton discret petit", href: `/api/espace/campagnes/${c.id}/export.csv`, download: "" }, "Exporter les visiteurs (tableur)");
+  if (!lectureDirecte()) {
+    // En local, l'identité passe par un en-tête : téléchargement par le script.
+    exporter.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      const res = await fetch(`/api/espace/campagnes/${c.id}/export.csv`, { headers: enTetesDev() });
+      const lien = h("a", { href: URL.createObjectURL(await res.blob()), download: `visiteurs-${c.slug ?? "campagne"}.csv` });
+      lien.click();
+    });
+  }
   return h("div", {},
-    h("p", { class: "sous", style: "margin: 0 0 12px; color: var(--doux)" },
-      `${donnees.total} visiteur${donnees.total > 1 ? "s" : ""}. Chaque visionnage est enregistré dans le journal.`),
+    h("div", { class: "barre-reponses" },
+      h("p", { class: "sous", style: "margin: 0; color: var(--doux)" },
+        `${donnees.total} visiteur${donnees.total > 1 ? "s" : ""}. Chaque visionnage et chaque export sont enregistrés dans le journal.`),
+      h("div", { class: "boutons" }, recherche, cabinesVues.length > 1 ? choixCabine : null, exporter)),
     puces, zone);
 }
 
@@ -524,6 +579,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       const avant = clips.reduce((n, x) => n + x.dureeMs, 0);
       const apres = clips.reduce((n, x) => n + dureeSegments(x.segments), 0);
       const theme = themeDepuisCouleurs(c.client?.couleurs);
+      const logo = await chargerLogo(c.client?.logo_url);
       const question = questions.find((/** @type {any} */ q) => q.id === choixQuestion.value);
       const personne = sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value);
       const cabineNom = cabines.find(([id]) => id === choixCabine.value)?.[1];
@@ -535,12 +591,12 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
         etape.textContent = `Montage ${format}`;
         detail.textContent = `${clips.length} réponse${clips.length > 1 ? "s" : ""}, ${Math.round((avant - apres) / 1000)} s de blancs coupés`;
         const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre, sousTitre, signature: c.client?.nom ?? "Parlopop", clips, format, theme });
-        let film = await fabriquer({ plan, videos, apercu, surProgression: avancer });
+        let film = await fabriquer({ plan, videos, apercu, logo, surProgression: avancer });
         if (!(await contientDuSon(film.blob)) && film.type === "video/mp4") {
           // Leçon Geely : un MP4 peut perdre le son sans erreur. On refait le film en WebM.
           detail.textContent = "Son absent du MP4 : nouveau montage en WebM";
           const webm = formatsDisponibles().find((f) => f.startsWith("video/webm"));
-          if (webm) film = await fabriquer({ plan, videos, apercu, format: webm, surProgression: avancer });
+          if (webm) film = await fabriquer({ plan, videos, apercu, logo, format: webm, surProgression: avancer });
         }
         etape.textContent = `Envoi ${format}`;
         detail.textContent = `${Math.round(film.blob.size / 1e5) / 10} Mo`;
@@ -578,6 +634,14 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
     h("section", { class: "carte" }, h("h2", {}, "Parlomix de la campagne"), liste));
 }
 
+/** Logo du client pour les cartes du Parlomix (seulement s'il est hébergé par la plateforme : sinon le canevas serait bloqué). */
+async function chargerLogo(/** @type {string | null | undefined} */ url) {
+  if (!url || !url.startsWith("/")) return null;
+  const img = new Image();
+  img.src = url;
+  try { await img.decode(); return img; } catch { return null; }
+}
+
 function tuileParlomix(/** @type {any} */ p) {
   const portrait = p.format === "9:16";
   const ecran = h("button", { type: "button", class: `ecran-video${portrait ? " portrait" : ""}`, "aria-label": `Lire le Parlomix : ${p.titre}`, disabled: !p.disponible },
@@ -601,59 +665,58 @@ function tuileParlomix(/** @type {any} */ p) {
       h("span", { class: "pastille sans-point" }, p.format),
       !p.disponible ? h("span", { class: "pastille", "data-ton": "rouge" }, "Accord retiré")
         : p.diffusable ? h("span", { class: "pastille", "data-ton": "vert" }, "Diffusable") : h("span", { class: "pastille" }, "Usage interne"),
-      telecharger),
+      telecharger,
+      p.cree_par === moi?.email || (estWhyme() && peut("campagnes.gerer")) ? boutonConfirme("Supprimer", "Confirmer", async () => {
+        await api(`/api/espace/parlomix/${p.id}`, { methode: "DELETE" });
+        toast("Parlomix supprimé."); router();
+      }, "bouton danger petit") : null),
     h("span", { style: "font-size: 13px; color: var(--doux)" }, `${p.nb_extraits} réponse${p.nb_extraits > 1 ? "s" : ""} · ${date(p.cree_le)} · ${p.cree_par}`));
 }
 
 /** Affichage d'un texte du parcours : l'emplacement {prenom} devient « [prénom] ». */
 const lisible = (/** @type {string} */ t) => String(t).replaceAll("{prenom}", "[prénom]");
 
-function vueParcours(/** @type {any} */ c) {
+async function vueParcours(/** @type {any} */ c) {
   const p = c.parcours;
-  const bloc = h("div", { class: "grille deux" });
-  const gauche = h("section", { class: "carte" });
-  if (!p) gauche.append(h("h2", {}, "Parcours"), h("p", { class: "vide" }, "Aucun parcours pour l'instant."));
-  else {
-    const fichier = new Blob([JSON.stringify(p.config, null, 2)], { type: "application/json" });
-    gauche.append(
-      h("div", { style: "display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px" },
-        h("h2", { style: "margin: 0" }, `Parcours, version ${p.numero}`),
-        h("a", { class: "bouton discret petit", href: URL.createObjectURL(fichier), download: `parcours-v${p.numero}.json` }, "Télécharger le JSON")),
-      h("p", { style: "margin: 0 0 14px; color: var(--doux); font-size: 14px" }, `Créée par ${p.cree_par}, ${date(p.cree_le)}`),
-      h("ol", { class: "etapes" }, ...p.config.etapes.map((/** @type {any} */ e, /** @type {number} */ i) => h("li", {},
-        h("span", { class: "num" }, String(i + 1)),
-        h("span", { class: "texte" }, h("strong", {}, lisible(e.titreCourt ?? e.titre ?? TYPES_ETAPES[e.type] ?? e.type)), h("span", {}, lisible(e.texte ?? (e.titreCourt ? e.titre : "") ?? ""))),
-        h("span", { class: "pastille sans-point" }, TYPES_ETAPES[e.type] ?? e.type)))));
+  const modifiable = peut("campagnes.gerer") && estWhyme() && c.statut !== "active" && c.statut !== "close";
+  /** @type {{ libelle: string, charger: () => Promise<any> }[]} */
+  const modeles = [{ libelle: "Parcours neutre Parlopop (démo)", charger: async () => (await fetch("modeles/parcours-neutre.json")).json() }];
+  if (modifiable) {
+    const { campagnes } = await api("/api/admin/campagnes");
+    for (const autre of campagnes.filter((/** @type {any} */ x) => x.id !== c.id && x.parcours_version_id).slice(0, 12)) {
+      modeles.push({ libelle: `Copier : ${autre.nom} (${autre.client_nom})`, charger: async () => (await api(`/api/admin/campagnes/${autre.id}`)).campagne.parcours?.config });
+    }
   }
-  bloc.append(gauche);
-  if (peut("campagnes.gerer") && c.statut !== "active" && c.statut !== "close") {
-    const zoneTexte = /** @type {HTMLTextAreaElement} */ (h("textarea", { name: "config", spellcheck: "false", placeholder: "Collez ici le fichier de parcours (JSON)" }));
-    if (p) zoneTexte.value = JSON.stringify(p.config, null, 2);
-    const erreurs = h("ul", { class: "erreurs", hidden: true });
-    const f = /** @type {HTMLFormElement} */ (h("form", { class: "carte pile" },
-      h("h2", { style: "margin: 0" }, "Nouvelle version"),
-      h("p", { style: "margin: 0; color: var(--doux); font-size: 14px" }, "Toute nouvelle version remet la campagne en brouillon : le client devra la valider à nouveau."),
-      champ("Fichier de parcours (JSON)", zoneTexte), erreurs,
-      h("div", { class: "boutons" }, h("button", { type: "submit", class: "bouton" }, "Enregistrer la version"))));
-    f.addEventListener("submit", async (ev) => {
-      ev.preventDefault();
-      erreurs.hidden = true;
-      let config;
-      try { config = JSON.parse(zoneTexte.value); } catch { erreurs.replaceChildren(h("li", {}, "Le texte n'est pas un JSON valide.")); erreurs.hidden = false; return; }
-      try {
-        await api(`/api/admin/campagnes/${c.id}/parcours`, { methode: "POST", corps: { config } });
-        toast("Nouvelle version enregistrée."); router();
-      } catch (e) {
-        const pb = /** @type {any} */ (e).corps?.problemes ?? [/** @type {Error} */ (e).message];
-        erreurs.replaceChildren(...pb.map((/** @type {string} */ x) => h("li", {}, x))); erreurs.hidden = false;
-      }
-    });
-    bloc.append(f);
-  } else if (c.statut === "active") {
-    bloc.append(h("section", { class: "carte" }, h("h2", {}, "Modifier le parcours"),
-      h("p", { style: "margin: 0; color: var(--doux)" }, "Une campagne active ne se modifie plus. Pour changer les questions, créez une nouvelle campagne.")));
-  }
-  return bloc;
+  const entete = h("div", { class: "entete-parcours" },
+    h("span", { style: "color: var(--doux); font-size: 14px" }, p ? `Version ${p.numero}, créée par ${p.cree_par}, ${date(p.cree_le)}` : "Pas encore de parcours."),
+    c.statut === "active" ? h("span", { class: "pastille", "data-ton": "jaune" }, "Campagne active : le parcours ne se modifie plus (créez une nouvelle campagne et copiez-le)") : null,
+    p ? h("a", { class: "bouton discret petit", href: URL.createObjectURL(new Blob([JSON.stringify(p.config, null, 2)], { type: "application/json" })), download: `parcours-v${p.numero}.json` }, "Télécharger le JSON") : null);
+  return h("div", { class: "pile" }, entete, editeurParcours({
+    config: p?.config ?? { version: 1, langue: "fr", etapes: [] },
+    lectureSeule: !modifiable,
+    modeles,
+    valider: async (config) => modifiable ? (await api("/api/admin/parcours/valider", { methode: "POST", corps: { config } })).problemes : [],
+    enregistrer: async (config) => {
+      await api(`/api/admin/campagnes/${c.id}/parcours`, { methode: "POST", corps: { config } });
+      toast("Nouvelle version du parcours enregistrée. La campagne repasse en brouillon : à faire valider."); router();
+    },
+    apercu: (config) => {
+      const diffusion = config.etapes.some((/** @type {any} */ e) => e.type === "consentement" && e.proposerDiffusion);
+      const apercu = {
+        cabine: { id: "apercu", nom: "Aperçu" },
+        campagne: { id: "apercu", nom: c.nom, parcours_version_id: "apercu" },
+        client: c.client ?? { nom: "Parlopop", logo_url: null, couleurs: {} },
+        parcours: config,
+        consentement: {
+          id: "apercu",
+          texte_interne: c.consentement?.texte_interne ?? "Texte de consentement (généré depuis la fiche client, onglet Consentement).",
+          texte_diffusion: diffusion ? (c.consentement?.texte_diffusion ?? `J'accepte aussi que ${c.client?.nom ?? "la marque"} utilise ma vidéo dans ses communications publiques.`) : null,
+        },
+      };
+      try { localStorage.setItem("voxbox.apercu", JSON.stringify(apercu)); } catch { toast("Aperçu impossible : stockage du navigateur indisponible.", "erreur"); return; }
+      window.open("/cabine/?apercu=1", "parlopop-apercu");
+    },
+  }));
 }
 
 function vueConsentement(/** @type {any} */ c) {
@@ -752,37 +815,62 @@ function carteCabine(/** @type {any} */ cab, /** @type {any[]} */ campagnes) {
 
 // ------------------------------------------------------------------ clients
 
-async function vueClients() {
-  const { clients } = await api("/api/admin/clients");
-  const f = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire", style: "margin-bottom: 18px", hidden: true },
-    champ("Nom de marque", h("input", { name: "nom", required: true, maxlength: 80 })),
-    champ("Raison sociale (responsable de traitement)", h("input", { name: "raison_sociale", required: true, maxlength: 160 })),
-    champ("Contact RGPD affiché au visiteur", h("input", { name: "contact_rgpd", required: true, maxlength: 160, placeholder: "dpo@marque.fr" })),
-    champ("Logo (adresse https, facultatif)", h("input", { name: "logo_url", type: "url", maxlength: 500 })),
-    champ("Couleur de la marque", h("input", { name: "principale", type: "color", value: "#3F4C8F" })),
-    champ("Couleur des réponses", h("input", { name: "secondaire", type: "color", value: "#F2D27A" })),
-    h("div", { class: "boutons" }, h("button", { type: "submit", class: "bouton" }, "Créer le client"))));
+/** Formulaire de fiche client, en création ou en modification. */
+function formulaireClient(/** @type {any} */ c = null) {
+  const couleurs = c?.couleurs ?? {};
+  const fichier = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: "image/png,image/jpeg,image/webp" }));
+  const apercuLogo = /** @type {HTMLImageElement} */ (h("img", { class: "logo-client", alt: "", src: c?.logo_url ?? null, hidden: !c?.logo_url }));
+  fichier.addEventListener("change", () => {
+    const f = fichier.files?.[0];
+    if (f) { apercuLogo.src = URL.createObjectURL(f); apercuLogo.hidden = false; }
+  });
+  const f = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire", style: "margin-bottom: 18px" },
+    champ("Nom de marque", h("input", { name: "nom", required: true, maxlength: 80, value: c?.nom ?? null })),
+    champ("Raison sociale (responsable de traitement)", h("input", { name: "raison_sociale", required: true, maxlength: 160, value: c?.raison_sociale ?? null })),
+    champ("Contact RGPD affiché au visiteur", h("input", { name: "contact_rgpd", required: true, maxlength: 160, placeholder: "dpo@marque.fr", value: c?.contact_rgpd ?? null })),
+    champ("Couleur de la marque", h("input", { name: "principale", type: "color", value: couleurs.principale ?? "#3F4C8F" })),
+    champ("Couleur des réponses", h("input", { name: "secondaire", type: "color", value: couleurs.secondaire ?? "#F2D27A" })),
+    h("div", { class: "champ" }, "Logo (PNG, JPEG ou WebP, 1 Mo au plus)", h("div", { class: "ligne-logo" }, apercuLogo, fichier)),
+    h("div", { class: "boutons large" },
+      h("button", { type: "submit", class: "bouton" }, c ? "Enregistrer" : "Créer le client"),
+      h("button", { type: "button", class: "bouton discret", onclick: () => { f.remove(); } }, "Annuler"))));
   f.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const v = valeurs(f);
+    const corps = {
+      nom: v.nom, raison_sociale: v.raison_sociale, contact_rgpd: v.contact_rgpd,
+      couleurs: { ...couleurs, principale: v.principale?.toUpperCase(), secondaire: v.secondaire?.toUpperCase() },
+    };
     try {
-      await api("/api/admin/clients", { methode: "POST", corps: {
-        nom: v.nom, raison_sociale: v.raison_sociale, contact_rgpd: v.contact_rgpd, logo_url: v.logo_url || undefined,
-        couleurs: { principale: v.principale?.toUpperCase(), secondaire: v.secondaire?.toUpperCase() },
-      } });
-      toast("Client créé."); router();
+      const r = c ? await api(`/api/admin/clients/${c.id}`, { methode: "PATCH", corps }) : await api("/api/admin/clients", { methode: "POST", corps });
+      const logo = fichier.files?.[0];
+      if (logo) {
+        const res = await fetch(`/api/admin/clients/${r.client.id}/logo`, { method: "PUT", body: logo, credentials: "same-origin", headers: { ...enTetesDev(), "content-type": logo.type } });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Logo refusé");
+      }
+      toast(c ? "Fiche client enregistrée. La cabine l'affichera entre deux visiteurs." : "Client créé."); router();
     } catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); }
   });
+  return f;
+}
+
+async function vueClients() {
+  const { clients } = await api("/api/admin/clients");
+  const zoneFormulaire = h("div", {});
+  const ouvrir = (/** @type {any} */ c) => { zoneFormulaire.replaceChildren(formulaireClient(c)); zoneFormulaire.scrollIntoView({ behavior: "smooth", block: "start" }); };
   return h("div", {},
     enTete("Clients", "WhyMe est sous-traitant ; chaque marque est responsable de traitement de ses données.",
-      h("button", { type: "button", class: "bouton action", onclick: () => { f.hidden = !f.hidden; } }, "Nouveau client")),
-    f,
+      h("button", { type: "button", class: "bouton action", onclick: () => ouvrir(null) }, "Nouveau client")),
+    zoneFormulaire,
     h("section", { class: "carte" }, clients.length ? h("div", { class: "defile" }, h("table", { class: "tableau" },
-      h("thead", {}, h("tr", {}, h("th", {}, "Marque"), h("th", {}, "Responsable de traitement"), h("th", {}, "Contact RGPD"), h("th", {}, "Couleurs"))),
+      h("thead", {}, h("tr", {}, h("th", {}, "Marque"), h("th", {}, "Responsable de traitement"), h("th", {}, "Contact RGPD"), h("th", {}, "Habillage"), h("th", {}, ""))),
       h("tbody", {}, ...clients.map((/** @type {any} */ c) => h("tr", {},
         h("td", {}, h("strong", {}, c.nom)), h("td", {}, c.raison_sociale), h("td", {}, c.contact_rgpd),
-        h("td", {}, h("span", { style: "display: inline-flex; gap: 6px" }, ...["principale", "secondaire"].filter((k) => c.couleurs?.[k]).map((k) =>
-          h("span", { title: c.couleurs[k], style: `display: inline-block; width: 22px; height: 22px; border-radius: 8px 8px 8px 3px; background: ${/^#[0-9a-fA-F]{6}$/.test(c.couleurs[k]) ? c.couleurs[k] : "transparent"}` })))))))))
+        h("td", {}, h("span", { style: "display: inline-flex; gap: 6px; align-items: center" },
+          c.logo_url ? h("img", { class: "logo-client petit", src: c.logo_url, alt: `Logo ${c.nom}` }) : null,
+          ...["principale", "secondaire"].filter((k) => c.couleurs?.[k]).map((k) =>
+            h("span", { title: c.couleurs[k], style: `display: inline-block; width: 22px; height: 22px; border-radius: 8px 8px 8px 3px; background: ${/^#[0-9a-fA-F]{6}$/.test(c.couleurs[k]) ? c.couleurs[k] : "transparent"}` })))),
+        h("td", { style: "text-align: right" }, h("button", { type: "button", class: "bouton discret petit", onclick: () => ouvrir(c) }, "Modifier")))))))
       : h("p", { class: "vide" }, "Aucun client.")));
 }
 
@@ -815,7 +903,9 @@ async function vueComptes() {
     h("section", { class: "carte" }, utilisateurs.length ? h("div", { class: "defile" }, h("table", { class: "tableau" },
       h("thead", {}, h("tr", {}, h("th", {}, "E-mail"), h("th", {}, "Rôle"), h("th", {}, "Client"), h("th", {}, "État"), h("th", {}, ""))),
       h("tbody", {}, ...utilisateurs.map((/** @type {any} */ u) => h("tr", {},
-        h("td", {}, u.email), h("td", {}, ROLES[u.role] ?? u.role), h("td", {}, u.client_nom ?? "WhyMe"),
+        h("td", {}, u.email),
+        h("td", {}, u.email === moi?.email ? (ROLES[u.role] ?? u.role) : choixRole(u, clients)),
+        h("td", {}, u.client_nom ?? "WhyMe"),
         h("td", {}, u.actif ? h("span", { class: "pastille", "data-ton": "vert" }, "Actif") : h("span", { class: "pastille" }, "Désactivé")),
         h("td", { style: "text-align: right" }, u.email === moi?.email ? null : boutonConfirme(u.actif ? "Désactiver" : "Réactiver", "Confirmer", async () => {
           await api(`/api/admin/utilisateurs/${u.id}`, { methode: "PATCH", corps: { actif: !u.actif } });
@@ -823,6 +913,29 @@ async function vueComptes() {
         }, "bouton discret petit")))))))
       : h("p", { class: "vide" }, "Aucun compte en dehors des administrateurs d'office.")),
     h("p", { style: "color: var(--doux); font-size: 14px" }, "Les administrateurs d'office sont définis dans la configuration du serveur et n'apparaissent pas ici."));
+}
+
+/** Rôle d'un compte, modifiable directement (avec le client pour un compte client). */
+function choixRole(/** @type {any} */ u, /** @type {any[]} */ clients) {
+  const role = /** @type {HTMLSelectElement} */ (h("select", { class: "choix-compact", "aria-label": `Rôle de ${u.email}` },
+    ...Object.entries(ROLES).map(([k, v]) => h("option", { value: k, selected: k === u.role }, v))));
+  const client = /** @type {HTMLSelectElement} */ (h("select", { class: "choix-compact", "aria-label": `Client de ${u.email}`, hidden: true },
+    ...clients.map((c) => h("option", { value: c.id, selected: c.id === u.client_id }, c.nom))));
+  const valider = h("button", { type: "button", class: "bouton petit", hidden: true }, "Enregistrer");
+  const maj = () => {
+    const change = role.value !== u.role || (!role.value.endsWith("_whyme") && client.value !== u.client_id);
+    client.hidden = role.value.endsWith("_whyme");
+    valider.hidden = !change;
+  };
+  role.addEventListener("change", maj);
+  client.addEventListener("change", maj);
+  valider.addEventListener("click", async () => {
+    try {
+      await api(`/api/admin/utilisateurs/${u.id}`, { methode: "PATCH", corps: { role: role.value, client_id: role.value.endsWith("_whyme") ? undefined : client.value } });
+      toast("Rôle modifié : il s'applique dès la prochaine page ouverte par la personne."); router();
+    } catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); }
+  });
+  return h("span", { class: "ligne-role" }, role, client, valider);
 }
 
 // ------------------------------------------------------------------ journal
