@@ -63,7 +63,7 @@ test("le parcours doit finir par une étape de fin", () => {
   assert.ok(validerParcours(p).some((m) => m.includes("« fin »")));
 });
 
-test("le parcours de démonstration Vox Box est valide", () => {
+test("le parcours de démonstration Parlopop est valide", () => {
   const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
   assert.deepEqual(validerParcours(demo), []);
   assert.equal(questions(demo).length, 5);

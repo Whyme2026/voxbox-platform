@@ -1,4 +1,4 @@
-// Point d'entrée du Worker Vox Boxes.
+// Point d'entrée du Worker Parlopop.
 // - /api/*  : API JSON (routes/…)
 // - le reste : fichiers statiques du dossier public/ (pages admin, espace client, cabine)
 

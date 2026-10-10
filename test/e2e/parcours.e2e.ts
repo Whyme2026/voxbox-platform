@@ -1,6 +1,6 @@
 // Essais de bout en bout de la cabine, dans un vrai Chrome sans écran avec caméra et micro simulés.
 // Deux scénarios :
-//  - demo : parcours neutre Vox Box (accueil, consignes et accord, 5 questions, fin), flou activé ;
+//  - demo : parcours neutre Parlopop (accueil, consignes et accord, 5 questions, fin), flou activé ;
 //  - auto : parcours automobile (prénom, consentement, cadrage, choix, pause avant/après, reprise).
 // Chaque scénario vérifie ensuite que toutes les vidéos reçues contiennent une piste son et de la voix.
 //
@@ -33,8 +33,8 @@ const nbQuestions = parcours.etapes.filter((e: any) => e.type === "question").le
 const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
 const { code } = await preparer(parcours,
-  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : { nom: "Vox Box" },
-  scenario === "auto" ? "Essai routier" : "Démo Vox Box (neutre)");
+  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : { nom: "Parlopop" },
+  scenario === "auto" ? "Essai routier" : "Démo Parlopop (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
@@ -77,7 +77,7 @@ async function scenarioDemo() {
   await page.getByText("Merci Camille ! Avant de commencer").waitFor();
   // Le bouton reste grisé tant que l'accord obligatoire n'est pas donné.
   assert.equal(await page.getByRole("button", { name: "C'est parti" }).isDisabled(), true);
-  await cocher("J'accepte que Vox Box");
+  await cocher("J'accepte que Parlopop");
   await cocher("J'accepte aussi");
   await page.waitForTimeout(800);
   await capture("03-consignes");
@@ -107,7 +107,7 @@ async function scenarioDemo() {
   await bouton("Je me lance");
   await touche("L"); await touche("é"); await touche("a");
   await bouton("Continuer");
-  await cocher("J'accepte que Vox Box");
+  await cocher("J'accepte que Parlopop");
   await bouton("C'est parti");
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(800);

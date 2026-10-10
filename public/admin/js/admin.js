@@ -1,5 +1,5 @@
 // @ts-check
-// Espace Vox Boxes : WhyMe (clients, campagnes, cabines, comptes, journal) et clients (leurs campagnes, leurs réponses).
+// Parlorama, l'interface de Parlopop : WhyMe (clients, campagnes, cabines, comptes, journal) et clients (leurs campagnes, leurs réponses).
 // Une seule page, navigation par ancre (#/campagnes/…). Tout le texte venant de la base est inséré en texte, jamais en HTML.
 
 /** @typedef {{ email: string, role: string, client: any, droits: string[], environnement: string }} Moi */
@@ -205,6 +205,7 @@ async function vueAccueil() {
 
   return h("div", {},
     enTete("Tableau de bord", null, h("span", { class: "bulle" }, `Bonjour ${prenom.charAt(0).toUpperCase()}${prenom.slice(1)} !`)),
+    h("h2", { class: "titre-parlometre" }, "Parlomètre", h("span", {}, "ce que disent vos cabines, en chiffres")),
     h("div", { class: "grille kpi" },
       kpi(actives.length, "Campagnes actives", `${campagnes.length} au total`),
       kpi(`${cabines.filter(enLigne).length} / ${cabines.length}`, "Cabines en ligne", "signe de vie depuis moins de 3 min"),

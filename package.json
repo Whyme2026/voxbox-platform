@@ -2,7 +2,7 @@
   "name": "voxbox-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "Vox Boxes by whyme — plateforme de cabines vidéo d'avis consommateurs",
+  "description": "Parlopop by whyme — plateforme de cabines vidéo d'avis consommateurs",
   "type": "module",
   "engines": {
     "node": ">=22.18"

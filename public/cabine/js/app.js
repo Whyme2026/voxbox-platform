@@ -169,7 +169,7 @@ async function chargerConfig() {
 }
 
 /**
- * Thème : celui de Vox Box par défaut ; une marque cliente le remplace par ses couleurs
+ * Thème : celui de Parlopop par défaut ; une marque cliente le remplace par ses couleurs
  * (couleurs.principale → la marque parle, couleurs.secondaire → le visiteur répond, couleurs.fond, couleurs.texte) et son logo.
  */
 function appliquerHabillage() {

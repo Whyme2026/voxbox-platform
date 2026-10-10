@@ -1,6 +1,8 @@
-# Vox Boxes — consignes pour Claude
+# Parlopop — consignes pour Claude
 
-Plateforme de cabines vidéo d'avis consommateurs, **by whyme**. Maintenue par Claude, avec un développeur freelance en filet.
+Plateforme de cabines vidéo d'avis consommateurs, **by whyme** (ex-« Vox Boxes » : les noms techniques `voxbox` restent).
+Vocabulaire : **Parlopop** = la marque, la cabine et l'expérience ; **Parlorama** = l'interface de gestion et de consultation (`/admin/`) ;
+**Parlomètre** = mesure et indicateurs ; **Parlomix** = le clip monté (à venir). Maintenue par Claude, avec un développeur freelance en filet.
 Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploitation.md` en cas d'incident.
 
 ## Règles du produit (non négociables)

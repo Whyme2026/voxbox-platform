@@ -40,7 +40,7 @@ Fichier JSON validé par `src/parcours/schema.ts` : étapes `accueil`, `identifi
 consentement avant toute question, toutes les étapes atteignables, fin obligatoire.
 
 ## Parcours de démonstration et direction artistique
-- `fixtures/parcours-demo.json` : parcours **neutre Vox Box**, base vendue puis personnalisée par marque.
+- `fixtures/parcours-demo.json` : parcours **neutre Parlopop**, base vendue puis personnalisée par marque.
   Accueil (la cabine « parle » en bulles), prénom (+ e-mail facultatif), mode d'emploi + accord (bouton grisé tant que
   l'accord obligatoire n'est pas donné), 5 questions (titre court, pistes, coup de pouce), fin personnalisée.
   Choix, pause avant/après, cadrage : options par campagne. `{prenom}` est remplacé dans tous les textes affichés.
@@ -52,7 +52,7 @@ consentement avant toute question, toutes les étapes atteignables, fin obligato
   rien n'est chargé depuis internet.
 - Flou : niveau **fort** retenu (10/10/2026).
 
-## Espace de gestion (`/admin/`)
+## Parlorama, l'espace de gestion (`/admin/`)
 Une page sans compilation (`public/admin/`), même direction artistique, protégée par Cloudflare Access.
 - WhyMe : tableau de bord (campagnes, cabines en ligne, visiteurs, vidéos), campagnes (statut, parcours lisible et
   nouvelle version en JSON, textes de consentement), réponses vidéo par visiteur ou par question, cabines (état,

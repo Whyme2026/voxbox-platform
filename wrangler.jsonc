@@ -1,4 +1,4 @@
-// Configuration Cloudflare de la plateforme Vox Boxes.
+// Configuration Cloudflare de la plateforme Parlopop (noms techniques « voxbox » conservés).
 // Trois environnements : dev (machine locale), test et production.
 // Bases D1 et stockages R2 créés le 10/10/2026, tous en juridiction UE.
 {
