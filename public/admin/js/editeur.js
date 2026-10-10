@@ -143,6 +143,8 @@ export function editeurParcours(o) {
   /** Ambiance graphique de la cabine et tutoiement des textes fixes : réglages du parcours entier. */
   let ambiance = o.config?.ambiance === "pop" ? "pop" : "conversation";
   let tutoiement = o.config?.tutoiement === true;
+  /** Habillage de la campagne (polices, couleurs, fonds, visuels) : modifié en mode expert, conservé tel quel ici. */
+  /** @type {any} */ let habillage = structuredClone(o.config?.habillage);
   /** @type {Record<string, any>[]} */
   let etapes = structuredClone(o.config?.etapes ?? []);
   /** @type {string[]} */
@@ -155,13 +157,15 @@ export function editeurParcours(o) {
     version: 1, langue,
     ...(ambiance !== "conversation" ? { ambiance } : {}),
     ...(tutoiement ? { tutoiement: true } : {}),
+    ...(habillage ? { habillage } : {}),
     etapes: etapes.map(nettoyer),
   });
-  /** Reprend les réglages d'un parcours chargé (JSON, modèle). */
+  /** Reprend les réglages d'un parcours chargé (JSON, modèle), habillage compris. */
   const reprendre = (/** @type {any} */ c) => {
     langue = c.langue ?? "fr";
     ambiance = c.ambiance === "pop" ? "pop" : "conversation";
     tutoiement = c.tutoiement === true;
+    habillage = structuredClone(c.habillage);
     choixAmbiance.value = ambiance;
     caseTutoiement.checked = tutoiement;
   };
@@ -261,6 +265,21 @@ export function editeurParcours(o) {
     return h("label", { class: "champ", for: id }, c.libelle, entree);
   }
 
+  /** Fond et visuel de l'écran, quand la campagne a un habillage qui en propose. */
+  function habillageEtape(/** @type {Record<string, any>} */ e) {
+    const lecture = o.lectureSeule === true;
+    /** @type {HTMLElement[]} */ const champs = [];
+    const select = (/** @type {string} */ cle, /** @type {string} */ libelle, /** @type {[string, string][]} */ valeurs) => {
+      const s = /** @type {HTMLSelectElement} */ (h("select", { disabled: lecture },
+        h("option", { value: "" }, "Aucun(e)"), ...valeurs.map(([v, l]) => h("option", { value: v, selected: e[cle] === v }, l))));
+      s.addEventListener("change", () => { e[cle] = s.value || undefined; changer(); });
+      champs.push(h("label", { class: "champ" }, libelle, s));
+    };
+    if (habillage?.fonds?.length) select("fond", "Fond de l'écran", habillage.fonds.map((/** @type {any} */ a) => [a.id, a.nom ?? a.id]));
+    if (habillage?.visuels?.length) select("visuel", "Visuel de l'écran", [...habillage.visuels.map((/** @type {any} */ v) => [v.id, v.nom ?? v.id]), ["choix", "Celui de la dernière option choisie"]]);
+    return champs;
+  }
+
   const resume = (/** @type {Record<string, any>} */ e) => String(e.titreCourt || e.titre || TYPES[e.type]?.libelle || e.type).replaceAll("{prenom}", "[prénom]");
 
   /** Une étape : en-tête (numéro, type, titre, actions), et son formulaire quand elle est ouverte. */
@@ -285,6 +304,7 @@ export function editeurParcours(o) {
     const corps = ouverte === e.id ? h("div", { class: "corps-etape" },
       h("p", { class: "description-etape" }, def?.description ?? ""),
       ...(def?.champs ?? []).map((c) => champ(e, c)),
+      ...habillageEtape(e),
       e.type !== "choix" && e.type !== "fin" ? (() => {
         const suite = /** @type {HTMLSelectElement} */ (h("select", { disabled: lecture },
           h("option", { value: "" }, "L'étape suivante dans la liste"),

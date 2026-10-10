@@ -59,3 +59,25 @@ test("le chiffre de tête d'une consigne est isolé pour être affiché en grand
   assert.deepEqual(decouperConsigne("30 secondes maximum."), { chiffre: "30", reste: "secondes maximum." });
   assert.deepEqual(decouperConsigne("Pas de mauvaise réponse."), { chiffre: null, reste: "Pas de mauvaise réponse." });
 });
+
+test("progression : aux embranchements, le chemin le plus court (une suite facultative ne compte pas)", () => {
+  const geely = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-geely.json"), "utf8"));
+  const m = creerMoteur(geely);
+  // Branche « coup d'œil » : 3 questions, même si le visiteur peut revenir après un essai.
+  assert.deepEqual(m.progression("a-regard", []), { numero: 1, total: 3 });
+  // Revenu après l'essai : ses 3 premières réponses comptent, puis les 3 de l'essai.
+  assert.deepEqual(m.progression("b-surprise", ["a-regard", "a-doute", "a-declic"]), { numero: 4, total: 6 });
+  assert.deepEqual(m.progression("c-signature", []), { numero: 1, total: 3 });
+});
+
+test("visuel « choix » : celui de la dernière option choisie qui en a un", async () => {
+  const { visuelDeLEtape } = await import("../public/cabine/js/moteur.js");
+  const geely = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-geely.json"), "utf8"));
+  const question = { visuel: "choix" };
+  assert.equal(visuelDeLEtape(geely, question, []), null);
+  assert.equal(visuelDeLEtape(geely, question, [{ etape: "aiguillage", option: "coup-oeil" }]), "e2");
+  // Le modèle désigné l'emporte sur l'aiguillage ; une qualification sans visuel ne change rien.
+  assert.equal(visuelDeLEtape(geely, question, [{ etape: "aiguillage", option: "coup-oeil" }, { etape: "modele-a", option: "starray" }, { etape: "connu-a", option: "non" }]), "starray");
+  assert.equal(visuelDeLEtape(geely, { visuel: "e5" }, []), "e5");
+  assert.equal(visuelDeLEtape(geely, {}, [{ etape: "modele-a", option: "e2" }]), null);
+});

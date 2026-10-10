@@ -109,3 +109,72 @@ test("le parcours « Fabrice » (ambiance pop, tutoiement) est valide", () => {
   assert.equal(questions(fab).length, 6);
   assert.equal(diffusionProposee(fab), false);
 });
+
+// ------------------------------------------------------------------ habillage de campagne
+
+const geely = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-geely.json"), "utf8")) as Parcours;
+const copieGeely = (): Parcours => structuredClone(geely);
+
+test("le parcours Geely (habillage, trois branches) est valide : trois questions vidéo par branche", () => {
+  assert.deepEqual(validerParcours(geely), []);
+  assert.equal(questions(geely).length, 9);
+  for (const branche of ["a-", "b-", "c-"]) assert.equal(questions(geely).filter((q) => q.id.startsWith(branche)).length, 3);
+});
+
+test("habillage : un fond ou un visuel inconnu est signalé, sur une étape comme sur une option", () => {
+  const p = copieGeely();
+  p.etapes[0]!.fond = "nuit";
+  const choix = p.etapes.find((e) => e.type === "choix");
+  assert.ok(choix && choix.type === "choix");
+  choix.options[0]!.visuel = "fusee";
+  const pb = validerParcours(p);
+  assert.ok(pb.some((m) => m.includes("fond inconnu (nuit)")));
+  assert.ok(pb.some((m) => m.includes("visuel inconnu (fusee)")));
+});
+
+test("habillage : « choix » vaut le visuel de la dernière option choisie, sur une étape seulement", () => {
+  const p = copieGeely();
+  const choix = p.etapes.find((e) => e.type === "choix");
+  assert.ok(choix && choix.type === "choix");
+  choix.options[0]!.visuel = "choix";
+  assert.ok(validerParcours(p).some((m) => m.includes("visuel inconnu (choix)")));
+  const v = copieGeely();
+  v.habillage!.visuels![0]!.id = "choix";
+  assert.ok(validerParcours(v).some((m) => m.includes("réservé")));
+});
+
+test("habillage : couleurs, polices et clés inconnues sont contrôlées", () => {
+  const p = copieGeely();
+  p.habillage!.couleurs!.visiteur = "orange";
+  (p.habillage!.polices as any).titres = "comic-sans";
+  (p.habillage as any).fond = "#FFFFFF";
+  p.habillage!.fonds![0]!.couleurBas = "#12";
+  const pb = validerParcours(p);
+  assert.ok(pb.some((m) => m.startsWith("habillage.couleurs.visiteur")));
+  assert.ok(pb.some((m) => m.startsWith("habillage.polices.titres")));
+  assert.ok(pb.some((m) => m.includes("clé inconnue « fond »")));
+  assert.ok(pb.some((m) => m.includes("couleurBas")));
+});
+
+test("habillage : un visuel ne peut contenir ni script ni ressource externe", () => {
+  const svg = (contenu: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${contenu}</svg>`;
+  const essai = (contenu: string) => {
+    const p = copieGeely();
+    p.habillage!.visuels![0]!.svg = svg(contenu);
+    return validerParcours(p);
+  };
+  for (const piege of [
+    "<script>alert(1)</script>", '<rect onload="alert(1)"/>', '<image href="https://exemple.fr/x.png"/>',
+    '<a href="javascript:alert(1)"><rect/></a>', '<rect fill="url(https://exemple.fr/x)"/>', "<foreignObject><div/></foreignObject>",
+    '<use xlink:href="https://exemple.fr/s.svg#a"/>', "<style>@import url(x.css)</style>",
+  ]) {
+    assert.ok(essai(piege).some((m) => m.includes("ni script")), piege);
+  }
+  // Dégradés et renvois internes restent permis.
+  assert.deepEqual(essai('<defs><linearGradient id="g"><stop offset="0" stop-color="#FFF"/></linearGradient></defs><rect fill="url(#g)" width="10" height="10"/><use href="#g"/>'), []);
+  const p = copieGeely();
+  p.habillage!.visuels![0]!.svg = "<div>pas un svg</div>";
+  assert.ok(validerParcours(p).some((m) => m.includes("SVG autonome")));
+  p.habillage!.visuels![0]!.svg = svg("x".repeat(41_000));
+  assert.ok(validerParcours(p).some((m) => m.includes("trop lourd")));
+});

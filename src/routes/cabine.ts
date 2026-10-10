@@ -6,7 +6,7 @@ import type { D1Database } from "../types.ts";
 import { authentifierCabine, codeAleatoire, empreinteJeton, nouveauJeton, type CabineAuthentifiee } from "../auth/cabine.ts";
 import { conflit, HttpError, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal } from "../journal.ts";
-import { diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
+import { choix as etapesChoix, diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
 import { lireMiniature } from "../media.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -178,6 +178,29 @@ export function routesCabine(r: Routeur): void {
          statut = 'recue', erreur = NULL, maj_le = excluded.maj_le`,
     ).bind(nouvelId(), s.id, etape, cle, dureeMs, sonPresent, now, now).run();
     return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent } }, 201);
+  });
+
+  // Choix du visiteur à une étape « choix » (qualification, aiguillage). Idempotent : un nouvel envoi remplace le précédent.
+  r.ajouter("PUT", "/api/cabine/sessions/:session/choix/:etape", async (ctx) => {
+    const cab = await authentifierCabine(ctx.request, ctx.env.DB);
+    const s = await ctx.env.DB.prepare(
+      `SELECT s.id, s.cabine_id, s.retiree_le, p.config
+         FROM sessions s JOIN parcours_versions p ON p.id = s.parcours_version_id WHERE s.id = ?`,
+    ).bind(ctx.params.session).first<{ id: string; cabine_id: string | null; retiree_le: string | null; config: string }>();
+    if (!s || s.cabine_id !== cab.id) throw introuvable("Session introuvable");
+    if (s.retiree_le) throw new HttpError(410, "retiree", "Le visiteur a retiré son accord");
+    const etape = etapesChoix(JSON.parse(s.config) as Parcours).find((e) => e.id === ctx.params.etape);
+    if (!etape) throw invalide("Cette étape n'est pas un choix du parcours");
+    const d = await lireJson(ctx.request);
+    const option = typeof d.option_id === "string" ? etape.options.find((o) => o.id === d.option_id) : undefined;
+    if (!option) throw invalide("option_id : option inconnue pour cette étape");
+    const quand = typeof d.cree_le === "string" && !Number.isNaN(Date.parse(d.cree_le)) && Date.parse(d.cree_le) <= Date.now() + 60_000
+      ? new Date(d.cree_le).toISOString() : maintenant();
+    await ctx.env.DB.prepare(
+      `INSERT INTO choix (session_id, etape_id, option_id, cree_le) VALUES (?, ?, ?, ?)
+       ON CONFLICT (session_id, etape_id) DO UPDATE SET option_id = excluded.option_id, cree_le = excluded.cree_le`,
+    ).bind(s.id, etape.id, option.id, quand).run();
+    return json({ choix: { session_id: s.id, etape_id: etape.id, option_id: option.id } }, 201);
   });
 
   // Miniature d'une réponse (image prise pendant l'enregistrement, floutée si la vidéo l'est). Envoyée après la vidéo.

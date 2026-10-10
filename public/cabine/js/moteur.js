@@ -39,22 +39,36 @@ export function creerMoteur(parcours) {
   };
 
   /**
-   * Questions restant à jouer à partir d'une étape (en suivant la première option des choix).
+   * Questions restant à jouer à partir d'une étape. Aux embranchements, le chemin le plus court est retenu :
+   * « question 1 sur 3 » plutôt que de compter une suite facultative (ex. « revenez après l'essai »).
    * Sert à afficher « question 2 sur 4 ».
    * @param {string} depuis
+   * @returns {string[]}
    */
   const questionsSurLeChemin = (depuis) => {
-    /** @type {string[]} */
-    const vues = [];
-    /** @type {string | null} */
-    let id = depuis;
-    let garde = 0;
-    while (id && garde++ < etapes.length * 2) {
+    /** @type {Map<string, string[]>} */
+    const memo = new Map();
+    /** @param {string | null} id @param {Set<string>} enCours @returns {string[] | null} null : boucle */
+    const chemin = (id, enCours) => {
+      if (!id) return [];
+      const deja = memo.get(id);
+      if (deja) return deja;
+      if (enCours.has(id)) return null;
+      enCours.add(id);
       const e = etape(id);
-      if (e.type === "question") vues.push(e.id);
-      id = e.type === "choix" ? (e.options?.[0]?.suite ?? null) : suivante(id);
-    }
-    return vues;
+      const suites = e.type === "choix" ? (e.options ?? []).map((o) => o.suite) : [suivante(id)];
+      /** @type {string[] | null} */ let meilleur = null;
+      for (const s of suites) {
+        const c = chemin(s, enCours);
+        if (c && (!meilleur || c.length < meilleur.length)) meilleur = c;
+      }
+      enCours.delete(id);
+      if (!meilleur) return null;
+      const res = e.type === "question" ? [e.id, ...meilleur] : meilleur;
+      memo.set(id, res);
+      return res;
+    };
+    return chemin(depuis, new Set()) ?? [];
   };
 
   /** Position d'une question dans le parcours complet du visiteur. */
@@ -91,4 +105,24 @@ export function decouperConsigne(texte) {
 /** Le parcours propose-t-il la case « diffusion publique » ? */
 export function diffusionProposee(/** @type {Parcours} */ p) {
   return p.etapes.some((e) => e.type === "consentement" && e.proposerDiffusion === true);
+}
+
+/**
+ * Visuel à afficher sur une étape : le sien, ou pour « choix » celui de la dernière option choisie qui en a un
+ * (ex. le modèle que le visiteur vient de désigner). Renvoie l'identifiant du visuel, ou null.
+ * @param {Parcours} p
+ * @param {{ visuel?: unknown }} etape
+ * @param {{ etape: string, option: string }[]} choixFaits dans l'ordre où le visiteur les a faits
+ * @returns {string | null}
+ */
+export function visuelDeLEtape(p, etape, choixFaits) {
+  if (typeof etape.visuel !== "string") return null;
+  if (etape.visuel !== "choix") return etape.visuel;
+  for (let i = choixFaits.length - 1; i >= 0; i--) {
+    const c = /** @type {{ etape: string, option: string }} */ (choixFaits[i]);
+    const e = p.etapes.find((x) => x.id === c.etape);
+    const o = /** @type {{ id: string, visuel?: unknown }[] | undefined} */ (e?.options)?.find((x) => x.id === c.option);
+    if (typeof o?.visuel === "string") return o.visuel;
+  }
+  return null;
 }

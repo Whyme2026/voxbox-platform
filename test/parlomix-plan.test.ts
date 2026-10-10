@@ -107,3 +107,49 @@ test("le jingle dure un peu plus d'une seconde, sans saturer, et se termine en s
   assert.ok(Math.abs(crete - 0.6) < 1e-6);
   assert.ok(Math.abs(j[j.length - 1]!) < 0.01);
 });
+
+test("habillage : le Parlomix reprend couleurs, bulles, polices, capitales et fonds de la campagne", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const geely = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-geely.json"), "utf8"));
+  const th = themeDepuisCouleurs({ principale: "#0F6E5A" }, geely.habillage);
+  assert.equal(th.marque, "#1B1F22", "l'habillage l'emporte sur la fiche client");
+  assert.equal(th.parole, "#FF5841");
+  assert.equal(th.bulle, "#FFFFFF");
+  assert.equal(th.surBulle, "#23263F");
+  assert.equal(th.policeTitres, "Michroma");
+  assert.equal(th.policeTexte, "Inter");
+  assert.equal(th.titresLarges, true);
+  assert.equal(th.majuscules, true);
+  assert.deepEqual(th.fonds?.couchant, { couleur: "#B7A6C6", texte: "#1B1F22", couleurBas: "#EDBFA6" });
+  // Sans habillage : rien de plus que les couleurs.
+  assert.equal(themeDepuisCouleurs({}).habille, undefined);
+});
+
+test("habillage : fond de la question et visuel du modèle choisi par la personne, sur les cartes du plan", async () => {
+  const { visuelDeReponse } = await import("../public/admin/js/montage/plan.js");
+  const etapesChoix = [
+    { id: "aiguillage", options: [{ id: "essai", visuel: "starray" }, { id: "client", visuel: "e5" }] },
+    { id: "modele-b", options: [{ id: "starray", visuel: "starray" }, { id: "e2", visuel: "e2" }] },
+    { id: "connu", options: [{ id: "oui" }] },
+  ];
+  assert.equal(visuelDeReponse("choix", { aiguillage: "essai", "modele-b": "e2", connu: "oui" }, etapesChoix), "e2");
+  assert.equal(visuelDeReponse("choix", { aiguillage: "client" }, etapesChoix), "e5");
+  assert.equal(visuelDeReponse("choix", {}, etapesChoix), undefined);
+  assert.equal(visuelDeReponse("e2", {}, etapesChoix), "e2");
+  assert.equal(visuelDeReponse(undefined, { aiguillage: "essai" }, etapesChoix), undefined);
+
+  const camille = { ...session("s9", "Camille", "2026-10-10T10:00:00Z", "cab-A", true), choix: { aiguillage: "essai", "modele-b": "e2" } };
+  const qs = [{ id: "q1", titre: "Le premier mot", texte: "Un mot ?", fond: "couchant", visuel: "choix" }, { id: "q2", titre: "Le coup de cœur", texte: "Pourquoi ?" }];
+  const clips = choixParPersonne(camille, qs, etapesChoix);
+  assert.deepEqual(clips.map((c) => [c.fond, c.visuel]), [["couchant", "e2"], [undefined, undefined]]);
+  const plan = planParlomix({
+    type: "personne", titre: "Camille", signature: "Geely", format: "16:9", theme: themeDepuisCouleurs({}),
+    clips: clips.map((c) => ({ ...c, segments: [] })),
+  });
+  const cartes = plan.sequences.filter((s) => s.type === "carte");
+  assert.deepEqual(cartes.map((c: any) => [c.role, c.fond, c.visuel]), [["intro", "couchant", "e2"], ["transition", undefined, undefined], ["fin", "couchant", undefined]]);
+  // Par question : chaque personne avec son modèle sur sa carte.
+  const parQuestion = choixParQuestion([camille], { etape: "q1", question: qs[0], etapesChoix });
+  assert.equal(parQuestion[0]!.visuel, "e2");
+});

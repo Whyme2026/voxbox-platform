@@ -45,6 +45,36 @@ Fichier JSON validé par `src/parcours/schema.ts` : étapes `accueil`, `identifi
 `question`, `choix` (embranchement), `pause` (avant/après), `fin`. Contrôles : identifiants uniques, renvois valides,
 consentement avant toute question, toutes les étapes atteignables, fin obligatoire.
 
+## Habillage de campagne (parcours.habillage)
+Une campagne peut prendre l'allure de sa marque sans une ligne de code propre à la marque : tout est dans le parcours,
+versionné et validé par le client comme le reste. Clés (toutes facultatives, contrôlées par `validerHabillage`) :
+- `polices` : `titres` et `texte` parmi `fredoka`, `gabarito`, `michroma`, `inter` (auto-hébergées, OFL). Une police
+  de titre très large (Michroma) est dessinée plus petite et en graisse normale ; boutons et saisie restent dans la
+  police du texte.
+- `titresMajuscules` : titres, questions, options et cartes du Parlomix en capitales.
+- `couleurs` : `marque` (accent : cases, repères, boutons secondaires), `bulle` (fond des bulles de la marque ;
+  ombre douce si elle est claire), `visiteur` (bulles et actions du visiteur), `fond`, `texte`. Elles l'emportent sur
+  la fiche client pour cette campagne.
+- `fonds` (8 au plus) : `{ id, nom?, couleur, couleurBas?, texte }` (à ne pas confondre avec `parcours.ambiance`, le style général « conversation » ou « pop »). Une étape (`fond`) ou une option de choix prend
+  ce fond (couleur ou dégradé vertical) ; le texte posé dessus suit `texte`, celui des surfaces blanches (cartes,
+  clavier, options) reste à l'encre.
+- `visuels` (12 au plus, 40 000 caractères chacun) : `{ id, nom, svg }`, SVG autonome affiché comme une image
+  (`data:` dans une balise `img` : aucun script n'y tourne) ; le serveur refuse en plus scripts, gestionnaires
+  d'événements, liens et ressources externes. Une étape ou une option affiche `visuel` ; la valeur réservée
+  `"choix"` affiche le visuel de la dernière option choisie qui en a un (ex. le modèle que le visiteur a désigné).
+Sans logo, l'en-tête d'une campagne habillée affiche le nom de la marque dans la police des titres.
+Référence : `fixtures/parcours-geely.json` (première campagne habillée, silhouettes de voitures dessinées par WhyMe,
+à remplacer par les visuels officiels de la marque).
+
+## Choix des visiteurs (migration `0005_choix.sql`)
+Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle
+désigné). La cabine envoie chaque choix par la file d'envoi (`PUT /api/cabine/sessions/:id/choix/:etape`,
+idempotent, après la session ; un choix fait avant l'accord part avec la session). Parlorama les montre par visiteur,
+filtre les visiteurs par choix, affiche leur répartition, et l'export ajoute une colonne par étape « choix ».
+Ce que la personne a déclaré, jamais une note ni un profil calculé. Supprimés avec ses réponses en cas de retrait.
+La progression « question N sur M » suit le chemin le plus court : une suite facultative (revenir après un essai)
+ne gonfle pas le total.
+
 ## Parcours de démonstration et direction artistique
 - `fixtures/parcours-demo.json` : parcours **neutre Parlopop**, base vendue puis personnalisée par marque.
   Accueil (la cabine « parle » en bulles), prénom (+ e-mail facultatif), mode d'emploi + accord (bouton grisé tant que
@@ -109,6 +139,11 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   même question, même cabine, personnes n'ayant pas retiré leur accord), le film est stocké dans R2, chaque
   visionnage est journalisé. **Dès qu'une personne montée retire son accord, le Parlomix n'est plus servi.**
   « Diffusable » seulement si toutes les personnes montées ont accepté la diffusion publique.
+- **Habillage** : le thème du film reprend celui de la campagne (`themeDepuisCouleurs(couleurs, habillage)`) :
+  polices, capitales, couleur des bulles, et pour chaque carte le fond de la question qui suit. L'ouverture
+  d'un Parlomix par personne montre le visuel de son choix (le modèle désigné) ; dans un Parlomix par question,
+  chaque transition montre celui de la personne. Le plan ne garde que les identifiants : les visuels sont chargés
+  depuis l'habillage au moment du rendu.
 - Limites : le film se fabrique en temps réel (onglet ouvert et visible), 95 Mo au plus par film.
 
 ## Cabine (tablette)

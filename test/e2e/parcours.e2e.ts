@@ -1,11 +1,13 @@
 // Essais de bout en bout de la cabine, dans un vrai Chrome sans écran avec caméra et micro simulés.
-// Deux scénarios :
+// Quatre scénarios :
 //  - demo : parcours neutre Parlopop (accueil, consignes et accord, 5 questions, fin), flou activé ;
 //  - auto : parcours automobile (prénom, consentement, cadrage, choix, pause avant/après, reprise) ;
-//  - fabrice : ambiance « pop » et tutoiement (choix, 6 questions), en paysage puis en portrait.
+//  - fabrice : ambiance « pop » et tutoiement (choix, 6 questions), en paysage puis en portrait ;
+//  - geely : campagne habillée (polices, fonds, visuels) à trois branches ; le visiteur « jette un œil »,
+//    répond, part essayer la voiture, revient et répond aux questions d'après l'essai (choix enregistrés).
 // Chaque scénario vérifie ensuite que toutes les vidéos reçues contiennent une piste son et de la voix.
 //
-// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice]
+// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice|geely]
 // Nécessite Playwright et Chromium (variables PLAYWRIGHT_MODULE et PLAYWRIGHT_BROWSERS_PATH).
 
 import { createRequire } from "node:module";
@@ -22,20 +24,22 @@ const [audio, captures = "captures", scenario = "demo"] = process.argv.slice(2);
 if (!audio) throw new Error("Fichier audio de test manquant");
 mkdirSync(captures, { recursive: true });
 
-const fixture = scenario === "auto" ? "parcours-automobile.json" : scenario === "fabrice" ? "parcours-fabrice.json" : "parcours-demo.json";
+const fixture = scenario === "auto" ? "parcours-automobile.json" : scenario === "fabrice" ? "parcours-fabrice.json"
+  : scenario === "geely" ? "parcours-geely.json" : "parcours-demo.json";
 const parcours = JSON.parse(readFileSync(join(import.meta.dirname, `../../fixtures/${fixture}`), "utf8"));
 // Parcours accéléré pour l'essai. E2E_RYTHME=demo garde un rythme proche du réel (pour filmer une démonstration).
 const rythmeDemo = process.env.E2E_RYTHME === "demo";
 for (const e of parcours.etapes) {
   if (e.type === "question") Object.assign(e, rythmeDemo ? { compteARebours: 3, dureeMaxSec: 9, silenceArretSec: 3 } : { compteARebours: 2, dureeMaxSec: 8, silenceArretSec: 2 });
 }
-const nbQuestions = parcours.etapes.filter((e: any) => e.type === "question").length;
+// Geely : un visiteur ne voit qu'une branche ; ici « coup d'œil » puis, après l'essai, la branche « essai » (3 + 3).
+const nbQuestions = scenario === "geely" ? 6 : parcours.etapes.filter((e: any) => e.type === "question").length;
 
 const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
 const { code } = await preparer(parcours,
-  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : { nom: "Parlopop" },
-  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : "Démo Parlopop (neutre)");
+  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : { nom: "Parlopop" },
+  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "geely" ? "Geely — concession" : "Démo Parlopop (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
@@ -244,6 +248,89 @@ async function scenarioFabrice() {
   return { sessions: 2, consentDiffusion: 0, prenom: "Fabrice" };
 }
 
+async function scenarioGeely() {
+  const question = async (titre: string, nom: string) => {
+    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator("#compte:not([hidden])").waitFor();
+    await page.waitForTimeout(400);
+    await capture(`${nom}-a-lire`);
+    await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    await capture(`${nom}-on-tourne`);
+  };
+  const option = (libelle: string) => page.locator(".option", { hasText: libelle }).first().click();
+  await page.getByText("Vous avez 2 minutes ?").waitFor();
+  await page.waitForTimeout(2200);
+  await capture("01-accueil");
+  await bouton("Allez, je me lance");
+  await page.getByText("On commence simple").waitFor();
+  await touche("C");
+  for (const c of "amille") await touche(c);
+  await page.waitForTimeout(500);
+  await capture("02-prenom");
+  await bouton("Continuer");
+  await page.getByText("Avant de tourner").waitFor();
+  await cocher("J'accepte que Geely");
+  await cocher("J'accepte aussi");
+  await page.waitForTimeout(900);
+  await capture("03-consentement");
+  await bouton("C'est parti");
+  await page.getByText("Placez votre visage").waitFor();
+  await page.waitForTimeout(800);
+  await capture("04-cadrage");
+  await bouton("Je suis prêt");
+  await page.getByText("vous en êtes où avec Geely").waitFor();
+  await page.waitForTimeout(900);
+  await capture("05-aiguillage");
+  await option("J'ai jeté un œil");
+  await page.getByText("Laquelle vous a fait de l'œil").waitFor();
+  await page.waitForTimeout(900);
+  await capture("06-modele");
+  await option("Starray EM-i");
+  await page.getByText("Geely, vous connaissiez").waitFor();
+  await page.waitForTimeout(700);
+  await capture("07-qualification");
+  await option("De nom");
+  await question("Premier regard", "08-a1");
+  await question("Le petit doute", "09-a2");
+  await question("Le déclic", "10-a3");
+  await page.getByText("Et si la suite se passait au volant").waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(700);
+  await capture("11-essai");
+  await option("Je vais l'essayer");
+  await page.getByText("Bon essai, Camille").waitFor();
+  await page.waitForTimeout(900);
+  await capture("12-pause");
+  await bouton("À tout à l'heure");
+  await page.getByText("Vous avez 2 minutes ?").waitFor();
+  await bouton("Je reviens");
+  await page.waitForTimeout(500);
+  await capture("13-reprise");
+  await bouton("Camille");
+  await question("Le moment « ah, quand même »", "14-b1");
+  await question("Le bémol", "15-b2");
+  await question("À un ami", "16-b3");
+  await page.getByText("Merci Camille, c'est dans la boîte.").waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(1600);
+  await capture("17-fin");
+  // Choix enregistrés, dans la session du visiteur.
+  for (let i = 0; i < 40; i++) {
+    const n = await db.prepare("SELECT COUNT(*) AS n FROM choix").first<any>();
+    if (n.n >= 4) break;
+    await page.waitForTimeout(250);
+  }
+  const choix = await db.prepare("SELECT etape_id, option_id FROM choix ORDER BY etape_id").all<any>();
+  assert.deepEqual(Object.fromEntries(choix.results.map((c: any) => [c.etape_id, c.option_id])),
+    { aiguillage: "coup-oeil", "modele-a": "starray", "connu-a": "de-nom", "essai-a": "essayer" }, "choix enregistrés");
+  if (process.env.E2E_VIDEO) return { sessions: 1, consentDiffusion: 1, prenom: "Camille" };
+  // Portrait (futur écran 9:16) : accueil et aiguillage.
+  await page.setViewportSize({ width: 720, height: 1280 });
+  await page.getByText("Vous avez 2 minutes ?").waitFor({ timeout: 25_000 });
+  await page.waitForTimeout(2000);
+  await capture("18-accueil-portrait");
+  return { sessions: 1, consentDiffusion: 1, prenom: "Camille" };
+}
+
 /** Visite de l'espace de gestion avec les réponses que le scénario vient d'enregistrer. */
 async function visiteAdmin() {
   const admin = await contexte.newPage();
@@ -434,9 +521,60 @@ async function visiteParlomix(admin: any, photo: (nom: string) => Promise<void>)
 }
 const bilanParlomix: any[] = [];
 
+/** Campagne habillée : choix des visiteurs dans Parlorama, éditeur, Parlomix aux couleurs de la campagne (vérifié avec ffprobe). */
+async function visiteAdminGeely() {
+  const admin = await contexte.newPage();
+  admin.on("pageerror", (e: Error) => erreurs.push(`admin : ${e.message}`));
+  await admin.setViewportSize({ width: 1440, height: 900 });
+  const photo = (nom: string) => admin.screenshot({ path: join(captures, `geely-admin-${nom}.png`) });
+  await admin.goto(`http://localhost:${port}/admin/`);
+  await admin.getByRole("heading", { name: "Tableau de bord" }).waitFor();
+  await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
+  await admin.getByRole("link", { name: "Geely — concession" }).click();
+  await admin.getByRole("heading", { name: "Ce que les visiteurs ont choisi" }).waitFor();
+  await admin.locator(".choix-visiteur .pastille", { hasText: "Starray EM-i" }).first().waitFor();
+  await photo("01-reponses-choix");
+  await admin.getByRole("tab", { name: "Parcours" }).click();
+  await admin.locator(".editeur-etapes").waitFor();
+  await admin.getByRole("button", { name: /Premier regard/ }).click();
+  await admin.getByText("Fond de l'écran").waitFor();
+  await photo("02-editeur-habillage");
+  await admin.getByRole("tab", { name: "Parlomix" }).click();
+  await admin.getByRole("heading", { name: "Créer un Parlomix" }).waitFor();
+  await admin.getByRole("button", { name: "Créer le Parlomix" }).click();
+  await admin.locator(".apercu-parlomix").waitFor();
+  // L'ouverture (fond et modèle), puis une transition.
+  await admin.waitForFunction(() => /Montage/.test(document.querySelector(".suivi-parlomix strong")?.textContent ?? ""), null, { timeout: 60_000 });
+  await admin.waitForTimeout(1400);
+  await admin.locator(".apercu-parlomix").screenshot({ path: join(captures, "geely-parlomix-ouverture.png") });
+  await admin.waitForTimeout(8200);
+  await admin.locator(".apercu-parlomix").screenshot({ path: join(captures, "geely-parlomix-suite.png") });
+  await admin.getByText("Parlomix prêts : 16:9 et 9:16.").waitFor({ timeout: 300_000 });
+  await admin.waitForFunction(() => document.querySelectorAll(".parlomix-liste .vignette").length >= 2);
+  await photo("03-parlomix-liste");
+  const films = await db.prepare("SELECT format, cle, type_mime, duree_ms, nb_extraits, plan FROM parlomix WHERE statut = 'pret' ORDER BY cree_le").all<any>();
+  assert.equal(films.results.length, 2, "deux Parlomix prêts");
+  for (const f of films.results) {
+    const plan = JSON.parse(f.plan);
+    assert.equal(plan.theme.policeTitres, "Michroma", "le plan garde l'habillage");
+    assert.equal(plan.sequences[0].visuel, "starray", "ouverture : le modèle choisi par Camille");
+    assert.equal(f.nb_extraits, nbQuestions);
+    const fichier = join(captures, `geely-parlomix-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);
+    writeFileSync(fichier, objets.get(f.cle)!);
+    const flux = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "csv=p=0", fichier]).toString().trim().split("\n");
+    assert.ok(flux.some((x: string) => x.startsWith("audio")), `${f.format} : piste son`);
+    assert.ok(flux.some((x: string) => x.startsWith(f.format === "9:16" ? "video,720,1280" : "video,1280,720")), `${f.format} : dimensions`);
+    // Une image de la carte d'ouverture, pour la contrôler à l'œil.
+    spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", "1.2", "-i", fichier, "-frames:v", "1", join(captures, `geely-parlomix-${f.format.replace(":", "x")}-ouverture.png`)]);
+    bilanParlomix.push({ format: f.format, mime: f.type_mime, extraits: f.nb_extraits, prevu_s: f.duree_ms / 1000, flux });
+  }
+  await admin.close();
+}
+
 try {
   await appairer();
-  const attendu = scenario === "auto" ? await scenarioAuto() : scenario === "fabrice" ? await scenarioFabrice() : await scenarioDemo();
+  const attendu = scenario === "auto" ? await scenarioAuto() : scenario === "fabrice" ? await scenarioFabrice()
+    : scenario === "geely" ? await scenarioGeely() : await scenarioDemo();
 
   // La file d'envoi se vide.
   const videosRecues = () => [...objets.keys()].filter((k) => k.endsWith(".webm")).length;
@@ -464,7 +602,7 @@ try {
     assert.equal(b.son_detecte_tablette, 1, `${b.etape} : voix détectée par la tablette`);
   }
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
-  if (process.env.E2E_ADMIN) await visiteAdmin();
+  if (process.env.E2E_ADMIN) await (scenario === "geely" ? visiteAdminGeely() : visiteAdmin());
   if (scenario === "demo" && !process.env.E2E_VIDEO) await visiteRetrait();
   if (bilanParlomix.length) console.log(JSON.stringify({ parlomix: bilanParlomix }, null, 2));
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");

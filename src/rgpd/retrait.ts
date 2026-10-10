@@ -1,5 +1,5 @@
 // Retrait d'accord d'un visiteur, à sa demande (lien de retrait) ou à la demande de la marque (Parlorama).
-// Retrait total : vidéos, miniatures, réponses et Parlomix où la personne apparaît sont supprimés ; il ne reste
+// Retrait total : vidéos, miniatures, réponses, choix et Parlomix où la personne apparaît sont supprimés ; il ne reste
 // qu'une trace anonyme de la session et de la date du retrait. Retrait de diffusion : les vidéos restent pour
 // l'usage interne, mais plus aucun montage où elle figure n'est diffusable.
 
@@ -33,6 +33,7 @@ export async function retirerAccord(env: Env, qui: Identite | string, s: Session
   const now = maintenant();
   await env.DB.batch([
     env.DB.prepare("DELETE FROM reponses WHERE session_id = ?").bind(s.id),
+    env.DB.prepare("DELETE FROM choix WHERE session_id = ?").bind(s.id),
     ...montages.map((m) => env.DB.prepare("DELETE FROM parlomix WHERE id = ?").bind(m.id)),
     env.DB.prepare("UPDATE sessions SET retiree_le = ?, prenom = '(retiré)', nom = NULL, email = NULL, recontact = 0, consent_diffusion = 0 WHERE id = ?").bind(now, s.id),
     ligneJournal(env.DB, qui, {

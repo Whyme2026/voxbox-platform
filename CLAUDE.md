@@ -11,6 +11,8 @@ Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploit
 - Deux consentements séparés : usage interne (obligatoire), diffusion publique (facultatif).
 - Un compte client ne voit **que son client**. Le périmètre vient du compte, jamais de la requête.
 - Rien n'est propre à un secteur : l'automobile n'est qu'une configuration (`fixtures/parcours-automobile.json`).
+  L'allure d'une marque passe par l'habillage du parcours (polices, couleurs, ambiances, visuels SVG), jamais par
+  du code propre à la marque : voir `fixtures/parcours-geely.json`.
 
 ## Règles de code
 - TypeScript côté serveur, **aucune dépendance d'exécution**. Syntaxe « effaçable » uniquement (pas d'`enum`,
@@ -30,7 +32,7 @@ npm run check      # typecheck + tests (Node ≥ 22.18, sans installation)
 ```
 Tout changement de la cabine se vérifie aussi de bout en bout, dans un vrai Chrome avec caméra et micro simulés :
 ```
-npm run e2e -- <audio.wav> <dossier-captures>   # parcours complet + présence du son dans chaque vidéo
+npm run e2e -- <audio.wav> <dossier-captures> [demo|auto|geely]   # parcours complet + présence du son dans chaque vidéo
 npm run cabine:local                            # serveur local avec une campagne de démo (code d'appairage affiché, /admin/)
 E2E_ADMIN=1 npm run e2e -- …                     # ajoute la visite de l'espace de gestion (captures admin-*.png)
 ```

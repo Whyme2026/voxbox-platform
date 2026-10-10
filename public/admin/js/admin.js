@@ -370,10 +370,39 @@ async function vueReponses(/** @type {any} */ c) {
   const cabinesVues = [...new Map(donnees.sessions.filter((/** @type {any} */ s) => s.cabine_id).map((/** @type {any} */ s) => [s.cabine_id, s.cabine_nom])).entries()];
   const choixCabine = /** @type {HTMLSelectElement} */ (h("select", { class: "choix-compact", "aria-label": "Cabine" }, h("option", { value: "" }, "Toutes les cabines"),
     ...cabinesVues.map(([id, nom]) => h("option", { value: id }, nom ?? "Cabine"))));
+  // Choix déclarés par les visiteurs (qualification, aiguillage, modèle) : filtre, pastilles et répartition.
+  /** @type {{ id: string, titre: string, options: { id: string, libelle: string }[] }[]} */
+  const etapesChoix = donnees.choix ?? [];
+  const libelleOption = (/** @type {string} */ etape, /** @type {string} */ option) =>
+    etapesChoix.find((x) => x.id === etape)?.options.find((o) => o.id === option)?.libelle ?? option;
+  const filtreChoix = /** @type {HTMLSelectElement} */ (h("select", { class: "choix-compact", "aria-label": "Filtrer par choix", hidden: !etapesChoix.length },
+    h("option", { value: "" }, "Tous les parcours"),
+    ...etapesChoix.map((e) => h("optgroup", { label: e.titre }, ...e.options.map((o) => h("option", { value: `${e.id}=${o.id}` }, o.libelle))))));
   const garde = (/** @type {any} */ s) => (!choixCabine.value || s.cabine_id === choixCabine.value)
+    && (!filtreChoix.value || s.choix?.[filtreChoix.value.split("=")[0] ?? ""] === filtreChoix.value.split("=")[1])
     && (!recherche.value.trim() || String(s.prenom).toLocaleLowerCase("fr").includes(recherche.value.trim().toLocaleLowerCase("fr")));
   recherche.addEventListener("input", () => dessiner());
   choixCabine.addEventListener("change", () => dessiner());
+  filtreChoix.addEventListener("change", () => dessiner());
+
+  /** Répartition des choix (ce que les visiteurs ont déclaré, en nombre) sur les visiteurs affichés. */
+  const repartition = () => {
+    const visibles = donnees.sessions.filter((/** @type {any} */ s) => !s.retiree_le && garde(s));
+    const etapes = etapesChoix.map((e) => {
+      const total = visibles.filter((/** @type {any} */ s) => s.choix?.[e.id]).length;
+      return { e, total, lignes: e.options.map((o) => ({ o, n: visibles.filter((/** @type {any} */ s) => s.choix?.[e.id] === o.id).length })) };
+    }).filter((x) => x.total > 0);
+    if (!etapes.length) return null;
+    return h("section", { class: "carte repartition-choix" },
+      h("h2", { style: "margin: 0" }, "Ce que les visiteurs ont choisi"),
+      h("div", { class: "grille-choix" }, ...etapes.map(({ e, total, lignes }) => h("div", { class: "pile", style: "gap: 6px" },
+        h("strong", {}, e.titre), h("span", { class: "detail-verif" }, `${total} réponse${total > 1 ? "s" : ""}`),
+        ...lignes.map(({ o, n }) => h("div", { class: "ligne-choix" },
+          h("span", {}, o.libelle),
+          h("span", { class: "jauge", "aria-hidden": "true" }, h("span", { style: `width: ${total ? Math.round((n / total) * 100) : 0}%` })),
+          h("span", { class: "nombre" }, `${n} · ${total ? Math.round((n / total) * 100) : 0} %`)))))));
+  };
+  const zoneRepartition = h("div", {});
   const puces = h("div", { class: "puces", role: "group", "aria-label": "Filtrer par question" });
   const dessinerPuces = () => puces.replaceChildren(
     h("button", { type: "button", class: "puce", "aria-pressed": String(!filtre), onclick: () => { filtre = ""; dessiner(); } }, "Par visiteur"),
@@ -381,6 +410,7 @@ async function vueReponses(/** @type {any} */ c) {
 
   const dessiner = () => {
     dessinerPuces();
+    zoneRepartition.replaceChildren(...[repartition()].filter((x) => x !== null));
     const visibles = donnees.sessions.filter(garde);
     if (!visibles.length) { zone.replaceChildren(h("section", { class: "carte vide" }, "Aucun visiteur ne correspond à cette recherche.")); return; }
     if (!filtre) {
@@ -393,6 +423,8 @@ async function vueReponses(/** @type {any} */ c) {
             : h("span", { class: "pastille" }, "Usage interne seulement"),
           s.recontact ? h("span", { class: "pastille", "data-ton": "vox" }, "Accepte d'être recontacté") : null,
           s.reponses.length && !s.retiree_le ? h("a", { class: "bouton discret petit", style: "margin-left: auto", href: `#/campagnes/${c.id}?onglet=parlomix&personne=${s.id}` }, "Parlomix de cette personne") : null),
+        Object.keys(s.choix ?? {}).length ? h("div", { class: "choix-visiteur", "aria-label": "Ses choix" },
+          ...etapesChoix.filter((e) => s.choix[e.id]).map((e) => h("span", { class: "pastille sans-point", title: e.titre }, libelleOption(e.id, s.choix[e.id])))) : null,
         peut("visiteurs.gerer") && !s.retiree_le ? h("div", { class: "boutons actions-visiteur" },
           s.consent_diffusion ? boutonConfirme("Retirer l'accord de diffusion", "Confirmer : usage interne seulement", async () => {
             await api(`/api/espace/sessions/${s.id}/diffusion-retiree`, { methode: "POST", corps: {} });
@@ -429,8 +461,8 @@ async function vueReponses(/** @type {any} */ c) {
     h("div", { class: "barre-reponses" },
       h("p", { class: "sous", style: "margin: 0; color: var(--doux)" },
         `${donnees.total} visiteur${donnees.total > 1 ? "s" : ""}. Chaque visionnage et chaque export sont enregistrés dans le journal.`),
-      h("div", { class: "boutons" }, recherche, cabinesVues.length > 1 ? choixCabine : null, exporter)),
-    puces, zone);
+      h("div", { class: "boutons" }, recherche, cabinesVues.length > 1 ? choixCabine : null, filtreChoix, exporter)),
+    zoneRepartition, puces, zone);
 }
 
 /** En local, l'identité passe par un en-tête : la vidéo est téléchargée puis lue. En ligne, le lecteur la lit en continu. */
@@ -623,9 +655,12 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
   const suivi = h("div", { class: "suivi-parlomix", hidden: true });
 
   const selection = () => type === "personne"
-    ? choixParPersonne(/** @type {any} */ (sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value)), questions)
+    ? choixParPersonne(/** @type {any} */ (sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value)), questions, donnees.choix ?? [])
       .filter(() => !diffusion.entree.checked || sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value)?.consent_diffusion)
-    : choixParQuestion(sessions, { etape: choixQuestion.value, cabine: choixCabine.value || null, diffusionSeulement: diffusion.entree.checked, avecPrenoms: prenoms.entree.checked });
+    : choixParQuestion(sessions, {
+      etape: choixQuestion.value, cabine: choixCabine.value || null, diffusionSeulement: diffusion.entree.checked, avecPrenoms: prenoms.entree.checked,
+      question: questions.find((/** @type {any} */ q) => q.id === choixQuestion.value), etapesChoix: donnees.choix ?? [],
+    });
 
   function majFormulaire() {
     typesPuces.replaceChildren(puceType("personne", "Par personne"), puceType("question", "Par question"));
@@ -671,8 +706,10 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       }
       const avant = clips.reduce((n, x) => n + x.dureeMs, 0);
       const apres = clips.reduce((n, x) => n + dureeSegments(x.segments), 0);
-      const theme = themeDepuisCouleurs(c.client?.couleurs);
+      // Habillage de la campagne : le Parlomix reprend polices, couleurs, ambiances et visuels de la cabine.
+      const theme = themeDepuisCouleurs(c.client?.couleurs, donnees.habillage);
       const logo = await chargerLogo(c.client?.logo_url);
+      const visuels = await chargerVisuels(donnees.habillage);
       const question = questions.find((/** @type {any} */ q) => q.id === choixQuestion.value);
       const personne = sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value);
       const cabineNom = cabines.find(([id]) => id === choixCabine.value)?.[1];
@@ -684,12 +721,12 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
         etape.textContent = `Montage ${format}`;
         detail.textContent = `${clips.length} réponse${clips.length > 1 ? "s" : ""}, ${Math.round((avant - apres) / 1000)} s de blancs coupés`;
         const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre, sousTitre, signature: c.client?.nom ?? "Parlopop", clips, format, theme });
-        let film = await fabriquer({ plan, videos, apercu, logo, surProgression: avancer });
+        let film = await fabriquer({ plan, videos, apercu, logo, visuels, surProgression: avancer });
         if (!(await contientDuSon(film.blob)) && film.type === "video/mp4") {
           // Leçon Geely : un MP4 peut perdre le son sans erreur. On refait le film en WebM.
           detail.textContent = "Son absent du MP4 : nouveau montage en WebM";
           const webm = formatsDisponibles().find((f) => f.startsWith("video/webm"));
-          if (webm) film = await fabriquer({ plan, videos, apercu, logo, format: webm, surProgression: avancer });
+          if (webm) film = await fabriquer({ plan, videos, apercu, logo, visuels, format: webm, surProgression: avancer });
         }
         etape.textContent = `Envoi ${format}`;
         detail.textContent = `${Math.round(film.blob.size / 1e5) / 10} Mo`;
@@ -705,7 +742,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Envoi impossible");
         // Vignette : la carte d'ouverture du film, sans bloquer si elle échoue.
-        await envoyerVignetteParlomix(decl.parlomix.id, plan, logo).catch(() => {});
+        await envoyerVignetteParlomix(decl.parlomix.id, plan, logo, visuels).catch(() => {});
       }
       suivi.replaceChildren(h("strong", {}, `Parlomix prêt${formats.length > 1 ? "s" : ""} : ${formats.join(" et ")}.`));
       toast("Parlomix prêt.");
@@ -730,19 +767,30 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
 }
 
 /** Vignette d'un Parlomix : sa carte d'ouverture (titre aux couleurs de la campagne), au format du film. */
-async function envoyerVignetteParlomix(/** @type {string} */ id, /** @type {any} */ plan, /** @type {HTMLImageElement | null} */ logo) {
+async function envoyerVignetteParlomix(/** @type {string} */ id, /** @type {any} */ plan, /** @type {HTMLImageElement | null} */ logo, /** @type {Map<string, HTMLImageElement>} */ visuels) {
   const portrait = plan.format === "9:16";
   const c = document.createElement("canvas");
   c.width = portrait ? 180 : 320; c.height = portrait ? 320 : 180;
   const ctx = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
   const intro = plan.sequences.find((/** @type {any} */ x) => x.type === "carte" && x.role === "intro");
   if (!intro) return;
-  dessinerCarte(ctx, intro, 0.75, plan.theme, logo);
+  dessinerCarte(ctx, intro, 0.75, plan.theme, logo, visuels);
   const image = await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.8));
   if (!image) return;
   await fetch(`/api/espace/parlomix/${id}/miniature`, {
     method: "PUT", body: image, credentials: "same-origin", headers: { ...enTetesDev(), "content-type": "image/jpeg" },
   });
+}
+
+/** Visuels de l'habillage (SVG autonomes, vérifiés par le serveur) en images, pour les cartes du Parlomix. */
+async function chargerVisuels(/** @type {any} */ habillage) {
+  /** @type {Map<string, HTMLImageElement>} */ const visuels = new Map();
+  for (const v of habillage?.visuels ?? []) {
+    const img = new Image();
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(v.svg)}`;
+    try { await img.decode(); visuels.set(v.id, img); } catch { /* visuel illisible : la carte s'en passe */ }
+  }
+  return visuels;
 }
 
 /** Logo du client pour les cartes du Parlomix (seulement s'il est hébergé par la plateforme : sinon le canevas serait bloqué). */

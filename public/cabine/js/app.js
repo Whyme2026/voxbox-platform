@@ -1,7 +1,7 @@
 // @ts-check
 // Application de la cabine : affiche le parcours écran par écran, filme, met les envois en file.
 
-import { creerMoteur, diffusionProposee, personnaliser, decouperConsigne } from "./moteur.js";
+import { creerMoteur, diffusionProposee, personnaliser, decouperConsigne, visuelDeLEtape } from "./moteur.js";
 import { creerClavier } from "./clavier.js";
 import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from "./enregistreur.js";
 import { creerFlou, detectionDisponible } from "./flou.js";
@@ -25,7 +25,8 @@ const PAUSE_MAX_MS = 12 * 3600_000;
 /**
  * Visiteur en cours. Effacé entièrement à chaque retour à l'accueil.
  * @type {null | { id: string, prenom: string, nom: string, email: string, recontact: boolean, diffusion: boolean,
- *   floutage: boolean, repondues: string[], creeLe: string, envoyee: boolean, parcoursVersion: string, consentVersion: string, codeRetrait: string }}
+ *   floutage: boolean, repondues: string[], creeLe: string, envoyee: boolean, parcoursVersion: string, consentVersion: string, codeRetrait: string,
+ *   choixFaits: { etape: string, option: string, quand: string }[] }}
  */
 let visiteur = null;
 let minuterieInactivite = 0;
@@ -33,7 +34,11 @@ let numeroEcran = 0;
 /** @type {(() => void) | null} */ let annulerEnCours = null;
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
+const cabine = $("cabine");
 const scene = $("scene");
+/** Fonds et visuels de l'habillage de la campagne en cours. */
+/** @type {Map<string, { couleur: string, couleurBas?: string, texte: string }>} */ let fonds = new Map();
+/** @type {Map<string, { nom: string, svg: string }>} */ let visuels = new Map();
 const clavier = creerClavier($("clavier"));
 const apercu = $("apercu");
 const video = /** @type {HTMLVideoElement} */ ($("video"));
@@ -172,15 +177,29 @@ async function chargerConfig() {
   return "ok";
 }
 
+/** Familles des polices auto-hébergées, proposées aux habillages de campagne. */
+const POLICES = /** @type {Record<string, string>} */ ({ fredoka: '"Fredoka"', gabarito: '"Gabarito"', michroma: '"Michroma"', inter: '"Inter"' });
+/** Polices de titre très larges : tailles de titre réduites (voir cabine.css). */
+const POLICES_LARGES = new Set(["michroma"]);
+const COULEUR = /^#[0-9a-fA-F]{6}$/;
+const valide = (/** @type {unknown} */ x) => typeof x === "string" && COULEUR.test(x);
+
 /**
  * Thème : celui de Parlopop par défaut ; une marque cliente le remplace par ses couleurs
  * (couleurs.principale → la marque parle, couleurs.secondaire → le visiteur répond, couleurs.fond, couleurs.texte) et son logo.
+ * L'habillage de la campagne (parcours.habillage) l'emporte : couleurs, couleur des bulles de la marque, polices,
+ * titres en capitales, fonds par écran et visuels.
  */
 function appliquerHabillage() {
   const client = config?.client;
+  /** @type {any} */ const hab = config?.parcours?.habillage ?? {};
   const racine = document.documentElement.style;
-  const c = client?.couleurs ?? {};
-  const valide = (/** @type {unknown} */ x) => typeof x === "string" && /^#[0-9a-fA-F]{6}$/.test(x);
+  const c = { ...(client?.couleurs ?? {}) };
+  const hc = hab.couleurs ?? {};
+  if (valide(hc.marque)) c.principale = hc.marque;
+  if (valide(hc.visiteur)) c.secondaire = hc.visiteur;
+  if (valide(hc.fond)) c.fond = hc.fond;
+  if (valide(hc.texte)) c.texte = hc.texte;
   for (const [cle, prop, sur] of [["principale", "--accent", "--sur-accent"], ["secondaire", "--parole", "--sur-parole"], ["fond", "--fond", ""], ["texte", "--texte", ""]]) {
     if (valide(c[cle])) {
       racine.setProperty(/** @type {string} */ (prop), c[cle]);
@@ -190,10 +209,32 @@ function appliquerHabillage() {
       if (sur) racine.removeProperty(sur);
     }
   }
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", valide(c.fond) ? c.fond : "#F1F2F6");
+  // Bulles de la marque d'une autre couleur que l'accent (ex. blanches) ; une ombre douce si elles sont claires.
+  if (valide(hc.bulle)) {
+    racine.setProperty("--bulle", hc.bulle);
+    racine.setProperty("--sur-bulle", contraste(hc.bulle));
+    racine.setProperty("--ombre-bulle", contraste(hc.bulle) === "#FFFFFF" ? "none" : "0 1px 2px rgba(0, 0, 0, .06), 0 12px 28px -16px rgba(0, 0, 0, .3)");
+  } else {
+    for (const p of ["--bulle", "--sur-bulle", "--ombre-bulle"]) racine.removeProperty(p);
+  }
+  const titres = POLICES[hab.polices?.titres];
+  const texte = POLICES[hab.polices?.texte];
+  if (titres) racine.setProperty("--titres", `${titres}, system-ui, sans-serif`); else racine.removeProperty("--titres");
+  if (texte) racine.setProperty("--police-texte", `${texte}, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`); else racine.removeProperty("--police-texte");
+  if (POLICES_LARGES.has(hab.polices?.titres)) cabine.dataset.titres = "large"; else delete cabine.dataset.titres;
+  cabine.toggleAttribute("data-majuscules", hab.titresMajuscules === true);
+  cabine.toggleAttribute("data-habille", Boolean(config?.parcours?.habillage));
+  fonds = new Map((hab.fonds ?? []).map((/** @type {any} */ a) => [a.id, a]));
+  visuels = new Map((hab.visuels ?? []).map((/** @type {any} */ v) => [v.id, v]));
+  appliquerFond(null);
+
+  // En-tête : le logo de la marque ; à défaut, son nom si la campagne est habillée ; sinon la marque Parlopop.
   const logo = /** @type {HTMLImageElement} */ ($("logo"));
+  const nom = $("nom-marque");
   logo.hidden = !client?.logo_url;
-  $("voxbox").hidden = Boolean(client?.logo_url);
+  nom.hidden = Boolean(client?.logo_url) || !config?.parcours?.habillage || !client?.nom;
+  nom.textContent = nom.hidden ? "" : client.nom;
+  $("voxbox").hidden = !logo.hidden || !nom.hidden;
   if (client?.logo_url) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
   // Ambiance graphique du parcours (« conversation » par défaut) et textes fixes au vouvoiement ou au tutoiement.
   const ambiance = config?.parcours?.ambiance === "pop" ? "pop" : "conversation";
@@ -202,6 +243,33 @@ function appliquerHabillage() {
   $("compte-lire").textContent = tv("Prenez le temps de lire.", "Prends le temps de lire.");
   $("ecoute-texte").textContent = tv("On vous écoute…", "On t'écoute…");
 }
+
+/** Fond d'un écran (fond, dégradé, couleur du texte) ; null : le fond de la campagne. */
+function appliquerFond(/** @type {string | null | undefined} */ id) {
+  const a = id ? fonds.get(id) : null;
+  const style = cabine.style;
+  if (a && valide(a.couleur) && valide(a.texte)) {
+    style.setProperty("--fond", a.couleur);
+    style.setProperty("--texte", a.texte);
+    if (valide(a.couleurBas)) style.setProperty("--fond-scene", `linear-gradient(180deg, ${a.couleur}, ${a.couleurBas})`);
+    else style.removeProperty("--fond-scene");
+  } else {
+    for (const p of ["--fond", "--texte", "--fond-scene"]) style.removeProperty(p);
+  }
+  const fond = a?.couleur ?? getComputedStyle(document.documentElement).getPropertyValue("--fond").trim();
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", valide(fond) ? fond : "#F1F2F6");
+}
+
+/** Image d'un visuel de l'habillage (SVG affiché comme une image : rien n'y est exécuté). */
+function imageVisuel(/** @type {string | null} */ id, /** @type {string} */ classe, /** @type {string | undefined} */ alt = undefined) {
+  const v = id ? visuels.get(id) : null;
+  if (!v) return null;
+  return h("img", { class: `visuel ${classe}`.trim(), src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(v.svg)}`, alt: alt ?? v.nom, draggable: "false" });
+}
+
+/** Visuel d'une étape (le sien, ou celui de la dernière option choisie pour « choix »). */
+const visuelEtape = (/** @type {any} */ e, /** @type {string} */ classe) =>
+  config?.parcours ? imageVisuel(visuelDeLEtape(config.parcours, e, visiteur?.choixFaits ?? []), classe) : null;
 
 /** Blanc ou encre selon la luminance de la couleur de marque. */
 function contraste(/** @type {string} */ hex) {
@@ -282,6 +350,7 @@ function nouvelleSession() {
     floutage: false, repondues: [], creeLe: new Date().toISOString(), envoyee: false,
     parcoursVersion: config.campagne.parcours_version_id, consentVersion: config.consentement.id,
     codeRetrait: codeRetrait(),
+    choixFaits: [],
   };
 }
 
@@ -314,6 +383,24 @@ async function envoyerSession() {
       code_retrait: visiteur.codeRetrait,
     }),
   });
+  // Choix faits avant l'accord : envoyés seulement maintenant, après la session.
+  for (const c of visiteur.choixFaits) await envoyerChoix(c);
+}
+
+/** Met en file un choix du visiteur (qualification, aiguillage) : rattaché à sa session, renvoi sans doublon. */
+async function envoyerChoix(/** @type {{ etape: string, option: string, quand: string }} */ c) {
+  if (!visiteur || !file) return;
+  await file.ajouter({
+    methode: "PUT", chemin: `/api/cabine/sessions/${visiteur.id}/choix/${encodeURIComponent(c.etape)}`, type: "application/json",
+    corps: JSON.stringify({ option_id: c.option, cree_le: c.quand }),
+  });
+}
+
+function enregistrerChoix(/** @type {string} */ etape, /** @type {string} */ option) {
+  if (!visiteur) return;
+  const c = { etape, option, quand: new Date().toISOString() };
+  visiteur.choixFaits = [...(visiteur.choixFaits ?? []).filter((x) => x.etape !== etape), c];
+  if (visiteur.envoyee) envoyerChoix(c);
 }
 
 // ------------------------------------------------------------------ écrans du parcours
@@ -323,6 +410,7 @@ function aller(/** @type {string | null} */ id) {
   if (!id || !moteur) return accueil();
   const e = moteur.etape(id);
   relancerInactivite();
+  appliquerFond(/** @type {string | undefined} */ (e.fond));
   switch (e.type) {
     case "accueil": return ecranAccueil(e);
     case "identification": return ecranIdentification(e);
@@ -341,6 +429,7 @@ const suite = (/** @type {any} */ e, /** @type {string | undefined} */ choix = u
 function accueil() {
   visiteur = null;
   activerFlou(false);
+  appliquerFond(null);
   if (!config?.campagne || !moteur) return ecranAttente();
   aller(moteur.premiere());
 }
@@ -364,6 +453,7 @@ function ecranAccueil(/** @type {any} */ e) {
         h("div", { class: "colonne" },
           h("h1", {}, e.titre),
           e.texte ? h("p", { class: "chapo" }, e.texte) : null,
+          visuelEtape(e, "visuel-accueil"),
           enPause.length ? h("div", { class: "actions" }, bouton("Je reviens", ecranReprise, "secondaire")) : null),
         h("section", { class: "carte conversation", "aria-label": tv("La cabine vous parle", "La cabine te parle") },
           ...bulles.map((t) => bulle("marque arrive", t)),
@@ -374,6 +464,7 @@ function ecranAccueil(/** @type {any} */ e) {
 }
 
 function ecranReprise() {
+  appliquerFond(null);
   const liste = pauses().sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
   afficher([
     h("div", { class: "ecran" },
@@ -536,7 +627,8 @@ async function ecranQuestion(/** @type {any} */ e) {
             e.aide ? h("p", { class: "chapo" }, perso(e.aide)) : null) : h("span"),
           e.coupDePouce ? h("div", { class: "coup-de-pouce" },
             h("span", { class: "intitule" }, "Pour démarrer"),
-            bulle("visiteur douce", perso(e.coupDePouce))) : null),
+            bulle("visiteur douce", perso(e.coupDePouce))) : null,
+          visuelEtape(e, "visuel-question")),
         h("div", { class: "actions" }, suivant))),
   ], "question");
   reperes("question", progression);
@@ -601,12 +693,20 @@ async function ecranQuestion(/** @type {any} */ e) {
 }
 
 function ecranChoix(/** @type {any} */ e) {
+  /** Fond d'une option : la couleur (ou le dégradé) de son fond. */
+  const styleOption = (/** @type {any} */ o) => {
+    const a = o.fond ? fonds.get(o.fond) : null;
+    if (!a) return undefined;
+    return `--fond-option: ${a.couleurBas ? `linear-gradient(180deg, ${a.couleur}, ${a.couleurBas})` : a.couleur}; --texte-option: ${a.texte}`;
+  };
   afficher([
     h("div", { class: "ecran" },
       h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
       h("div", { class: "options" }, ...e.options.map((/** @type {any} */ o) =>
-        h("button", { type: "button", class: "option", onclick: () => suite(e, o.id) },
-          o.image ? h("img", { src: o.image, alt: "" }) : null, o.libelle)))),
+        h("button", { type: "button", class: "option", style: styleOption(o), onclick: () => { enregistrerChoix(e.id, o.id); suite(e, o.id); } },
+          imageVisuel(o.visuel ?? null, "", "") ?? (o.image ? h("img", { src: o.image, alt: "" }) : null),
+          h("span", { class: "libelle" }, o.libelle),
+          o.detail ? h("span", { class: "detail" }, perso(o.detail)) : null)))),
   ], "choix");
 }
 
@@ -621,6 +721,7 @@ function ecranPause(/** @type {any} */ e) {
       h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
       e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
       bulle("marque douce moyenne arrive", tv(`À votre retour, touchez « Je reviens » puis « ${prenom || "votre prénom"} ».`, `À ton retour, touche « Je reviens » puis « ${prenom || "ton prénom"} ».`)),
+      visuelEtape(e, "visuel-fin"),
       h("div", { class: "actions droite" }, bouton(e.bouton, accueil))),
   ], "pause");
   const ecran = numeroEcran;
@@ -665,7 +766,8 @@ function ecranFin(/** @type {any} */ e) {
         h("section", { class: "colonne", "aria-label": "Fin de la conversation" },
           h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
           nb ? h("p", { class: "bulle visiteur envoye arrive" }, coche, nb > 1 ? `${nb} réponses envoyées` : "1 réponse envoyée") : null,
-          e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null),
+          e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
+          visuelEtape(e, "visuel-fin")),
         h("div", { class: "colonne" },
           e.sortie ? h("p", { class: "sortie" }, perso(e.sortie)) : null,
           visiteur?.codeRetrait ? carteRetrait(visiteur.codeRetrait) : null)),

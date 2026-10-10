@@ -2,6 +2,9 @@
 
 @font-face { font-family: "Fredoka"; src: url("../polices/fredoka.woff") format("woff"); font-weight: 300 700; font-stretch: 75% 125%; font-display: swap; }
 @font-face { font-family: "Gabarito"; src: url("../polices/gabarito.woff") format("woff"); font-weight: 400 900; font-display: swap; }
+/* Polices des habillages de campagne : nécessaires au dessin des Parlomix. */
+@font-face { font-family: "Michroma"; src: url("../polices/michroma.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("../polices/inter.woff") format("woff"); font-weight: 400 700; font-display: swap; }
 
 :root {
   --vox: #3F4C8F; --vox-fonce: #2C3769; --vox-pale: #E4E6F3;
@@ -223,3 +226,12 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 .expert summary { cursor: pointer; font-size: 14px; color: var(--doux); }
 .json-editeur { width: 100%; min-height: 260px; margin: 10px 0; font-family: ui-monospace, Menlo, monospace; font-size: 12px; border-radius: 12px; border: 1.5px solid var(--trait); padding: 10px; }
 @media (max-width: 1100px) { .editeur { grid-template-columns: 1fr; } .panneau-editeur { position: static; } }
+
+/* Choix déclarés par les visiteurs (qualification, aiguillage) */
+.choix-visiteur { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.repartition-choix { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.grille-choix { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 28px; }
+.ligne-choix { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(60px, 1fr) auto; align-items: center; gap: 10px; font-size: 14px; }
+.ligne-choix .jauge { height: 8px; border-radius: 4px; background: var(--gris-pale); overflow: hidden; }
+.ligne-choix .jauge span { display: block; height: 100%; border-radius: 4px; background: var(--vox); }
+.ligne-choix .nombre { color: var(--doux); font-variant-numeric: tabular-nums; white-space: nowrap; }

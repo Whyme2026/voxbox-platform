@@ -4,10 +4,15 @@
 // Le moteur de rendu de Parlorama l'exécute aujourd'hui ; un serveur de rendu pourra l'exécuter demain.
 
 /**
- * @typedef {{ marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string }} Theme
+ * @typedef {{ couleur: string, couleurBas?: string, texte: string }} FondTheme
+ * @typedef {{
+ *   marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string,
+ *   habille?: boolean, bulle?: string, surBulle?: string, policeTitres?: string, policeTexte?: string,
+ *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>
+ * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales et fonds (fonds des cartes)
  * @typedef {[number, number]} Segment  début et fin en millisecondes dans la vidéo source
- * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string }} Clip
- * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean }} SequenceCarte
+ * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip
+ * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string }} SequenceCarte
  * @typedef {{ type: "clip", reponseId: string, sessionId: string, segments: Segment[], bandeau: string | null, dureeMs: number }} SequenceClip
  * @typedef {SequenceCarte | SequenceClip} Sequence
  * @typedef {"16:9" | "9:16"} Format
@@ -28,17 +33,65 @@ export function contraste(/** @type {string} */ hex) {
   return 0.2126 * /** @type {number} */ (r) + 0.7152 * /** @type {number} */ (g) + 0.0722 * /** @type {number} */ (b) > 0.4 ? "#23263F" : "#FFFFFF";
 }
 
+/** Polices auto-hébergées que l'habillage d'une campagne peut choisir (mêmes que la cabine). */
+export const POLICES = /** @type {const} */ ({ fredoka: "Fredoka", gabarito: "Gabarito", michroma: "Michroma", inter: "Inter" });
+/** Polices de titre très larges : dessinées plus petites et en graisse normale. */
+const POLICES_LARGES = new Set(["michroma"]);
+
 /**
- * Thème du film : celui de la campagne (couleurs du client), sinon la direction artistique Parlopop.
- * @param {Record<string, unknown> | null | undefined} couleurs
+ * Thème du film : celui de la campagne (couleurs du client, puis habillage du parcours s'il y en a un),
+ * sinon la direction artistique Parlopop. L'habillage apporte aussi polices, capitales, couleur des bulles et
+ * fonds : le Parlomix ressemble à la cabine.
+ * @param {Record<string, unknown> | null | undefined} couleurs couleurs de la fiche client
+ * @param {any} [habillage] habillage du parcours (parcours.habillage)
  * @returns {Theme}
  */
-export function themeDepuisCouleurs(couleurs) {
-  const c = couleurs ?? {};
+export function themeDepuisCouleurs(couleurs, habillage = null) {
+  const c = { ...(couleurs ?? {}) };
+  const hc = habillage?.couleurs ?? {};
+  for (const [de, vers] of [["marque", "principale"], ["visiteur", "secondaire"], ["fond", "fond"], ["texte", "texte"]]) {
+    if (typeof hc[/** @type {string} */ (de)] === "string" && HEX.test(hc[/** @type {string} */ (de)])) c[/** @type {string} */ (vers)] = hc[/** @type {string} */ (de)];
+  }
   const choisir = (/** @type {string} */ cle, /** @type {string} */ defaut) => (typeof c[cle] === "string" && HEX.test(/** @type {string} */ (c[cle])) ? /** @type {string} */ (c[cle]) : defaut);
   const marque = choisir("principale", DA.marque);
   const parole = choisir("secondaire", DA.parole);
-  return { marque, parole, fond: choisir("fond", DA.fond), texte: choisir("texte", DA.texte), surMarque: contraste(marque), surParole: contraste(parole) };
+  /** @type {Theme} */
+  const theme = { marque, parole, fond: choisir("fond", DA.fond), texte: choisir("texte", DA.texte), surMarque: contraste(marque), surParole: contraste(parole) };
+  if (!habillage || typeof habillage !== "object") return theme;
+  theme.habille = true;
+  if (typeof hc.bulle === "string" && HEX.test(hc.bulle)) { theme.bulle = hc.bulle; theme.surBulle = contraste(hc.bulle); }
+  const titres = POLICES[/** @type {keyof typeof POLICES} */ (habillage.polices?.titres)];
+  const texte = POLICES[/** @type {keyof typeof POLICES} */ (habillage.polices?.texte)];
+  if (titres) theme.policeTitres = titres;
+  if (texte) theme.policeTexte = texte;
+  if (POLICES_LARGES.has(habillage.polices?.titres)) theme.titresLarges = true;
+  if (habillage.titresMajuscules === true) theme.majuscules = true;
+  /** @type {Record<string, FondTheme>} */
+  const fonds = {};
+  for (const a of Array.isArray(habillage.fonds) ? habillage.fonds : []) {
+    if (!a || typeof a.id !== "string" || !HEX.test(a.couleur) || !HEX.test(a.texte)) continue;
+    fonds[a.id] = { couleur: a.couleur, texte: a.texte, ...(HEX.test(a.couleurBas ?? "") ? { couleurBas: a.couleurBas } : {}) };
+  }
+  if (Object.keys(fonds).length) theme.fonds = fonds;
+  return theme;
+}
+
+/**
+ * Visuel d'une réponse : celui de sa question ; pour « choix », celui de la dernière option choisie par la personne
+ * (dans l'ordre du parcours) qui en a un. Même règle que l'écran de la cabine.
+ * @param {string | undefined} visuel visuel de la question
+ * @param {Record<string, string> | undefined} choixSession { étape → option } de la personne
+ * @param {{ id: string, options: { id: string, visuel?: string }[] }[]} etapesChoix
+ * @returns {string | undefined}
+ */
+export function visuelDeReponse(visuel, choixSession, etapesChoix) {
+  if (!visuel) return undefined;
+  if (visuel !== "choix") return visuel;
+  for (const e of [...etapesChoix].reverse()) {
+    const o = e.options.find((x) => x.id === choixSession?.[e.id]);
+    if (o?.visuel) return o.visuel;
+  }
+  return undefined;
 }
 
 // ------------------------------------------------------------------ les blancs
@@ -113,29 +166,42 @@ export const dureeSegments = (/** @type {Segment[]} */ s) => s.reduce((n, [a, b]
 
 /**
  * @typedef {{ id: string, etape_id: string, duree_ms: number | null, son_present: boolean | null }} ReponseApi
- * @typedef {{ id: string, prenom: string, cree_le: string, consent_diffusion: boolean, retiree_le: string | null, cabine_id: string | null, cabine_nom: string | null, reponses: ReponseApi[] }} SessionApi
- * @typedef {{ id: string, titre: string, texte: string }} QuestionApi
- * @typedef {{ id: string, sessionId: string, etiquette: string, detail?: string, dureeMs: number }} Choix
+ * @typedef {{ id: string, prenom: string, cree_le: string, consent_diffusion: boolean, retiree_le: string | null, cabine_id: string | null, cabine_nom: string | null, reponses: ReponseApi[], choix?: Record<string, string> }} SessionApi
+ * @typedef {{ id: string, titre: string, texte: string, fond?: string, visuel?: string }} QuestionApi
+ * @typedef {{ id: string, options: { id: string, visuel?: string }[] }} EtapeChoixApi
+ * @typedef {{ id: string, sessionId: string, etiquette: string, detail?: string, dureeMs: number, fond?: string, visuel?: string }} Choix
  */
 
 /**
  * Réponses d'une personne, dans l'ordre du parcours.
+ * Avec un habillage : le fond de chaque question et le visuel de la personne (ex. le modèle qu'elle a désigné).
  * @param {SessionApi} session
  * @param {QuestionApi[]} questions
+ * @param {EtapeChoixApi[]} [etapesChoix]
  * @returns {Choix[]}
  */
-export function choixParPersonne(session, questions) {
+export function choixParPersonne(session, questions, etapesChoix = []) {
   if (session.retiree_le) return [];
-  const titre = (/** @type {string} */ id) => questions.find((q) => q.id === id)?.titre ?? id;
-  const texte = (/** @type {string} */ id) => questions.find((q) => q.id === id)?.texte;
-  return session.reponses.map((r) => ({ id: r.id, sessionId: session.id, etiquette: titre(r.etape_id), detail: texte(r.etape_id), dureeMs: r.duree_ms ?? 0 }));
+  return session.reponses.map((r) => {
+    const q = questions.find((x) => x.id === r.etape_id);
+    return {
+      id: r.id, sessionId: session.id, etiquette: q?.titre ?? r.etape_id, detail: q?.texte, dureeMs: r.duree_ms ?? 0,
+      ...habillageClip(q, session, etapesChoix),
+    };
+  });
+}
+
+/** Fond et visuel d'un extrait (seulement s'ils existent : le plan reste léger). */
+function habillageClip(/** @type {QuestionApi | undefined} */ q, /** @type {SessionApi} */ s, /** @type {EtapeChoixApi[]} */ etapesChoix) {
+  const visuel = visuelDeReponse(q?.visuel, s.choix, etapesChoix);
+  return { ...(q?.fond ? { fond: q.fond } : {}), ...(visuel ? { visuel } : {}) };
 }
 
 /**
  * Réponses de plusieurs personnes à une même question, dans une campagne ou dans une seule cabine.
  * Les plus anciennes d'abord (ordre de passage), au plus CLIPS_MAX.
  * @param {SessionApi[]} sessions
- * @param {{ etape: string, cabine?: string | null, diffusionSeulement?: boolean, avecPrenoms?: boolean, max?: number }} o
+ * @param {{ etape: string, cabine?: string | null, diffusionSeulement?: boolean, avecPrenoms?: boolean, max?: number, question?: QuestionApi, etapesChoix?: EtapeChoixApi[] }} o
  * @returns {Choix[]}
  */
 export function choixParQuestion(sessions, o) {
@@ -146,6 +212,7 @@ export function choixParQuestion(sessions, o) {
     .flatMap((s) => s.reponses.filter((r) => r.etape_id === o.etape).map((r) => ({ r, s })));
   return retenues.slice(-(o.max ?? CLIPS_MAX)).map(({ r, s }, i) => ({
     id: r.id, sessionId: s.id, etiquette: o.avecPrenoms === false ? `Avis n° ${i + 1}` : s.prenom, dureeMs: r.duree_ms ?? 0,
+    ...habillageClip(o.question, s, o.etapesChoix ?? []),
   }));
 }
 
@@ -157,13 +224,19 @@ export function choixParQuestion(sessions, o) {
  * @param {{ type: "personne" | "question", titre: string, sousTitre?: string, signature: string, clips: Clip[], format: Format, theme: Theme, bandeaux?: boolean }} o
  */
 export function planParlomix(o) {
+  // Habillage : l'ouverture prend le fond de la première réponse (et, pour une personne, son visuel) ;
+  // chaque transition annonce la réponse suivante dans son fond, avec son visuel.
+  const premier = o.clips[0];
+  const habit = (/** @type {Clip | undefined} */ c, avecVisuel = true) => ({
+    ...(c?.fond ? { fond: c.fond } : {}), ...(avecVisuel && c?.visuel ? { visuel: c.visuel } : {}),
+  });
   /** @type {Sequence[]} */
-  const sequences = [{ type: "carte", role: "intro", dureeMs: DUREES.intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true }];
+  const sequences = [{ type: "carte", role: "intro", dureeMs: DUREES.intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true, ...habit(premier, o.type === "personne") }];
   o.clips.forEach((c, i) => {
     if (i > 0) {
       sequences.push({
         type: "carte", role: "transition", dureeMs: DUREES.transition,
-        titre: c.etiquette, sousTitre: o.type === "personne" ? c.detail : undefined, jingle: true,
+        titre: c.etiquette, sousTitre: o.type === "personne" ? c.detail : undefined, jingle: true, ...habit(c),
       });
     }
     const segments = c.segments.length ? c.segments : /** @type {Segment[]} */ ([[0, c.dureeMs]]);
@@ -172,7 +245,7 @@ export function planParlomix(o) {
       bandeau: o.bandeaux === false ? null : c.etiquette, dureeMs: dureeSegments(segments),
     });
   });
-  sequences.push({ type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false });
+  sequences.push({ type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false, ...habit(premier, false) });
   return {
     version: 1,
     type: o.type,

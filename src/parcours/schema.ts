@@ -9,6 +9,13 @@ interface EtapeBase {
   type: TypeEtape;
   /** Étape suivante. Par défaut : l'étape d'après dans la liste. */
   suite?: string;
+  /** Fond de l'écran (couleur ou dégradé, couleur du texte), parmi ceux de l'habillage. */
+  fond?: string;
+  /**
+   * Visuel affiché sur l'écran (ex. un produit), parmi ceux de l'habillage. « choix » : le visuel de la dernière
+   * option choisie par le visiteur qui en a un (ex. le modèle qu'il vient de désigner).
+   */
+  visuel?: string;
 }
 
 export interface EtapeAccueil extends EtapeBase {
@@ -67,7 +74,14 @@ export interface EtapeQuestion extends EtapeBase {
   /** Début de phrase pour lancer la réponse (ex. « Pour moi, c'était… »). */
   coupDePouce?: string;
 }
-export interface OptionChoix { id: string; libelle: string; image?: string; suite: string }
+export interface OptionChoix {
+  id: string; libelle: string; image?: string; suite: string;
+  /** Précision sous le libellé (ex. « SUV familial · super hybride »). */
+  detail?: string;
+  /** Fond de la carte de l'option et visuel affiché dessus, parmi ceux de l'habillage. */
+  fond?: string;
+  visuel?: string;
+}
 export interface EtapeChoix extends EtapeBase { type: "choix"; titre: string; options: OptionChoix[] }
 export interface EtapePause extends EtapeBase { type: "pause"; titre: string; texte?: string; bouton: string }
 export interface EtapeFin extends EtapeBase { type: "fin"; titre: string; texte?: string; sortie?: string; retourAccueilSec?: number }
@@ -85,6 +99,31 @@ export type Etape =
 export type Ambiance = "conversation" | "pop";
 export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop"];
 
+/**
+ * Habillage d'une campagne : ce qui donne à la cabine et aux Parlomix l'allure de la marque, sans code propre
+ * à une marque ni à un secteur. Tout est facultatif : sans habillage, direction artistique Parlopop
+ * (et couleurs de la fiche client). S'ajoute à l'ambiance générale (« conversation » ou « pop »).
+ */
+export const POLICES = ["fredoka", "gabarito", "michroma", "inter"] as const;
+export type Police = (typeof POLICES)[number];
+/** Fond d'un écran : une couleur, ou un dégradé vertical de `couleur` à `couleurBas` ; `texte` = couleur du texte posé dessus. */
+export interface Fond { id: string; nom?: string; couleur: string; couleurBas?: string; texte: string }
+/** Visuel vectoriel (SVG autonome), affiché comme une image : aucun script ni ressource externe. */
+export interface Visuel { id: string; nom: string; svg: string }
+export interface Habillage {
+  polices?: { titres?: Police; texte?: Police };
+  /** Titres et questions en capitales. */
+  titresMajuscules?: boolean;
+  /**
+   * marque : boutons secondaires, cases, repères ; bulle : fond des bulles de la marque (par défaut, marque) ;
+   * visiteur : bulles du visiteur et actions ; fond et texte : écran sans fond particulier.
+   * Remplacent les couleurs de la fiche client pour cette campagne.
+   */
+  couleurs?: { marque?: string; bulle?: string; visiteur?: string; fond?: string; texte?: string };
+  fonds?: Fond[];
+  visuels?: Visuel[];
+}
+
 export interface Parcours {
   version: 1;
   langue: string;
@@ -92,6 +131,7 @@ export interface Parcours {
   ambiance?: Ambiance;
   /** Textes fixes de la cabine au tutoiement (par défaut : vouvoiement). Les textes légaux restent au vouvoiement. */
   tutoiement?: boolean;
+  habillage?: Habillage;
   etapes: Etape[];
 }
 
@@ -134,12 +174,20 @@ export function validerParcours(brut: unknown): string[] {
     }
   };
 
+  const { fonds, visuels } = validerHabillage(p.habillage, pb);
+  const refs = (ou: string, x: { fond?: unknown; visuel?: unknown }, etape = true) => {
+    if (x.fond !== undefined && (typeof x.fond !== "string" || !fonds.has(x.fond))) pb.push(`${ou} : fond inconnu (${String(x.fond)})`);
+    const visuelChoisi = etape && x.visuel === VISUEL_DU_CHOIX;
+    if (x.visuel !== undefined && !visuelChoisi && (typeof x.visuel !== "string" || !visuels.has(x.visuel))) pb.push(`${ou} : visuel inconnu (${String(x.visuel)})`);
+  };
+
   let nbQuestions = 0;
   let consentementVu = false;
   for (const e of etapes) {
     if (!e || typeof e !== "object" || typeof e.id !== "string") continue;
     const ou = `étape ${e.id}`;
     if (e.suite !== undefined) cible(ou, e.suite);
+    refs(ou, e);
     switch (e.type) {
       case "accueil":
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
@@ -185,7 +233,9 @@ export function validerParcours(brut: unknown): string[] {
           if (!o || typeof o.id !== "string" || !ID_VALIDE.test(o.id) || optIds.has(o.id)) pb.push(`${ou} : option à identifiant invalide ou en double`);
           else optIds.add(o.id);
           txt(ou, "libelle", o?.libelle, 60);
+          if (o?.detail !== undefined) txt(ou, "detail", o.detail, 80);
           cible(`${ou}, option ${o?.id ?? "?"}`, o?.suite);
+          if (o) refs(`${ou}, option ${o.id ?? "?"}`, o, false);
         }
         break;
       }
@@ -198,6 +248,79 @@ export function validerParcours(brut: unknown): string[] {
   if (derniere?.type !== "fin") pb.push("La dernière étape doit être de type « fin »");
   if (pb.length === 0) pb.push(...verifierAtteignabilite(etapes as Etape[]));
   return pb;
+}
+
+const COULEUR = /^#[0-9a-fA-F]{6}$/;
+/** Valeur réservée de `visuel` sur une étape : le visuel de la dernière option choisie. */
+export const VISUEL_DU_CHOIX = "choix";
+const SVG_MAX = 40_000;
+const VISUELS_MAX_TOTAL = 240_000;
+/** Ce qu'un visuel ne doit jamais contenir : scripts, contenus étrangers, liens vers l'extérieur. */
+const SVG_INTERDIT = /<script|<foreignobject|<iframe|<image|javascript:|\son[a-z]+\s*=|href\s*=\s*(?!["']?#)|url\(\s*(?!["']?#)|@import/i;
+
+/**
+ * Vérifie l'habillage et renvoie les identifiants de fonds et de visuels connus (pour les renvois des étapes).
+ * Un visuel est un SVG autonome : il est affiché comme une image (aucun script n'y tourne), et on refuse en plus
+ * tout ce qui pourrait charger une ressource ou exécuter du code.
+ */
+export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<string>; visuels: Set<string> } {
+  const fonds = new Set<string>();
+  const visuels = new Set<string>();
+  if (brut === undefined) return { fonds, visuels };
+  if (!brut || typeof brut !== "object" || Array.isArray(brut)) { pb.push("habillage : objet attendu"); return { fonds, visuels }; }
+  const h = brut as Record<string, unknown>;
+  const connues = new Set(["polices", "titresMajuscules", "couleurs", "fonds", "visuels"]);
+  for (const k of Object.keys(h)) if (!connues.has(k)) pb.push(`habillage : clé inconnue « ${k} »`);
+  const couleur = (ou: string, v: unknown) => { if (typeof v !== "string" || !COULEUR.test(v)) pb.push(`${ou} : couleur au format #RRGGBB attendue`); };
+
+  if (h.polices !== undefined) {
+    const p = h.polices as Record<string, unknown>;
+    if (!p || typeof p !== "object" || Array.isArray(p)) pb.push("habillage.polices : objet attendu");
+    else for (const [k, v] of Object.entries(p)) {
+      if (k !== "titres" && k !== "texte") pb.push(`habillage.polices : clé inconnue « ${k} »`);
+      else if (!POLICES.includes(v as Police)) pb.push(`habillage.polices.${k} : ${POLICES.join(", ")}`);
+    }
+  }
+  if (h.titresMajuscules !== undefined && typeof h.titresMajuscules !== "boolean") pb.push("habillage.titresMajuscules : vrai ou faux");
+  if (h.couleurs !== undefined) {
+    const c = h.couleurs as Record<string, unknown>;
+    if (!c || typeof c !== "object" || Array.isArray(c)) pb.push("habillage.couleurs : objet attendu");
+    else for (const [k, v] of Object.entries(c)) {
+      if (!["marque", "bulle", "visiteur", "fond", "texte"].includes(k)) pb.push(`habillage.couleurs : clé inconnue « ${k} »`);
+      else couleur(`habillage.couleurs.${k}`, v);
+    }
+  }
+  if (h.fonds !== undefined) {
+    if (!Array.isArray(h.fonds) || h.fonds.length > 8) pb.push("habillage.fonds : 8 fonds au plus");
+    else for (const a of h.fonds as Partial<Fond>[]) {
+      const ou = `habillage, fond ${a?.id ?? "?"}`;
+      if (!a || typeof a.id !== "string" || !ID_VALIDE.test(a.id) || fonds.has(a.id)) { pb.push(`${ou} : identifiant invalide ou en double`); continue; }
+      fonds.add(a.id);
+      couleur(`${ou}, couleur`, a.couleur);
+      couleur(`${ou}, texte`, a.texte);
+      if (a.couleurBas !== undefined) couleur(`${ou}, couleurBas`, a.couleurBas);
+      if (a.nom !== undefined && (typeof a.nom !== "string" || a.nom.length > 40)) pb.push(`${ou} : nom de 40 caractères au plus`);
+    }
+  }
+  if (h.visuels !== undefined) {
+    if (!Array.isArray(h.visuels) || h.visuels.length > 12) pb.push("habillage.visuels : 12 visuels au plus");
+    else {
+      let total = 0;
+      for (const v of h.visuels as Partial<Visuel>[]) {
+        const ou = `habillage, visuel ${v?.id ?? "?"}`;
+        if (!v || typeof v.id !== "string" || !ID_VALIDE.test(v.id) || visuels.has(v.id) || v.id === VISUEL_DU_CHOIX) { pb.push(`${ou} : identifiant invalide, réservé ou en double`); continue; }
+        visuels.add(v.id);
+        if (typeof v.nom !== "string" || !v.nom.trim() || v.nom.length > 40) pb.push(`${ou} : nom obligatoire (40 caractères au plus)`);
+        if (typeof v.svg !== "string") { pb.push(`${ou} : « svg » obligatoire`); continue; }
+        total += v.svg.length;
+        if (v.svg.length > SVG_MAX) pb.push(`${ou} : SVG trop lourd (${SVG_MAX} caractères au plus)`);
+        else if (!/^<svg[\s>]/.test(v.svg.trim()) || !v.svg.includes('xmlns="http://www.w3.org/2000/svg"')) pb.push(`${ou} : un SVG autonome est attendu (balise <svg xmlns="http://www.w3.org/2000/svg">)`);
+        else if (SVG_INTERDIT.test(v.svg)) pb.push(`${ou} : le SVG ne doit contenir ni script, ni lien ou ressource externe`);
+      }
+      if (total > VISUELS_MAX_TOTAL) pb.push(`habillage.visuels : ${VISUELS_MAX_TOTAL} caractères au plus en tout`);
+    }
+  }
+  return { fonds, visuels };
 }
 
 /** Toutes les étapes doivent être atteignables depuis la première, et toutes doivent mener à une fin. */
@@ -228,6 +351,11 @@ function verifierAtteignabilite(etapes: Etape[]): string[] {
 /** La campagne propose-t-elle le consentement facultatif de diffusion publique ? */
 export function diffusionProposee(p: Parcours): boolean {
   return p.etapes.some((e) => e.type === "consentement" && e.proposerDiffusion === true);
+}
+
+/** Étapes « choix » d'un parcours (qualification, embranchement), dans l'ordre de la configuration. */
+export function choix(p: Parcours): EtapeChoix[] {
+  return p.etapes.filter((e): e is EtapeChoix => e.type === "choix");
 }
 
 /** Liste des questions d'un parcours, dans l'ordre de la configuration. */

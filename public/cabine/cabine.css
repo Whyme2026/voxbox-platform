@@ -2,6 +2,9 @@
    Une seule forme, la bulle : la marque parle à gauche (couleur --accent), le visiteur répond à droite
    (couleur --parole). Boutons, pistes, compte à rebours et décor en découlent.
    Chaque marque cliente remplace --accent, --parole, --fond et --texte par ses couleurs.
+   L'habillage d'une campagne (parcours.habillage) peut aussi changer les polices, la couleur des bulles de la marque,
+   mettre les titres en capitales, et donner à chaque écran un fond (fond et texte, via le style de .cabine) :
+   le texte posé sur le fond suit --texte, le texte des surfaces blanches (cartes, clavier, options) suit --encre.
    Polices auto-hébergées (public/polices) : rien n'est chargé depuis internet. */
 
 @font-face {
@@ -12,6 +15,15 @@
   font-family: "Gabarito"; src: url("../polices/gabarito.woff") format("woff");
   font-weight: 400 900; font-display: swap;
 }
+/* Polices proposées aux habillages de campagne (licence OFL). */
+@font-face {
+  font-family: "Michroma"; src: url("../polices/michroma.woff") format("woff");
+  font-weight: 400; font-display: swap;
+}
+@font-face {
+  font-family: "Inter"; src: url("../polices/inter.woff") format("woff");
+  font-weight: 400 700; font-display: swap;
+}
 
 :root {
   /* Jetons surchargés par une marque. */
@@ -19,6 +31,7 @@
   --parole: #F2D27A;      /* le visiteur répond, l'action */
   --fond: #F1F2F6;        /* brume */
   --texte: #23263F;       /* encre */
+  --encre: var(--texte);  /* texte des surfaces blanches, quelle que soit le fond de l'écran */
   --sur-accent: #FFFFFF;
   --sur-parole: #23263F;
   --rec: #D65A57;         /* corail : enregistrement seulement */
@@ -33,6 +46,7 @@
   --camera: #2E3354;
 
   --titres: "Fredoka", "Gabarito", system-ui, sans-serif;
+  --police-texte: "Gabarito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --gouttiere: clamp(18px, 4.4vmin, 48px);
   --corps: clamp(17px, 3vmin, 24px);
   --titre: clamp(34px, 8.6vmin, 66px);
@@ -40,7 +54,7 @@
   --bouton: clamp(21px, 4vmin, 30px);
   --rayon: clamp(22px, 4.2vmin, 32px);
   --queue: 6px;
-  font-family: "Gabarito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--police-texte);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -52,7 +66,7 @@ button { font: inherit; color: inherit; }
 /* --------------------------------------------------------------- bulles */
 .bulle { position: relative; margin: 0; padding: .7em 1em; line-height: 1.3; width: fit-content; max-width: 100%; text-wrap: pretty; }
 .bulle::after { content: ""; position: absolute; bottom: 0; width: 26px; height: 26px; background: inherit; }
-.bulle.marque { align-self: flex-start; background: var(--accent); color: var(--sur-accent); border-radius: var(--rayon) var(--rayon) var(--rayon) var(--queue); }
+.bulle.marque { align-self: flex-start; background: var(--bulle, var(--accent)); color: var(--sur-bulle, var(--sur-accent)); box-shadow: var(--ombre-bulle, none); border-radius: var(--rayon) var(--rayon) var(--rayon) var(--queue); }
 .bulle.marque::after { left: -12px; clip-path: path("M26 0C26 15 18 23 0 26H26Z"); }
 .bulle.visiteur { align-self: flex-end; margin-right: 12px; background: var(--parole); color: var(--sur-parole); border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); }
 .bulle.visiteur::after { right: -12px; clip-path: path("M0 0C0 15 8 23 26 26H0Z"); }
@@ -71,10 +85,22 @@ button { font: inherit; color: inherit; }
 @keyframes arrive { 0% { opacity: 0; transform: translateY(14px) scale(.92); } 70% { transform: translateY(-2px) scale(1.01); } 100% { opacity: 1; transform: none; } }
 
 .carte { background: var(--carte); border-radius: var(--rayon); box-shadow: var(--ombre); }
+/* Surfaces blanches : leur texte reste à l'encre, même sur un fond sombre. */
+.carte, .clavier, .option, .consignes li, .pistes span, .reperes .pas, .bouton.secondaire, .champ.secondaire[aria-pressed="true"] {
+  --texte: var(--encre);
+  --texte-doux: color-mix(in srgb, var(--encre) 70%, #FFFFFF);
+  --trait: color-mix(in srgb, var(--encre) 14%, #FFFFFF);
+  color: var(--texte);
+}
 .etiquette-pastille { align-self: flex-start; background: var(--accent-pale); color: var(--accent); font-weight: 600; font-size: clamp(14px, 2.2vmin, 17px); padding: 6px 14px; border-radius: 999px; }
 
 /* --------------------------------------------------------------- cadre général */
 .cabine {
+  /* Fond de l'écran : --fond, --fond-scene (dégradé) et --texte peuvent être posés ici par l'habillage. */
+  --texte-doux: color-mix(in srgb, var(--texte) 72%, var(--fond));
+  --trait: color-mix(in srgb, var(--texte) 14%, var(--fond));
+  background: var(--fond-scene, var(--fond)); color: var(--texte);
+  transition: background-color .4s ease, color .4s ease;
   position: relative; height: 100dvh; overflow: hidden;
   display: grid; grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto;
@@ -86,6 +112,8 @@ button { font: inherit; color: inherit; }
 .logo { max-height: 48px; max-width: 220px; object-fit: contain; }
 .voxbox { display: inline-flex; align-items: center; gap: 12px; font-family: var(--titres); font-weight: 600; font-size: clamp(20px, 3.6vmin, 28px); }
 .voxbox svg { width: 46px; height: 38px; }
+/* Nom de la marque en guise de logo (campagne habillée, sans logo fourni). */
+.nom-marque { font-family: var(--titres); font-size: clamp(18px, 3.2vmin, 24px); letter-spacing: .32em; text-transform: uppercase; }
 .etat-reseau { font-size: 15px; color: var(--texte-doux); }
 .etat-reseau:empty { display: none; }
 .etat-reseau[data-etat="hors-ligne"] { color: var(--rec); }
@@ -251,10 +279,14 @@ button { font: inherit; color: inherit; }
 /* --------------------------------------------------------------- cadrage, choix, pause, reprise */
 .ecran-cadrage .emplacement-camera { min-height: 40vh; }
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
-.option { min-height: 120px; border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); border: 0; background: var(--carte); box-shadow: var(--ombre); cursor: pointer;
-  font-family: var(--titres); font-size: clamp(20px, 3.6vmin, 30px); font-weight: 600; display: grid; place-items: center; gap: 8px; padding: 16px; transition: transform .12s ease; }
+.option { min-height: 120px; border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); border: 0; background: var(--fond-option, var(--carte)); box-shadow: var(--ombre); cursor: pointer;
+  --texte: var(--texte-option, var(--encre)); color: var(--texte);
+  font-family: var(--titres); font-size: clamp(20px, 3.6vmin, 30px); font-weight: 600; display: grid; place-items: center; align-content: center; gap: 8px; padding: 16px; transition: transform .12s ease; }
 .option img { max-width: 100%; max-height: 120px; object-fit: contain; }
-.option:active { transform: scale(.97); background: var(--parole); }
+.option .detail { font-family: var(--police-texte); font-size: clamp(14px, 2.3vmin, 17px); font-weight: 500; line-height: 1.3; opacity: .85; text-transform: none; letter-spacing: 0; }
+.options:has(.visuel) .option { align-content: end; justify-items: start; text-align: left; min-height: clamp(200px, 36vh, 320px); padding: 18px 22px; }
+.option .visuel { width: 100%; max-height: clamp(90px, 17vh, 150px); justify-self: center; }
+.option:active { transform: scale(.97); background: var(--parole); color: var(--sur-parole); }
 .reprises { display: flex; flex-wrap: wrap; gap: 12px; }
 
 /* --------------------------------------------------------------- fin */
@@ -281,6 +313,30 @@ button { font: inherit; color: inherit; }
 .envol-4 { left: 90%; width: 48px; fill: var(--accent-pale); animation-delay: 3.6s; }
 @keyframes flotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes envol { 0% { opacity: 0; transform: translateY(60px) scale(.7); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-110vh) scale(1); } }
+
+/* --------------------------------------------------------------- habillage de campagne */
+/* Visuels (produit, illustration) : SVG de l'habillage, affichés comme des images. */
+.visuel { display: block; max-width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .12)); }
+.visuel-accueil { width: min(100%, 560px); max-height: 34vh; }
+.visuel-question { width: min(100%, 360px); max-height: 18vh; align-self: flex-start; }
+.visuel-fin { width: min(100%, 420px); max-height: 24vh; }
+@media (orientation: portrait) { .visuel-question { display: none; } }
+
+/* Polices de titre très larges (ex. Michroma) : tailles réduites, graisse normale ; boutons et saisie dans la police du texte. */
+.cabine[data-titres="large"] {
+  --titre: clamp(26px, 6.2vmin, 48px);
+  --question: clamp(20px, 3.9vmin, 31px);
+  --bouton: clamp(18px, 3.2vmin, 24px);
+}
+.cabine[data-titres="large"] :is(.ecran h1, .bulle.grande, .sortie, .option, .consignes .chiffre, .compte-bulle, .conversation .bulle.marque:first-child, .texte-retrait strong, .code-retrait, .nom-marque) { font-weight: 400; }
+.cabine[data-titres="large"] :is(.bouton, .champ .valeur, .coup-de-pouce .bulle) { font-family: var(--police-texte); font-weight: 600; }
+.cabine[data-titres="large"] .ecran h1 { letter-spacing: 0; line-height: 1.15; }
+.cabine[data-titres="large"] .option { font-size: clamp(17px, 2.9vmin, 24px); line-height: 1.2; }
+.cabine[data-titres="large"] .texte-retrait strong { font-family: var(--police-texte); font-weight: 700; }
+/* Campagne habillée : pas de bulles décoratives Parlopop en fond, le fond et les visuels suffisent. */
+.cabine[data-habille] .decor { display: none; }
+.cabine[data-majuscules] :is(.ecran h1, .bulle.grande, .sortie, .option, .titre-court, .conversation .bulle.marque:first-child) { text-transform: uppercase; }
+.cabine[data-majuscules] .titre-court { letter-spacing: .12em; }
 
 @media (prefers-reduced-motion: reduce) {
   .arrive, .ecrit i, .rec-point, .compte-bulle, .decor svg, .retour .barre span, .champ .valeur::after { animation: none !important; }

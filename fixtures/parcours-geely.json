@@ -1,0 +1,472 @@
+{
+  "version": 1,
+  "langue": "fr",
+  "habillage": {
+    "polices": {
+      "titres": "michroma",
+      "texte": "inter"
+    },
+    "titresMajuscules": true,
+    "couleurs": {
+      "marque": "#1B1F22",
+      "bulle": "#FFFFFF",
+      "visiteur": "#FF5841",
+      "fond": "#F4F4F4",
+      "texte": "#1B1F22"
+    },
+    "fonds": [
+      {
+        "id": "sauge",
+        "nom": "Vert sauge",
+        "couleur": "#A3BC9C",
+        "texte": "#1B1F22"
+      },
+      {
+        "id": "couchant",
+        "nom": "Coucher de soleil",
+        "couleur": "#B7A6C6",
+        "couleurBas": "#EDBFA6",
+        "texte": "#1B1F22"
+      },
+      {
+        "id": "ardoise",
+        "nom": "Bleu ardoise",
+        "couleur": "#3B6280",
+        "couleurBas": "#27455C",
+        "texte": "#FFFFFF"
+      }
+    ],
+    "visuels": [
+      {
+        "id": "starray",
+        "nom": "Starray EM-i",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 600 220\"><ellipse cx=\"300\" cy=\"196\" rx=\"270\" ry=\"10\" fill=\"#000\" opacity=\".22\"/><path d=\"M25 152L28 120Q34 104 70 100L200 92L262 52Q270 47 290 47L470 47Q500 48 520 62L555 88Q575 94 578 110L580 152Q580 160 570 160L495 160A40 40 0 0 0 415 160L175 160A40 40 0 0 0 95 160L35 160Q25 160 25 152Z\" fill=\"#6E86A3\"/><path d=\"M40 140L578 140L579 152Q579 159 570 159L495 159A40 40 0 0 0 415 159L175 159A40 40 0 0 0 95 159L35 159Q27 159 27 150Z\" fill=\"#000\" opacity=\".18\"/><path d=\"M215 92L265 57Q272 54 290 54L462 54Q490 55 508 67L532 88Z\" fill=\"#1E2A33\"/><path d=\"M345 54V92M432 54V90\" stroke=\"#6E86A3\" stroke-width=\"7\"/><path d=\"M30 113L78 106\" stroke=\"#FFF\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M556 96L578 104\" stroke=\"#FF5841\" stroke-width=\"5\" stroke-linecap=\"round\"/><path d=\"M100 124L560 118\" stroke=\"#FFF\" stroke-width=\"1.5\" opacity=\".35\"/><circle cx=\"135\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"135\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"135\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"455\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/></svg>"
+      },
+      {
+        "id": "e5",
+        "nom": "E5",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 600 220\"><ellipse cx=\"300\" cy=\"196\" rx=\"270\" ry=\"10\" fill=\"#000\" opacity=\".22\"/><path d=\"M25 152L28 122Q36 104 75 100L205 93L275 55Q285 50 305 49L440 49Q478 51 510 70L560 98Q578 104 579 118L580 152Q580 160 570 160L495 160A40 40 0 0 0 415 160L175 160A40 40 0 0 0 95 160L35 160Q25 160 25 152Z\" fill=\"#C8B39C\"/><path d=\"M40 140L578 140L579 152Q579 159 570 159L495 159A40 40 0 0 0 415 159L175 159A40 40 0 0 0 95 159L35 159Q27 159 27 150Z\" fill=\"#000\" opacity=\".18\"/><path d=\"M220 93L278 60Q288 56 305 56L438 56Q470 58 498 74L535 95Z\" fill=\"#1E2A33\"/><path d=\"M360 56V94\" stroke=\"#C8B39C\" stroke-width=\"7\"/><path d=\"M30 114L120 104\" stroke=\"#FFF\" stroke-width=\"3\" stroke-linecap=\"round\"/><path d=\"M520 104L578 108\" stroke=\"#FF5841\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M100 126L560 120\" stroke=\"#FFF\" stroke-width=\"1.5\" opacity=\".35\"/><circle cx=\"135\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"135\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"135\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"455\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/></svg>"
+      },
+      {
+        "id": "e2",
+        "nom": "E2",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 600 220\"><ellipse cx=\"305\" cy=\"196\" rx=\"210\" ry=\"10\" fill=\"#000\" opacity=\".22\"/><path d=\"M115 150L118 118Q124 100 160 96L215 90L262 55Q270 50 290 50L430 50Q458 51 472 70L490 100Q498 108 498 124L500 150Q500 160 490 160L455 160A35 35 0 0 0 385 160L225 160A35 35 0 0 0 155 160L125 160Q115 160 115 150Z\" fill=\"#F2F2EE\"/><path d=\"M125 140L499 140L500 150Q500 159 490 159L455 159A35 35 0 0 0 385 159L225 159A35 35 0 0 0 155 159L125 159Q117 159 117 150Z\" fill=\"#000\" opacity=\".18\"/><path d=\"M228 90L268 59Q275 56 292 56L428 56Q450 57 462 72L476 90Z\" fill=\"#1E2A33\"/><path d=\"M350 56V90\" stroke=\"#F2F2EE\" stroke-width=\"7\"/><path d=\"M120 112L160 106\" stroke=\"#FFF\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M484 104L498 110\" stroke=\"#FF5841\" stroke-width=\"5\" stroke-linecap=\"round\"/><circle cx=\"190\" cy=\"160\" r=\"30\" fill=\"#1B1F22\"/><circle cx=\"190\" cy=\"160\" r=\"19\" fill=\"#C9CED3\"/><circle cx=\"190\" cy=\"160\" r=\"5\" fill=\"#1B1F22\"/><circle cx=\"420\" cy=\"160\" r=\"30\" fill=\"#1B1F22\"/><circle cx=\"420\" cy=\"160\" r=\"19\" fill=\"#C9CED3\"/><circle cx=\"420\" cy=\"160\" r=\"5\" fill=\"#1B1F22\"/></svg>"
+      },
+      {
+        "id": "gamme",
+        "nom": "La gamme",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 600 220\"><g transform=\"translate(-10 70) scale(.42)\"><ellipse cx=\"300\" cy=\"196\" rx=\"270\" ry=\"10\" fill=\"#000\" opacity=\".22\"/><path d=\"M25 152L28 122Q36 104 75 100L205 93L275 55Q285 50 305 49L440 49Q478 51 510 70L560 98Q578 104 579 118L580 152Q580 160 570 160L495 160A40 40 0 0 0 415 160L175 160A40 40 0 0 0 95 160L35 160Q25 160 25 152Z\" fill=\"#C8B39C\"/><path d=\"M40 140L578 140L579 152Q579 159 570 159L495 159A40 40 0 0 0 415 159L175 159A40 40 0 0 0 95 159L35 159Q27 159 27 150Z\" fill=\"#000\" opacity=\".18\"/><path d=\"M220 93L278 60Q288 56 305 56L438 56Q470 58 498 74L535 95Z\" fill=\"#1E2A33\"/><path d=\"M360 56V94\" stroke=\"#C8B39C\" stroke-width=\"7\"/><path d=\"M30 114L120 104\" stroke=\"#FFF\" stroke-width=\"3\" stroke-linecap=\"round\"/><path d=\"M520 104L578 108\" stroke=\"#FF5841\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M100 126L560 120\" stroke=\"#FFF\" stroke-width=\"1.5\" opacity=\".35\"/><circle cx=\"135\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"135\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"135\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"455\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/></g><g transform=\"translate(330 70) scale(.42)\"><ellipse cx=\"305\" cy=\"196\" rx=\"210\" ry=\"10\" fill=\"#000\" opacity=\".22\"/><path d=\"M115 150L118 118Q124 100 160 96L215 90L262 55Q270 50 290 50L430 50Q458 51 472 70L490 100Q498 108 498 124L500 150Q500 160 490 160L455 160A35 35 0 0 0 385 160L225 160A35 35 0 0 0 155 160L125 160Q115 160 115 150Z\" fill=\"#F2F2EE\"/><path d=\"M125 140L499 140L500 150Q500 159 490 159L455 159A35 35 0 0 0 385 159L225 159A35 35 0 0 0 155 159L125 159Q117 159 117 150Z\" fill=\"#000\" opacity=\".18\"/><path d=\"M228 90L268 59Q275 56 292 56L428 56Q450 57 462 72L476 90Z\" fill=\"#1E2A33\"/><path d=\"M350 56V90\" stroke=\"#F2F2EE\" stroke-width=\"7\"/><path d=\"M120 112L160 106\" stroke=\"#FFF\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M484 104L498 110\" stroke=\"#FF5841\" stroke-width=\"5\" stroke-linecap=\"round\"/><circle cx=\"190\" cy=\"160\" r=\"30\" fill=\"#1B1F22\"/><circle cx=\"190\" cy=\"160\" r=\"19\" fill=\"#C9CED3\"/><circle cx=\"190\" cy=\"160\" r=\"5\" fill=\"#1B1F22\"/><circle cx=\"420\" cy=\"160\" r=\"30\" fill=\"#1B1F22\"/><circle cx=\"420\" cy=\"160\" r=\"19\" fill=\"#C9CED3\"/><circle cx=\"420\" cy=\"160\" r=\"5\" fill=\"#1B1F22\"/></g><g transform=\"translate(120 40) scale(.6)\"><ellipse cx=\"300\" cy=\"196\" rx=\"270\" ry=\"10\" fill=\"#000\" opacity=\".22\"/><path d=\"M25 152L28 120Q34 104 70 100L200 92L262 52Q270 47 290 47L470 47Q500 48 520 62L555 88Q575 94 578 110L580 152Q580 160 570 160L495 160A40 40 0 0 0 415 160L175 160A40 40 0 0 0 95 160L35 160Q25 160 25 152Z\" fill=\"#6E86A3\"/><path d=\"M40 140L578 140L579 152Q579 159 570 159L495 159A40 40 0 0 0 415 159L175 159A40 40 0 0 0 95 159L35 159Q27 159 27 150Z\" fill=\"#000\" opacity=\".18\"/><path d=\"M215 92L265 57Q272 54 290 54L462 54Q490 55 508 67L532 88Z\" fill=\"#1E2A33\"/><path d=\"M345 54V92M432 54V90\" stroke=\"#6E86A3\" stroke-width=\"7\"/><path d=\"M30 113L78 106\" stroke=\"#FFF\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M556 96L578 104\" stroke=\"#FF5841\" stroke-width=\"5\" stroke-linecap=\"round\"/><path d=\"M100 124L560 118\" stroke=\"#FFF\" stroke-width=\"1.5\" opacity=\".35\"/><circle cx=\"135\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"135\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"135\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"33\" fill=\"#1B1F22\"/><circle cx=\"455\" cy=\"160\" r=\"21\" fill=\"#C9CED3\"/><circle cx=\"455\" cy=\"160\" r=\"6\" fill=\"#1B1F22\"/></g></svg>"
+      }
+    ]
+  },
+  "etapes": [
+    {
+      "id": "accueil",
+      "type": "accueil",
+      "fond": "couchant",
+      "visuel": "starray",
+      "surtitre": "Geely · votre avis en vidéo",
+      "titre": "Vous avez 2 minutes ?",
+      "texte": "Trois questions face caméra, environ trois minutes. Pas de formulaire, pas de note sur 10.",
+      "bulles": [
+        "Bonjour !",
+        "Geely vient d'arriver en France. On veut savoir ce que vous en pensez vraiment.",
+        "Face caméra, sans chichis."
+      ],
+      "bouton": "Allez, je me lance"
+    },
+    {
+      "id": "vous",
+      "type": "identification",
+      "fond": "sauge",
+      "titre": "On commence simple : votre prénom ?",
+      "texte": "Juste pour vous appeler par votre nom.",
+      "demanderEmail": true
+    },
+    {
+      "id": "accord",
+      "type": "consentement",
+      "titre": "Avant de tourner, trois choses",
+      "texte": "Merci {prenom} !",
+      "consignes": [
+        "3 questions vidéo, une à la fois.",
+        "45 s au plus par réponse : fini avant ? On passe à la suite.",
+        "Vos vidéos restent chez Geely, pour améliorer ses voitures et ses concessions.",
+        "Un QR code à la fin pour retirer votre accord quand vous voulez."
+      ],
+      "bouton": "C'est parti",
+      "proposerDiffusion": true
+    },
+    {
+      "id": "cadrage",
+      "type": "cadrage",
+      "titre": "Placez votre visage dans l'ovale",
+      "proposerFloutage": true
+    },
+    {
+      "id": "aiguillage",
+      "type": "choix",
+      "titre": "Alors {prenom}, vous en êtes où avec Geely ?",
+      "options": [
+        {
+          "id": "coup-oeil",
+          "libelle": "J'ai jeté un œil",
+          "detail": "Regardé, discuté, pas encore essayé.",
+          "fond": "sauge",
+          "visuel": "e2",
+          "suite": "modele-a"
+        },
+        {
+          "id": "essai",
+          "libelle": "Je sors de l'essai",
+          "detail": "Je viens de la conduire.",
+          "fond": "couchant",
+          "visuel": "starray",
+          "suite": "modele-b"
+        },
+        {
+          "id": "client",
+          "libelle": "J'ai déjà ma Geely",
+          "detail": "Livraison, entretien ou simple visite.",
+          "fond": "ardoise",
+          "visuel": "e5",
+          "suite": "modele-c"
+        }
+      ]
+    },
+    {
+      "id": "modele-a",
+      "type": "choix",
+      "titre": "Laquelle vous a fait de l'œil ?",
+      "options": [
+        {
+          "id": "starray",
+          "libelle": "Starray EM-i",
+          "detail": "SUV familial · super hybride",
+          "fond": "couchant",
+          "visuel": "starray",
+          "suite": "connu-a"
+        },
+        {
+          "id": "e5",
+          "libelle": "E5",
+          "detail": "SUV · 100 % électrique",
+          "fond": "ardoise",
+          "visuel": "e5",
+          "suite": "connu-a"
+        },
+        {
+          "id": "e2",
+          "libelle": "E2",
+          "detail": "Citadine · 100 % électrique",
+          "fond": "sauge",
+          "visuel": "e2",
+          "suite": "connu-a"
+        },
+        {
+          "id": "plusieurs",
+          "libelle": "J'hésite",
+          "detail": "Plusieurs m'intéressent.",
+          "visuel": "gamme",
+          "suite": "connu-a"
+        }
+      ]
+    },
+    {
+      "id": "connu-a",
+      "type": "choix",
+      "fond": "sauge",
+      "titre": "Geely, vous connaissiez avant d'entrer ?",
+      "options": [
+        {
+          "id": "oui",
+          "libelle": "Oui",
+          "suite": "a-regard"
+        },
+        {
+          "id": "de-nom",
+          "libelle": "De nom",
+          "suite": "a-regard"
+        },
+        {
+          "id": "non",
+          "libelle": "Pas du tout",
+          "suite": "a-regard"
+        }
+      ]
+    },
+    {
+      "id": "a-regard",
+      "type": "question",
+      "fond": "sauge",
+      "titreCourt": "Premier regard",
+      "texte": "Qu'est-ce qui vous a fait vous arrêter devant elle ?",
+      "theme": "attrait",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "pistes": [
+        "Le design",
+        "La taille",
+        "L'intérieur",
+        "Le prix affiché"
+      ]
+    },
+    {
+      "id": "a-doute",
+      "type": "question",
+      "fond": "sauge",
+      "titreCourt": "Le petit doute",
+      "texte": "Qu'est-ce qui vous retient encore ? Soyez franc : Geely préfère l'entendre ici qu'au comptoir.",
+      "theme": "freins",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "pistes": [
+        "Une marque que je découvre",
+        "La recharge",
+        "Le prix",
+        "La revente",
+        "L'après-vente"
+      ]
+    },
+    {
+      "id": "a-declic",
+      "type": "question",
+      "fond": "sauge",
+      "titreCourt": "Le déclic",
+      "texte": "Qu'est-ce qui vous donnerait envie de prendre le volant ?",
+      "theme": "declencheurs",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "coupDePouce": "Il faudrait que…"
+    },
+    {
+      "id": "essai-a",
+      "type": "choix",
+      "fond": "sauge",
+      "titre": "Et si la suite se passait au volant, {prenom} ?",
+      "options": [
+        {
+          "id": "essayer",
+          "libelle": "Je vais l'essayer",
+          "detail": "On reprend après, avec votre prénom.",
+          "suite": "pause-essai"
+        },
+        {
+          "id": "plus-tard",
+          "libelle": "Une autre fois",
+          "suite": "fin"
+        }
+      ]
+    },
+    {
+      "id": "pause-essai",
+      "type": "pause",
+      "fond": "couchant",
+      "visuel": "choix",
+      "titre": "Bon essai, {prenom} !",
+      "texte": "En revenant, trois questions sur votre essai et c'est fini.",
+      "bouton": "À tout à l'heure",
+      "suite": "b-surprise"
+    },
+    {
+      "id": "modele-b",
+      "type": "choix",
+      "titre": "Vous avez essayé laquelle ?",
+      "options": [
+        {
+          "id": "starray",
+          "libelle": "Starray EM-i",
+          "detail": "SUV familial · super hybride",
+          "fond": "couchant",
+          "visuel": "starray",
+          "suite": "b-surprise"
+        },
+        {
+          "id": "e5",
+          "libelle": "E5",
+          "detail": "SUV · 100 % électrique",
+          "fond": "ardoise",
+          "visuel": "e5",
+          "suite": "b-surprise"
+        },
+        {
+          "id": "e2",
+          "libelle": "E2",
+          "detail": "Citadine · 100 % électrique",
+          "fond": "sauge",
+          "visuel": "e2",
+          "suite": "b-surprise"
+        }
+      ]
+    },
+    {
+      "id": "b-surprise",
+      "type": "question",
+      "fond": "couchant",
+      "titreCourt": "Le moment « ah, quand même »",
+      "texte": "Racontez-nous l'instant où elle vous a surpris.",
+      "theme": "surprises",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "pistes": [
+        "Le silence",
+        "Les reprises",
+        "Les écrans",
+        "L'espace à bord"
+      ]
+    },
+    {
+      "id": "b-bemol",
+      "type": "question",
+      "fond": "couchant",
+      "titreCourt": "Le bémol",
+      "texte": "Un détail qui vous a moins convaincu ?",
+      "theme": "reserves",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "pistes": [
+        "Le confort",
+        "Les commandes",
+        "Le prix",
+        "Rien du tout"
+      ]
+    },
+    {
+      "id": "b-ami",
+      "type": "question",
+      "fond": "couchant",
+      "titreCourt": "À un ami",
+      "texte": "Comment la décririez-vous à quelqu'un qui n'a jamais entendu parler de Geely ?",
+      "theme": "recommandation",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "coupDePouce": "Imagine une voiture qui…",
+      "suite": "fin"
+    },
+    {
+      "id": "modele-c",
+      "type": "choix",
+      "titre": "Votre Geely, c'est laquelle ?",
+      "options": [
+        {
+          "id": "starray",
+          "libelle": "Starray EM-i",
+          "detail": "SUV familial · super hybride",
+          "fond": "couchant",
+          "visuel": "starray",
+          "suite": "depuis-c"
+        },
+        {
+          "id": "e5",
+          "libelle": "E5",
+          "detail": "SUV · 100 % électrique",
+          "fond": "ardoise",
+          "visuel": "e5",
+          "suite": "depuis-c"
+        },
+        {
+          "id": "e2",
+          "libelle": "E2",
+          "detail": "Citadine · 100 % électrique",
+          "fond": "sauge",
+          "visuel": "e2",
+          "suite": "depuis-c"
+        }
+      ]
+    },
+    {
+      "id": "depuis-c",
+      "type": "choix",
+      "fond": "ardoise",
+      "titre": "Vous roulez avec depuis quand ?",
+      "options": [
+        {
+          "id": "moins-1-mois",
+          "libelle": "Moins d'un mois",
+          "suite": "c-signature"
+        },
+        {
+          "id": "1-3-mois",
+          "libelle": "1 à 3 mois",
+          "suite": "c-signature"
+        },
+        {
+          "id": "plus-3-mois",
+          "libelle": "Plus de 3 mois",
+          "suite": "c-signature"
+        }
+      ]
+    },
+    {
+      "id": "c-signature",
+      "type": "question",
+      "fond": "ardoise",
+      "titreCourt": "Le jour où",
+      "texte": "Qu'est-ce qui vous a fait signer ?",
+      "theme": "decision",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "coupDePouce": "Ce qui m'a décidé, c'est…"
+    },
+    {
+      "id": "c-quotidien",
+      "type": "question",
+      "fond": "ardoise",
+      "titreCourt": "Au quotidien",
+      "texte": "Ce que vous aimez le plus… et ce qui vous agace un tout petit peu.",
+      "theme": "usage",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "pistes": [
+        "La conduite",
+        "L'autonomie",
+        "La recharge",
+        "Les équipements",
+        "L'entretien"
+      ]
+    },
+    {
+      "id": "c-question",
+      "type": "question",
+      "fond": "ardoise",
+      "titreCourt": "La question qu'on vous pose",
+      "texte": "Quand vous dites « j'ai une Geely », on vous demande quoi ? Et vous répondez quoi ?",
+      "theme": "image",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "visuel": "choix",
+      "pistes": [
+        "« C'est chinois ? »",
+        "« Et l'autonomie ? »",
+        "« Ça vaut le coup ? »"
+      ]
+    },
+    {
+      "id": "fin",
+      "type": "fin",
+      "fond": "couchant",
+      "visuel": "choix",
+      "titre": "Merci {prenom}, c'est dans la boîte.",
+      "texte": "Votre avis part directement chez Geely.",
+      "sortie": "Bonne route !",
+      "retourAccueilSec": 20
+    }
+  ]
+}
