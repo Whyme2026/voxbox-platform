@@ -258,7 +258,10 @@ export function routesAdmin(r: Routeur): void {
   r.get("/api/admin/cabines", async (ctx) => {
     await whyme(ctx, "cabines.gerer");
     const { results } = await ctx.env.DB.prepare(
-      "SELECT cb.id, cb.nom, cb.code_appairage, cb.jeton_hash IS NOT NULL AS appairee, cb.campagne_id, ca.nom AS campagne_nom, cb.dernier_signal, cb.vu_le, cb.cree_le FROM cabines cb LEFT JOIN campagnes ca ON ca.id = cb.campagne_id ORDER BY cb.nom",
+      `SELECT cb.id, cb.nom, cb.code_appairage, cb.jeton_hash IS NOT NULL AS appairee, cb.campagne_id, ca.nom AS campagne_nom,
+              cb.dernier_signal, cb.vu_le, cb.cree_le, (SELECT COUNT(*) FROM sessions s WHERE s.cabine_id = cb.id) AS nb_sessions
+         FROM cabines cb LEFT JOIN campagnes ca ON ca.id = cb.campagne_id
+        WHERE cb.retiree_le IS NULL ORDER BY cb.nom`,
     ).all();
     return json({ cabines: results });
   });
@@ -274,30 +277,66 @@ export function routesAdmin(r: Routeur): void {
     return json({ cabine: cab }, 201);
   });
 
+  // Nom et/ou campagne jouée. Les champs absents ne changent pas.
   r.patch("/api/admin/cabines/:id", async (ctx) => {
     const id = await whyme(ctx, "cabines.gerer");
-    const cab = await ctx.env.DB.prepare("SELECT id FROM cabines WHERE id = ?").bind(ctx.params.id).first();
+    const cab = await ctx.env.DB.prepare("SELECT id, nom, campagne_id FROM cabines WHERE id = ? AND retiree_le IS NULL").bind(ctx.params.id)
+      .first<{ id: string; nom: string; campagne_id: string | null }>();
     if (!cab) throw introuvable("Cabine introuvable");
     const d = await lireJson(ctx.request);
-    const campagneId = d.campagne_id === null ? null : texte(d, "campagne_id", { requis: true, max: 64 })!;
-    let clientId: string | null = null;
-    if (campagneId) {
-      const c = await ctx.env.DB.prepare("SELECT client_id, statut FROM campagnes WHERE id = ?").bind(campagneId).first<{ client_id: string; statut: Statut }>();
-      if (!c) throw invalide("campagne_id : campagne inconnue");
-      if (c.statut === "close") throw conflit("Impossible d'affecter une campagne close");
-      clientId = c.client_id;
+    const ecritures = [];
+    let nom = cab.nom;
+    if (d.nom !== undefined) {
+      nom = texte(d, "nom", { requis: true, max: 60 })!;
+      if (nom !== cab.nom) {
+        ecritures.push(
+          ctx.env.DB.prepare("UPDATE cabines SET nom = ? WHERE id = ?").bind(nom, cab.id),
+          ligneJournal(ctx.env.DB, id, { action: "cabine.renommage", cibleType: "cabine", cibleId: cab.id, details: { avant: cab.nom, apres: nom } }),
+        );
+      }
     }
+    let campagneId = cab.campagne_id;
+    if (d.campagne_id !== undefined) {
+      campagneId = d.campagne_id === null ? null : texte(d, "campagne_id", { requis: true, max: 64 })!;
+      let clientId: string | null = null;
+      if (campagneId) {
+        const c = await ctx.env.DB.prepare("SELECT client_id, statut FROM campagnes WHERE id = ?").bind(campagneId).first<{ client_id: string; statut: Statut }>();
+        if (!c) throw invalide("campagne_id : campagne inconnue");
+        if (c.statut === "close") throw conflit("Impossible d'affecter une campagne close");
+        clientId = c.client_id;
+      }
+      ecritures.push(
+        ctx.env.DB.prepare("UPDATE cabines SET campagne_id = ? WHERE id = ?").bind(campagneId, cab.id),
+        ligneJournal(ctx.env.DB, id, { action: "cabine.affectation", cibleType: "cabine", cibleId: cab.id, clientId, details: { campagne_id: campagneId } }),
+      );
+    }
+    if (ecritures.length) await ctx.env.DB.batch(ecritures);
+    return json({ cabine: { id: cab.id, nom, campagne_id: campagneId } });
+  });
+
+  // Suppression d'une cabine. Jamais utilisée : supprimée. Déjà utilisée : retirée (tablette déconnectée,
+  // masquée), car les sessions qu'elle a recueillies gardent la trace de la cabine d'origine.
+  r.ajouter("DELETE", "/api/admin/cabines/:id", async (ctx) => {
+    const id = await whyme(ctx, "cabines.gerer");
+    const cab = await ctx.env.DB.prepare("SELECT id, nom FROM cabines WHERE id = ? AND retiree_le IS NULL").bind(ctx.params.id).first<{ id: string; nom: string }>();
+    if (!cab) throw introuvable("Cabine introuvable");
+    const usage = await ctx.env.DB.prepare(
+      "SELECT (SELECT COUNT(*) FROM sessions WHERE cabine_id = ?) + (SELECT COUNT(*) FROM parlomix WHERE cabine_id = ?) AS n",
+    ).bind(cab.id, cab.id).first<{ n: number }>();
+    const utilisee = (usage?.n ?? 0) > 0;
     await ctx.env.DB.batch([
-      ctx.env.DB.prepare("UPDATE cabines SET campagne_id = ? WHERE id = ?").bind(campagneId, ctx.params.id),
-      ligneJournal(ctx.env.DB, id, { action: "cabine.affectation", cibleType: "cabine", cibleId: ctx.params.id, clientId, details: { campagne_id: campagneId } }),
+      utilisee
+        ? ctx.env.DB.prepare("UPDATE cabines SET retiree_le = ?, jeton_hash = NULL, code_appairage = NULL, campagne_id = NULL WHERE id = ?").bind(maintenant(), cab.id)
+        : ctx.env.DB.prepare("DELETE FROM cabines WHERE id = ?").bind(cab.id),
+      ligneJournal(ctx.env.DB, id, { action: utilisee ? "cabine.retrait" : "cabine.suppression", cibleType: "cabine", cibleId: cab.id, details: { nom: cab.nom } }),
     ]);
-    return json({ cabine: { id: ctx.params.id, campagne_id: campagneId } });
+    return json({ cabine: { id: cab.id, resultat: utilisee ? "retiree" : "supprimee" } });
   });
 
   // Nouveau code d'appairage : la tablette actuelle est déconnectée (jeton révoqué).
   r.post("/api/admin/cabines/:id/code", async (ctx) => {
     const id = await whyme(ctx, "cabines.gerer");
-    const cab = await ctx.env.DB.prepare("SELECT id FROM cabines WHERE id = ?").bind(ctx.params.id).first();
+    const cab = await ctx.env.DB.prepare("SELECT id FROM cabines WHERE id = ? AND retiree_le IS NULL").bind(ctx.params.id).first();
     if (!cab) throw introuvable("Cabine introuvable");
     const code = codeAppairage();
     await ctx.env.DB.batch([

@@ -181,3 +181,16 @@ test("signal de vie enregistré", async () => {
   const c = await db.prepare("SELECT dernier_signal FROM cabines WHERE id = ?").bind(cabineId).first<{ dernier_signal: string }>();
   assert.equal(JSON.parse(c!.dernier_signal).batterie, 83);
 });
+
+test("cabine déjà utilisée : retirée plutôt que supprimée, tablette déconnectée, historique gardé", async () => {
+  const { api, db, tablette, cabineId } = await cabinePrete();
+  assert.equal((await demarrer(tablette)).status, 201);
+  const r = await api("DELETE", `/api/admin/cabines/${cabineId}`, ADMIN);
+  assert.equal(r.status, 200);
+  assert.equal(r.corps.cabine.resultat, "retiree");
+  assert.equal((await tablette("GET", "/api/cabine/config")).status, 401, "la tablette est déconnectée");
+  assert.equal((await api("GET", "/api/admin/cabines", ADMIN)).corps.cabines.length, 0, "masquée de la liste");
+  const s = await db.prepare("SELECT cabine_id FROM sessions").first<any>();
+  assert.equal(s.cabine_id, cabineId, "la session garde sa cabine d'origine");
+  assert.equal((await api("PATCH", `/api/admin/cabines/${cabineId}`, ADMIN, { nom: "x" })).status, 404);
+});

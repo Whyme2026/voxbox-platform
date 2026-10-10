@@ -198,3 +198,27 @@ test("route inconnue : 404 ; mauvaise méthode : 405", async () => {
   assert.equal((await api("GET", "/api/rien", ADMIN)).status, 404);
   assert.equal((await api("DELETE", "/api/admin/clients", ADMIN)).status, 405);
 });
+
+test("cabine : renommage, puis suppression (jamais utilisée) tracés dans le journal", async () => {
+  const { env, db } = creerEnv();
+  const api = client(env);
+  const c = (await api("POST", "/api/admin/cabines", ADMIN, { nom: "Tablette 1" })).corps.cabine;
+  const r = await api("PATCH", `/api/admin/cabines/${c.id}`, ADMIN, { nom: "Salon de Lyon" });
+  assert.equal(r.status, 200, JSON.stringify(r.corps));
+  assert.equal((await api("GET", "/api/admin/cabines", ADMIN)).corps.cabines[0].nom, "Salon de Lyon");
+  assert.equal((await api("PATCH", `/api/admin/cabines/${c.id}`, ADMIN, { nom: "" })).status, 400);
+  const s = await api("DELETE", `/api/admin/cabines/${c.id}`, ADMIN);
+  assert.equal(s.corps.cabine.resultat, "supprimee");
+  assert.equal((await api("GET", "/api/admin/cabines", ADMIN)).corps.cabines.length, 0);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM cabines").first<any>()).n, 0);
+  const j = await db.prepare("SELECT action FROM journal WHERE cible_id = ? ORDER BY quand").bind(c.id).all<any>();
+  assert.deepEqual(j.results.map((x: any) => x.action), ["cabine.creation", "cabine.renommage", "cabine.suppression"]);
+  assert.equal((await api("DELETE", `/api/admin/cabines/${c.id}`, ADMIN)).status, 404);
+});
+
+test("cabine : un opérateur client ne peut ni renommer ni supprimer une cabine", async () => {
+  const { a, api } = await scenario();
+  const c = (await api("POST", "/api/admin/cabines", ADMIN, { nom: "Tablette 1" })).corps.cabine;
+  assert.equal((await api("PATCH", `/api/admin/cabines/${c.id}`, a.validateur, { nom: "x" })).status, 403);
+  assert.equal((await api("DELETE", `/api/admin/cabines/${c.id}`, a.validateur)).status, 403);
+});

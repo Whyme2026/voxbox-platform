@@ -110,7 +110,7 @@ const ACTIONS = /** @type {Record<string, string>} */ ({
   "campagne.creation": "Campagne créée", "campagne.parcours": "Nouveau parcours", "campagne.consentement": "Nouveaux textes de consentement",
   "campagne.statut.validee": "Campagne validée", "campagne.statut.active": "Campagne activée", "campagne.statut.close": "Campagne close",
   "campagne.statut.brouillon": "Campagne repassée en brouillon",
-  "cabine.creation": "Cabine créée", "cabine.affectation": "Cabine affectée", "cabine.nouveau_code": "Nouveau code d'appairage", "cabine.appairage": "Tablette appairée",
+  "cabine.creation": "Cabine créée", "cabine.renommage": "Cabine renommée", "cabine.suppression": "Cabine supprimée", "cabine.retrait": "Cabine retirée", "cabine.affectation": "Cabine affectée", "cabine.nouveau_code": "Nouveau code d'appairage", "cabine.appairage": "Tablette appairée",
   "reponse.visionnage": "Vidéo visionnée", "demo.preparation": "Préparation de la démo", "journal.correction": "Correction du journal",
   "parlomix.creation": "Parlomix créé", "parlomix.visionnage": "Parlomix visionné",
 });
@@ -713,15 +713,41 @@ function carteCabine(/** @type {any} */ cab, /** @type {any[]} */ campagnes) {
     s.micro !== undefined && s.micro !== null ? ["Micro", s.micro ? "actif" : "inactif"] : null,
     s.version ? ["Version", s.version] : null,
   ].filter(Boolean);
+  // Nom modifiable sur place.
+  const titre = h("span", { class: "nom" }, cab.nom);
+  const entree = /** @type {HTMLInputElement} */ (h("input", { value: cab.nom, maxlength: 60, "aria-label": `Nouveau nom pour ${cab.nom}` }));
+  const renommage = /** @type {HTMLFormElement} */ (h("form", { class: "renommage", hidden: true }, entree,
+    h("button", { type: "submit", class: "bouton petit" }, "Enregistrer"),
+    h("button", { type: "button", class: "bouton discret petit", onclick: () => { renommage.hidden = true; ligneTitre.hidden = false; } }, "Annuler")));
+  renommage.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      await api(`/api/admin/cabines/${cab.id}`, { methode: "PATCH", corps: { nom: entree.value } });
+      toast("Cabine renommée."); router();
+    } catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); }
+  });
+  const ligneTitre = h("div", { class: "titre-cabine" }, titre,
+    h("button", { type: "button", class: "bouton discret petit", onclick: () => { ligneTitre.hidden = true; renommage.hidden = false; entree.focus(); entree.select(); } }, "Renommer"));
+  const utilisee = Number(cab.nb_sessions ?? 0) > 0;
   return h("article", { class: "carte cabine" },
-    h("span", { class: "nom" }, cab.nom),
+    ligneTitre, renommage,
     h("dl", {}, ...details.map((d) => [h("dt", {}, /** @type {any} */ (d)[0]), h("dd", {}, /** @type {any} */ (d)[1])])),
     champ("Campagne jouée", choix),
     cab.code_appairage ? h("div", { class: "pile", style: "gap: 6px" }, h("span", { style: "font-size: 14px; color: var(--doux)" }, "Code d'appairage à saisir sur la tablette"), h("span", { class: "code" }, cab.code_appairage)) : null,
-    h("div", { class: "boutons" }, boutonConfirme(cab.appairee ? "Nouveau code (déconnecte la tablette)" : "Nouveau code", "Confirmer", async () => {
-      await api(`/api/admin/cabines/${cab.id}/code`, { methode: "POST", corps: {} });
-      toast("Nouveau code généré."); router();
-    }, "bouton discret petit")));
+    h("div", { class: "boutons" },
+      boutonConfirme(cab.appairee ? "Nouveau code (déconnecte la tablette)" : "Nouveau code", "Confirmer", async () => {
+        await api(`/api/admin/cabines/${cab.id}/code`, { methode: "POST", corps: {} });
+        toast("Nouveau code généré."); router();
+      }, "bouton discret petit"),
+      boutonConfirme("Supprimer", utilisee ? "Confirmer (la tablette sera déconnectée)" : "Confirmer la suppression", async () => {
+        const r = await api(`/api/admin/cabines/${cab.id}`, { methode: "DELETE" });
+        toast(r.cabine.resultat === "retiree"
+          ? "Cabine retirée : tablette déconnectée. Les réponses déjà recueillies restent dans leurs campagnes."
+          : "Cabine supprimée.");
+        router();
+      }, "bouton danger petit")),
+    utilisee ? h("span", { style: "font-size: 13px; color: var(--doux)" },
+      `${cab.nb_sessions} visiteur${cab.nb_sessions > 1 ? "s" : ""} recueilli${cab.nb_sessions > 1 ? "s" : ""} : en cas de suppression, ces réponses restent dans leurs campagnes.`) : null);
 }
 
 // ------------------------------------------------------------------ clients

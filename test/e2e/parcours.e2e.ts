@@ -180,7 +180,23 @@ async function visiteAdmin() {
   await admin.getByLabel("Nom de la cabine").fill("Tablette salon 2");
   await admin.getByRole("button", { name: "Créer la cabine" }).click();
   await admin.locator(".code").first().waitFor();
+  // Renommer puis supprimer la nouvelle cabine (jamais utilisée).
+  const nouvelle = admin.locator("article.cabine", { hasText: "Tablette salon 2" });
+  await nouvelle.getByRole("button", { name: "Renommer" }).click();
+  await nouvelle.getByLabel("Nouveau nom pour Tablette salon 2").fill("Salon de Lyon");
+  await nouvelle.getByRole("button", { name: "Enregistrer" }).click();
+  await admin.locator("article.cabine", { hasText: "Salon de Lyon" }).waitFor();
   await photo("08-cabines");
+  const lyon = admin.locator("article.cabine", { hasText: "Salon de Lyon" });
+  await lyon.getByRole("button", { name: "Supprimer" }).click();
+  await lyon.getByRole("button", { name: "Confirmer la suppression" }).click();
+  await admin.getByText("Cabine supprimée.").waitFor();
+  assert.equal(await admin.locator("article.cabine", { hasText: "Salon de Lyon" }).count(), 0);
+  // La tablette démo, déjà utilisée, propose aussi la suppression (en retrait) : on ne la touche pas.
+  await admin.getByRole("button", { name: "Nouvelle cabine" }).click();
+  await admin.getByLabel("Nom de la cabine").fill("Tablette salon 2");
+  await admin.getByRole("button", { name: "Créer la cabine" }).click();
+  await admin.locator("article.cabine", { hasText: "Tablette salon 2" }).waitFor();
   await admin.getByRole("link", { name: "Clients" }).click();
   await admin.getByRole("button", { name: "Nouveau client" }).click();
   await admin.getByLabel("Nom de marque").fill("Maison Lumière");
