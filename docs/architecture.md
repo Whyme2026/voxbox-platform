@@ -156,6 +156,19 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   depuis l'habillage au moment du rendu.
 - Limites : le film se fabrique en temps réel (onglet ouvert et visible), 95 Mo au plus par film.
 
+## Format de captation (décision du 10/10/2026, à mettre en œuvre avec les écrans de question V2)
+- **On filme en 4:3** : 1280 × 960 en paysage, 960 × 1280 (3:4) en portrait, à 2,5 Mb/s comme aujourd'hui (taille des
+  fichiers inchangée, environ 19 Mo par minute).
+- Pourquoi : les capteurs des caméras frontales de tablette sont en 4:3 ; le 16:9 n'en est qu'un recadrage, qui
+  enlève un quart de la hauteur (front et menton coupés dès qu'on bouge). Le 4:3 donne aussi plus de matière au
+  Parlomix 9:16 (bande de 540 × 960 au lieu de 405 × 720, soit 78 % de pixels en plus).
+- L'aperçu de la cabine est au même format : **ce qui est montré est exactement ce qui est enregistré** (pas de zone
+  filmée cachée, ce qui compte pour le consentement).
+- Parlomix 16:9 : recadrage en hauteur, décalé vers le haut pour garder le visage. 9:16 : bande centrée sur le visage
+  (existant).
+- Si une tablette ne fournit pas de 4:3, on enregistre ce qu'elle donne et l'aperçu montre l'image entière (bandes
+  plutôt que zone cachée). À vérifier sur la vraie tablette.
+
 ## Cabine (tablette)
 Page `public/cabine/`, sans compilation ni dépendance :
 - `moteur.js` : déroulé du parcours (logique pure, testée avec Node) ;
