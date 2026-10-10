@@ -156,3 +156,17 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 }
 .titre-parlometre { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .titre-parlometre span { font-family: "Gabarito", system-ui, sans-serif; font-weight: 500; font-size: 15px; color: var(--doux); }
+
+/* Parlomix */
+.options-parlomix { display: flex; flex-wrap: wrap; gap: 10px 22px; }
+.case-admin { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; cursor: pointer; }
+.case-admin input { width: 18px; height: 18px; accent-color: var(--vox); }
+.resume-parlomix { margin: 0; color: var(--doux); font-size: 14px; }
+.suivi-parlomix { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; padding: 16px; border-radius: 18px; background: var(--fond); }
+.barre-parlomix { display: block; height: 10px; border-radius: 5px; background: var(--trait); overflow: hidden; }
+.barre-parlomix span { display: block; height: 100%; width: 0; border-radius: 5px; background: var(--vox); transition: width .2s linear; }
+.detail-parlomix { font-size: 13px; color: var(--doux); }
+.apercu-parlomix { width: 260px; max-height: 300px; object-fit: contain; border-radius: 14px 14px 4px 14px; background: #000; }
+.parlomix-liste { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.video .ecran-video.portrait { aspect-ratio: 9 / 16; max-height: 420px; }
+.video .ecran-video:disabled { cursor: default; opacity: .6; }

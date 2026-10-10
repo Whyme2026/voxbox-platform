@@ -42,8 +42,11 @@ export async function detailCampagne(db: D1Database, c: LigneCampagne) {
     ? await db.prepare("SELECT id, numero, texte_interne, texte_diffusion, empreinte, cree_le FROM consentement_versions WHERE id = ?")
         .bind(c.consentement_version_id).first()
     : null;
+  const client = await db.prepare("SELECT nom, logo_url, couleurs FROM clients WHERE id = ?").bind(c.client_id)
+    .first<{ nom: string; logo_url: string | null; couleurs: string }>();
   return {
     ...c,
+    client: client ? { nom: client.nom, logo_url: client.logo_url, couleurs: JSON.parse(client.couleurs) as unknown } : null,
     parcours: parcours ? { ...parcours, config: JSON.parse(parcours.config) as unknown } : null,
     consentement,
   };

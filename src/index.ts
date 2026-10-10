@@ -9,6 +9,7 @@ import { routesAdmin } from "./routes/admin.ts";
 import { routesEspace } from "./routes/espace.ts";
 import { routesCabine } from "./routes/cabine.ts";
 import { routesReponses } from "./routes/reponses.ts";
+import { routesParlomix } from "./routes/parlomix.ts";
 
 export const VERSION = "0.1.0";
 
@@ -30,6 +31,7 @@ export function construireRouteur(): Routeur {
   routesAdmin(r);
   routesCabine(r);
   routesReponses(r);
+  routesParlomix(r);
   return r;
 }
 

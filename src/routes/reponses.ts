@@ -11,7 +11,7 @@ import { chargerCampagne } from "./campagnes-commun.ts";
 
 interface LigneSession {
   id: string; prenom: string; cree_le: string; consent_diffusion: number; recontact: number;
-  retiree_le: string | null; parcours_version_id: string; cabine_nom: string | null;
+  retiree_le: string | null; parcours_version_id: string; cabine_id: string | null; cabine_nom: string | null;
 }
 interface LigneReponse { id: string; session_id: string; etape_id: string; duree_ms: number | null; son_present: number | null; statut: string; cree_le: string }
 
@@ -24,7 +24,7 @@ export function routesReponses(r: Routeur): void {
     const limite = Math.min(Math.max(Number(ctx.url.searchParams.get("limite") ?? 100) || 100, 1), 300);
 
     const { results: sessions } = await ctx.env.DB.prepare(
-      `SELECT s.id, s.prenom, s.cree_le, s.consent_diffusion, s.recontact, s.retiree_le, s.parcours_version_id, cb.nom AS cabine_nom
+      `SELECT s.id, s.prenom, s.cree_le, s.consent_diffusion, s.recontact, s.retiree_le, s.parcours_version_id, s.cabine_id, cb.nom AS cabine_nom
          FROM sessions s LEFT JOIN cabines cb ON cb.id = s.cabine_id
         WHERE s.campagne_id = ? AND s.purgee_le IS NULL
         ORDER BY s.cree_le DESC LIMIT ${limite}`,

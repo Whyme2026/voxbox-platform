@@ -61,6 +61,23 @@ Une page sans compilation (`public/admin/`), même direction artistique, protég
 - Vidéos : `GET /api/espace/reponses/:id/video`, droit `reponses.lire`, cloisonnement par client,
   **chaque visionnage est journalisé** ; plus rien n'est servi si le visiteur a retiré son accord.
 
+## Parlomix (montages)
+Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le navigateur de la personne qui le lance
+(gratuit, rien ne quitte l'UE). Le même plan de montage pourra être exécuté plus tard par un serveur de rendu.
+- `public/admin/js/montage/plan.js` (logique pure, testée) : repérage des blancs à partir de l'enveloppe du son
+  (début et fin coupés, silences de plus de 0,7 s raccourcis), choix des réponses (par personne ; par question dans
+  la campagne ou dans une cabine ; filtre « diffusion acceptée » ; prénoms ou « Avis n° k » ; 20 réponses au plus),
+  plan (ouverture, réponses séparées par une carte animée et le jingle, fin), recadrage 9:16, **jingle composé par
+  le code** (quatre notes de marimba et une bulle, propriété de WhyMe).
+- `public/admin/js/montage/rendu.js` : canevas + MediaRecorder, MP4 si le navigateur sait (sinon WebM), coupes
+  franches (enregistrement en pause pendant les recherches), cartes et bandeaux aux couleurs du client, limiteur
+  sur le son, vérification que le film contient du son (sinon nouveau montage en WebM : leçon Geely).
+- API (`src/routes/parlomix.ts`, migration `0002_parlomix.sql`) : le plan est vérifié (réponses de la campagne,
+  même question, même cabine, personnes n'ayant pas retiré leur accord), le film est stocké dans R2, chaque
+  visionnage est journalisé. **Dès qu'une personne montée retire son accord, le Parlomix n'est plus servi.**
+  « Diffusable » seulement si toutes les personnes montées ont accepté la diffusion publique.
+- Limites : le film se fabrique en temps réel (onglet ouvert et visible), 95 Mo au plus par film.
+
 ## Cabine (tablette)
 Page `public/cabine/`, sans compilation ni dépendance :
 - `moteur.js` : déroulé du parcours (logique pure, testée avec Node) ;

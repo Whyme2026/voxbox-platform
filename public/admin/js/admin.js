@@ -2,6 +2,9 @@
 // Parlorama, l'interface de Parlopop : WhyMe (clients, campagnes, cabines, comptes, journal) et clients (leurs campagnes, leurs réponses).
 // Une seule page, navigation par ancre (#/campagnes/…). Tout le texte venant de la base est inséré en texte, jamais en HTML.
 
+import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
+import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon } from "./montage/rendu.js";
+
 /** @typedef {{ email: string, role: string, client: any, droits: string[], environnement: string }} Moi */
 
 /** @type {Moi | null} */ let moi = null;
@@ -109,6 +112,7 @@ const ACTIONS = /** @type {Record<string, string>} */ ({
   "campagne.statut.brouillon": "Campagne repassée en brouillon",
   "cabine.creation": "Cabine créée", "cabine.affectation": "Cabine affectée", "cabine.nouveau_code": "Nouveau code d'appairage", "cabine.appairage": "Tablette appairée",
   "reponse.visionnage": "Vidéo visionnée", "demo.preparation": "Préparation de la démo", "journal.correction": "Correction du journal",
+  "parlomix.creation": "Parlomix créé", "parlomix.visionnage": "Parlomix visionné",
 });
 const TYPES_ETAPES = /** @type {Record<string, string>} */ ({
   accueil: "Accueil", identification: "Identification", consentement: "Mode d'emploi et accord", cadrage: "Cadrage",
@@ -311,11 +315,13 @@ async function vueCampagne(/** @type {string} */ id) {
   ].filter(Boolean).join(" · ");
 
   const zone = h("div", {});
-  const onglets = [["reponses", "Réponses"], ["parcours", "Parcours"], ["consentement", "Consentement"]];
+  const onglets = [["reponses", "Réponses"], ["parlomix", "Parlomix"], ["parcours", "Parcours"], ["consentement", "Consentement"]];
   const barre = h("div", { class: "onglets", role: "tablist" }, ...onglets.map(([cle, libelle]) =>
     h("button", { type: "button", role: "tab", "aria-selected": String(cle === onglet), onclick: () => { location.hash = `#/campagnes/${c.id}?onglet=${cle}`; } }, libelle)));
 
-  if (onglet === "parcours") zone.append(vueParcours(c));
+  const options = new URLSearchParams(location.hash.split("?")[1] ?? "");
+  if (onglet === "parlomix") zone.append(peut("reponses.lire") ? await vueParlomix(c, options) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
+  else if (onglet === "parcours") zone.append(vueParcours(c));
   else if (onglet === "consentement") zone.append(vueConsentement(c));
   else zone.append(peut("reponses.lire") ? await vueReponses(c) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
 
@@ -351,13 +357,16 @@ async function vueReponses(/** @type {any} */ c) {
           s.retiree_le ? h("span", { class: "pastille", "data-ton": "rouge" }, "Accord retiré")
             : s.consent_diffusion ? h("span", { class: "pastille", "data-ton": "vert" }, "Diffusion publique autorisée")
             : h("span", { class: "pastille" }, "Usage interne seulement"),
-          s.recontact ? h("span", { class: "pastille", "data-ton": "vox" }, "Accepte d'être recontacté") : null),
+          s.recontact ? h("span", { class: "pastille", "data-ton": "vox" }, "Accepte d'être recontacté") : null,
+          s.reponses.length && !s.retiree_le ? h("a", { class: "bouton discret petit", style: "margin-left: auto", href: `#/campagnes/${c.id}?onglet=parlomix&personne=${s.id}` }, "Parlomix de cette personne") : null),
         s.reponses.length ? h("div", { class: "videos" }, ...s.reponses.map((/** @type {any} */ r) => tuileVideo(r, questions[r.etape_id]?.titre ?? r.etape_id)))
           : h("p", { class: "vide", style: "padding: 0; text-align: left" }, s.retiree_le ? "Les vidéos ne sont plus disponibles." : "Réponses en cours d'envoi depuis la cabine."))));
     } else {
       const toutes = donnees.sessions.flatMap((/** @type {any} */ s) => s.reponses.filter((/** @type {any} */ r) => r.etape_id === filtre).map((/** @type {any} */ r) => ({ r, s })));
       zone.replaceChildren(h("section", { class: "carte" },
-        h("p", { class: "question-texte" }, questions[filtre]?.texte || questions[filtre]?.titre),
+        h("div", { style: "display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px" },
+          h("p", { class: "question-texte" }, questions[filtre]?.texte || questions[filtre]?.titre),
+          toutes.length ? h("a", { class: "bouton discret petit", href: `#/campagnes/${c.id}?onglet=parlomix&question=${filtre}` }, "Parlomix de cette question") : null),
         toutes.length ? h("div", { class: "videos" }, ...toutes.map((/** @type {{ r: any, s: any }} */ { r, s }) => tuileVideo(r, s.prenom, date(s.cree_le))))
           : h("p", { class: "vide" }, "Personne n'a encore répondu à cette question.")));
     }
@@ -389,6 +398,190 @@ function tuileVideo(/** @type {any} */ r, /** @type {string} */ titre, /** @type
   return h("div", { class: "video" }, ecran,
     h("div", { class: "legende" }, h("strong", {}, titre), h("span", {}, sous || duree(r.duree_ms))),
     r.son_present === false ? h("span", { class: "pastille", "data-ton": "rouge" }, "Son non détecté") : null);
+}
+
+
+// ------------------------------------------------------------------ Parlomix (montages)
+
+/**
+ * Parlomix : création (par personne, par question dans la campagne ou dans une cabine) et liste des montages.
+ * Le film est fabriqué ici, dans le navigateur, puis envoyé au stockage de la plateforme.
+ */
+async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ options) {
+  const [donnees, { parlomix }] = await Promise.all([api(`/api/espace/campagnes/${c.id}/sessions?limite=300`), api(`/api/espace/campagnes/${c.id}/parlomix`)]);
+  const sessions = donnees.sessions.filter((/** @type {any} */ s) => !s.retiree_le && s.reponses.length);
+  const questions = donnees.questions;
+  const cabines = [...new Map(sessions.filter((/** @type {any} */ s) => s.cabine_id).map((/** @type {any} */ s) => [s.cabine_id, s.cabine_nom])).entries()];
+
+  const liste = h("div", { class: "videos parlomix-liste" });
+  const dessinerListe = (/** @type {any[]} */ elements) => liste.replaceChildren(...(elements.length ? elements.map(tuileParlomix)
+    : [h("p", { class: "vide", style: "grid-column: 1 / -1" }, "Aucun Parlomix pour l'instant. Créez le premier ci-dessus.")]));
+  dessinerListe(parlomix);
+
+  if (!sessions.length) {
+    return h("div", { class: "pile" }, h("section", { class: "carte vide" }, "Il faut des réponses pour faire un Parlomix : aucune pour l'instant."),
+      h("section", { class: "carte" }, h("h2", {}, "Parlomix de la campagne"), liste));
+  }
+
+  let type = options.get("question") ? "question" : "personne";
+  const puceType = (/** @type {string} */ valeur, /** @type {string} */ libelle) => h("button", { type: "button", class: "puce", "aria-pressed": String(type === valeur), onclick: () => { type = valeur; majFormulaire(); } }, libelle);
+  const typesPuces = h("div", { class: "puces", role: "group", "aria-label": "Type de Parlomix" });
+  const choixPersonne = /** @type {HTMLSelectElement} */ (h("select", {}, ...sessions.map((/** @type {any} */ s) =>
+    h("option", { value: s.id, selected: s.id === options.get("personne") }, `${s.prenom} · ${date(s.cree_le)}${s.cabine_nom ? ` · ${s.cabine_nom}` : ""} · ${s.reponses.length} réponse${s.reponses.length > 1 ? "s" : ""}`))));
+  const choixQuestion = /** @type {HTMLSelectElement} */ (h("select", {}, ...questions.map((/** @type {any} */ q) => h("option", { value: q.id, selected: q.id === options.get("question") }, q.titre))));
+  const choixCabine = /** @type {HTMLSelectElement} */ (h("select", {}, h("option", { value: "" }, "Toutes les cabines"), ...cabines.map(([id, nom]) => h("option", { value: id }, nom ?? "Cabine"))));
+  const case_ = (/** @type {string} */ libelle, coche = true) => {
+    const entree = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: coche }));
+    return { entree, element: h("label", { class: "case-admin" }, entree, libelle) };
+  };
+  const format169 = case_("16:9 (présentations)");
+  const format916 = case_("9:16 (réseaux sociaux)");
+  const diffusion = case_("Seulement les personnes qui acceptent la diffusion publique", false);
+  const prenoms = case_("Afficher les prénoms");
+  const champPersonne = champ("Personne", choixPersonne);
+  const champQuestion = champ("Question", choixQuestion);
+  const champCabine = champ("Cabine", choixCabine);
+  const resume = h("p", { class: "resume-parlomix" });
+  const lancer = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton action" }, "Créer le Parlomix"));
+  const suivi = h("div", { class: "suivi-parlomix", hidden: true });
+
+  const selection = () => type === "personne"
+    ? choixParPersonne(/** @type {any} */ (sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value)), questions)
+      .filter(() => !diffusion.entree.checked || sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value)?.consent_diffusion)
+    : choixParQuestion(sessions, { etape: choixQuestion.value, cabine: choixCabine.value || null, diffusionSeulement: diffusion.entree.checked, avecPrenoms: prenoms.entree.checked });
+
+  function majFormulaire() {
+    typesPuces.replaceChildren(puceType("personne", "Par personne"), puceType("question", "Par question"));
+    champPersonne.hidden = type !== "personne";
+    champQuestion.hidden = champCabine.hidden = prenoms.element.hidden = type !== "question";
+    const choix = selection();
+    const total = sessions.filter((/** @type {any} */ s) => !choixCabine.value || s.cabine_id === choixCabine.value)
+      .flatMap((/** @type {any} */ s) => s.reponses).filter((/** @type {any} */ r) => r.etape_id === choixQuestion.value).length;
+    const secondes = Math.round(choix.reduce((n, x) => n + x.dureeMs, 0) / 1000);
+    resume.textContent = !choix.length ? "Aucune réponse ne correspond à ces critères."
+      : `${choix.length} réponse${choix.length > 1 ? "s" : ""}${type === "question" && total > CLIPS_MAX ? ` (les ${CLIPS_MAX} plus récentes sur ${total})` : ""}, ${Math.floor(secondes / 60)} min ${String(secondes % 60).padStart(2, "0")} avant coupe des blancs.`;
+    lancer.disabled = !choix.length || (!format169.entree.checked && !format916.entree.checked);
+  }
+  for (const el of [choixPersonne, choixQuestion, choixCabine, format169.entree, format916.entree, diffusion.entree, prenoms.entree]) el.addEventListener("change", majFormulaire);
+  majFormulaire();
+
+  lancer.addEventListener("click", async () => {
+    const choix = selection();
+    const formats = /** @type {("16:9" | "9:16")[]} */ ([format169.entree.checked ? "16:9" : null, format916.entree.checked ? "9:16" : null].filter(Boolean));
+    if (!choix.length || !formats.length) return;
+    if (!formatsDisponibles().length) { toast("Ce navigateur ne sait pas enregistrer de vidéo. Utilisez Chrome à jour.", "erreur"); return; }
+    lancer.disabled = true;
+    const etape = h("strong", {}, "Préparation");
+    const detail = h("span", {});
+    const barre = h("span", { class: "barre-parlomix" }, h("span", {}));
+    const apercu = /** @type {HTMLCanvasElement} */ (h("canvas", { class: "apercu-parlomix" }));
+    suivi.hidden = false;
+    suivi.replaceChildren(h("div", { class: "pile", style: "gap: 8px; flex: 1; min-width: 240px" }, etape, detail, barre,
+      h("span", { class: "detail-parlomix" }, "Gardez cet onglet ouvert et visible : le film se fabrique en direct, à peu près en sa durée réelle.")), apercu);
+    const avancer = (/** @type {number} */ f) => { /** @type {HTMLElement} */ (barre.firstChild).style.width = `${Math.round(f * 100)}%`; };
+    try {
+      // 1. Les réponses : téléchargement et repérage des blancs.
+      /** @type {Map<string, Blob>} */ const videos = new Map();
+      const clips = [];
+      for (const [i, x] of choix.entries()) {
+        detail.textContent = `Réponse ${i + 1} sur ${choix.length} : téléchargement et coupe des blancs`;
+        avancer(i / choix.length);
+        const res = await fetch(`/api/espace/reponses/${x.id}/video`, { headers: enTetesDev(), credentials: "same-origin" });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Vidéo indisponible");
+        const blob = await res.blob();
+        videos.set(x.id, blob);
+        const a = await analyserReponse(blob);
+        const dureeMs = a.dureeMs || x.dureeMs;
+        clips.push({ ...x, dureeMs, segments: a.segments.length ? a.segments : /** @type {[number, number][]} */ ([[0, dureeMs]]) });
+      }
+      const avant = clips.reduce((n, x) => n + x.dureeMs, 0);
+      const apres = clips.reduce((n, x) => n + dureeSegments(x.segments), 0);
+      const theme = themeDepuisCouleurs(c.client?.couleurs);
+      const question = questions.find((/** @type {any} */ q) => q.id === choixQuestion.value);
+      const personne = sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value);
+      const cabineNom = cabines.find(([id]) => id === choixCabine.value)?.[1];
+      const titre = type === "personne" ? personne.prenom : question.titre;
+      const sousTitre = type === "personne" ? c.nom : `${question.texte}${cabineNom ? ` · ${cabineNom}` : ""}`;
+
+      // 2. Un film par format.
+      for (const format of formats) {
+        etape.textContent = `Montage ${format}`;
+        detail.textContent = `${clips.length} réponse${clips.length > 1 ? "s" : ""}, ${Math.round((avant - apres) / 1000)} s de blancs coupés`;
+        const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre, sousTitre, signature: c.client?.nom ?? "Parlopop", clips, format, theme });
+        let film = await fabriquer({ plan, videos, apercu, surProgression: avancer });
+        if (!(await contientDuSon(film.blob)) && film.type === "video/mp4") {
+          // Leçon Geely : un MP4 peut perdre le son sans erreur. On refait le film en WebM.
+          detail.textContent = "Son absent du MP4 : nouveau montage en WebM";
+          const webm = formatsDisponibles().find((f) => f.startsWith("video/webm"));
+          if (webm) film = await fabriquer({ plan, videos, apercu, format: webm, surProgression: avancer });
+        }
+        etape.textContent = `Envoi ${format}`;
+        detail.textContent = `${Math.round(film.blob.size / 1e5) / 10} Mo`;
+        const decl = await api(`/api/espace/campagnes/${c.id}/parlomix`, { methode: "POST", corps: {
+          type, format, titre: `${titre}${cabineNom && type === "question" ? ` · ${cabineNom}` : ""}`, plan,
+          session_id: type === "personne" ? personne.id : undefined,
+          etape_id: type === "question" ? question.id : undefined,
+          cabine_id: type === "question" && choixCabine.value ? choixCabine.value : undefined,
+        } });
+        const res = await fetch(`/api/espace/parlomix/${decl.parlomix.id}/fichier`, {
+          method: "PUT", body: film.blob, credentials: "same-origin",
+          headers: { ...enTetesDev(), "content-type": film.type, "x-duree-ms": String(film.dureeMs) },
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Envoi impossible");
+      }
+      suivi.replaceChildren(h("strong", {}, `Parlomix prêt${formats.length > 1 ? "s" : ""} : ${formats.join(" et ")}.`));
+      toast("Parlomix prêt.");
+      dessinerListe((await api(`/api/espace/campagnes/${c.id}/parlomix`)).parlomix);
+    } catch (e) {
+      suivi.replaceChildren(h("strong", { style: "color: var(--rouge)" }, `Le montage a échoué : ${/** @type {Error} */ (e).message}`));
+    } finally {
+      lancer.disabled = false;
+    }
+  });
+
+  return h("div", { class: "pile" },
+    h("section", { class: "carte pile" },
+      h("div", {}, h("h2", { style: "margin: 0 0 4px" }, "Créer un Parlomix"),
+        h("p", { style: "margin: 0; color: var(--doux); font-size: 14px" }, "Les blancs sont coupés, les réponses s'enchaînent avec une animation aux couleurs de la campagne et le jingle Parlopop.")),
+      typesPuces,
+      h("div", { class: "formulaire" }, champPersonne, champQuestion, champCabine),
+      h("div", { class: "options-parlomix" }, format169.element, format916.element, diffusion.element, prenoms.element),
+      h("div", { class: "boutons" }, lancer, resume),
+      suivi),
+    h("section", { class: "carte" }, h("h2", {}, "Parlomix de la campagne"), liste));
+}
+
+function tuileParlomix(/** @type {any} */ p) {
+  const portrait = p.format === "9:16";
+  const ecran = h("button", { type: "button", class: `ecran-video${portrait ? " portrait" : ""}`, "aria-label": `Lire le Parlomix : ${p.titre}`, disabled: !p.disponible },
+    h("span", { class: "lecture" }, p.disponible ? icone(ICONES.lecture) : null, p.disponible ? "Lire" : "Plus disponible"));
+  const telecharger = h("a", { class: "bouton discret petit", hidden: true }, "Télécharger");
+  ecran.addEventListener("click", async () => {
+    if (ecran.querySelector("video")) return;
+    ecran.replaceChildren(h("span", { class: "lecture" }, "Chargement…"));
+    try {
+      const res = await fetch(`/api/espace/parlomix/${p.id}/video`, { headers: enTetesDev(), credentials: "same-origin" });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? "Film indisponible");
+      const url = URL.createObjectURL(await res.blob());
+      const v = /** @type {HTMLVideoElement} */ (h("video", { src: url, controls: true, playsinline: true }));
+      ecran.replaceChildren(v);
+      telecharger.setAttribute("href", url);
+      telecharger.setAttribute("download", `parlomix-${p.titre.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase()}-${p.format.replace(":", "x")}.${p.type_mime === "video/mp4" ? "mp4" : "webm"}`);
+      telecharger.hidden = false;
+      v.play().catch(() => {});
+    } catch (e) {
+      ecran.replaceChildren(h("span", { class: "lecture" }, /** @type {Error} */ (e).message));
+    }
+  });
+  return h("div", { class: "video" }, ecran,
+    h("div", { class: "legende" }, h("strong", {}, p.titre), h("span", {}, duree(p.duree_ms))),
+    h("div", { class: "boutons", style: "gap: 6px" },
+      h("span", { class: "pastille sans-point" }, p.type === "personne" ? "Par personne" : p.cabine_nom ? "Par question, une cabine" : "Par question"),
+      h("span", { class: "pastille sans-point" }, p.format),
+      !p.disponible ? h("span", { class: "pastille", "data-ton": "rouge" }, "Accord retiré")
+        : p.diffusable ? h("span", { class: "pastille", "data-ton": "vert" }, "Diffusable") : h("span", { class: "pastille" }, "Usage interne"),
+      telecharger),
+    h("span", { style: "font-size: 13px; color: var(--doux)" }, `${p.nb_extraits} réponse${p.nb_extraits > 1 ? "s" : ""} · ${date(p.cree_le)} · ${p.cree_par}`));
 }
 
 /** Affichage d'un texte du parcours : l'emplacement {prenom} devient « [prénom] ». */

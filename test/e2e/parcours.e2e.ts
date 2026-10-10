@@ -199,8 +199,52 @@ async function visiteAdmin() {
   await admin.getByRole("link", { name: "Journal" }).click();
   await admin.getByRole("cell", { name: "Vidéo visionnée" }).first().waitFor();
   await photo("11-journal");
+  if (process.env.E2E_PARLOMIX) await visiteParlomix(admin, photo);
   await admin.close();
 }
+
+/** Parlomix : un montage par personne (16:9 et 9:16) et un montage par question, vérifiés avec ffprobe. */
+async function visiteParlomix(admin: any, photo: (nom: string) => Promise<void>) {
+  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.locator("td a").first().click();
+  await admin.getByRole("tab", { name: "Parlomix" }).click();
+  await admin.getByRole("heading", { name: "Créer un Parlomix" }).waitFor();
+  // Par personne : Camille, qui a répondu aux cinq questions.
+  const valeur = await admin.locator("select option", { hasText: /^Camille/ }).first().getAttribute("value");
+  await admin.locator("select").first().selectOption(valeur);
+  await photo("12-parlomix-creation");
+  await admin.getByRole("button", { name: "Créer le Parlomix" }).click();
+  await admin.locator(".apercu-parlomix").waitFor();
+  await admin.waitForTimeout(6000);
+  await photo("13-parlomix-montage-en-cours");
+  await admin.getByText("Parlomix prêts : 16:9 et 9:16.").waitFor({ timeout: 240_000 });
+  await admin.getByRole("button", { name: "Par question" }).click();
+  await admin.locator("label.case-admin", { hasText: "9:16" }).locator("input").uncheck();
+  await admin.getByRole("button", { name: "Créer le Parlomix" }).click();
+  await admin.getByText("Parlomix prêt : 16:9.").waitFor({ timeout: 240_000 });
+  await admin.locator(".parlomix-liste .ecran-video").first().click();
+  await admin.locator(".parlomix-liste video").first().waitFor();
+  await admin.waitForTimeout(2500);
+  await photo("14-parlomix-liste");
+  const films = await db.prepare("SELECT id, type, format, cle, type_mime, duree_ms, nb_extraits FROM parlomix WHERE statut = 'pret' ORDER BY cree_le").all<any>();
+  assert.equal(films.results.length, 3, "trois Parlomix prêts");
+  assert.equal(films.results[0].nb_extraits, nbQuestions, "le Parlomix de Camille monte ses cinq réponses");
+  for (const f of films.results) {
+    const fichier = join(captures, `parlomix-${f.type}-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);
+    writeFileSync(fichier, objets.get(f.cle)!);
+    const flux = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "csv=p=0", fichier]).toString().trim().split("\n");
+    const volume = spawnSync("ffmpeg", ["-hide_banner", "-i", fichier, "-af", "volumedetect", "-f", "null", "-"]).stderr.toString();
+    // Durée réelle : on décode tout (les fichiers de MediaRecorder n'annoncent pas toujours leur durée).
+    const decode = spawnSync("ffmpeg", ["-hide_banner", "-i", fichier, "-f", "null", "-"]).stderr.toString();
+    const temps = [...decode.matchAll(/time=(\d+):(\d+):([\d.]+)/g)].pop();
+    const dureeReelle = temps ? Number(temps[1]) * 3600 + Number(temps[2]) * 60 + Number(temps[3]) : 0;
+    bilanParlomix.push({ type: f.type, format: f.format, mime: f.type_mime, extraits: f.nb_extraits, prevu_s: f.duree_ms / 1000, reel_s: dureeReelle, flux, volume_max: /max_volume: (\S+ dB)/.exec(volume)?.[1] });
+    assert.ok(flux.some((x: string) => x.startsWith("audio")), `${f.type} ${f.format} : piste son`);
+    assert.ok(flux.some((x: string) => x.startsWith(f.format === "9:16" ? "video,720,1280" : "video,1280,720")), `${f.type} ${f.format} : dimensions`);
+    assert.ok(Math.abs(dureeReelle - f.duree_ms / 1000) < 3, `${f.type} ${f.format} : durée proche du plan`);
+  }
+}
+const bilanParlomix: any[] = [];
 
 try {
   await appairer();
@@ -232,6 +276,8 @@ try {
   }
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   if (process.env.E2E_ADMIN) await visiteAdmin();
+  if (bilanParlomix.length) console.log(JSON.stringify({ parlomix: bilanParlomix }, null, 2));
+  assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   console.log(JSON.stringify({ ok: true, scenario }));
 } catch (e) {
   await capture("zz-echec").catch(() => {});
