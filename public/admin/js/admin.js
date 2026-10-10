@@ -49,14 +49,43 @@ function enTetesDev() {
   return { "x-dev-email": email };
 }
 
+// ------------------------------------------------------------------ version de Parlorama
+// Cette page n'est pas recompilée : un onglet ouvert pendant un déploiement garde l'ancien code. L'API annonce la
+// version déployée dans chaque réponse ; dès qu'elle change, un bandeau demande de recharger, et le serveur refuse
+// toute modification envoyée par l'ancienne page (409 « parlorama_perime »).
+const EN_TETE_VERSION = "x-parlorama-version";
+/** @type {string | null} */ let versionChargee = null;
+function noterVersion(/** @type {Response} */ res) {
+  const v = res.headers.get(EN_TETE_VERSION);
+  if (!v) return;
+  if (!versionChargee) versionChargee = v;
+  else if (v !== versionChargee) signalerNouvelleVersion();
+}
+function signalerNouvelleVersion() {
+  if (document.getElementById("nouvelle-version")) return;
+  document.body.append(h("div", { id: "nouvelle-version", class: "nouvelle-version", role: "alert" },
+    h("span", {}, "Une nouvelle version de Parlorama vient d'être mise en ligne. Rechargez la page avant de continuer : les modifications faites depuis cette page seraient refusées."),
+    h("button", { type: "button", class: "bouton action petit", onclick: () => location.reload() }, "Recharger")));
+}
+async function verifierVersion() {
+  try { noterVersion(await fetch("/api/sante", { cache: "no-store" })); } catch { /* hors ligne : on réessaiera */ }
+}
+setInterval(verifierVersion, 2 * 60_000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") verifierVersion(); });
+
 async function api(/** @type {string} */ chemin, /** @type {{ methode?: string, corps?: unknown }} */ opts = {}) {
   const res = await fetch(chemin, {
     method: opts.methode ?? "GET",
-    headers: { ...enTetesDev(), ...(opts.corps !== undefined ? { "content-type": "application/json" } : {}) },
+    headers: {
+      ...enTetesDev(), ...(opts.corps !== undefined ? { "content-type": "application/json" } : {}),
+      ...(versionChargee ? { [EN_TETE_VERSION]: versionChargee } : {}),
+    },
     body: opts.corps !== undefined ? JSON.stringify(opts.corps) : undefined,
     credentials: "same-origin",
   });
+  noterVersion(res);
   const corps = await res.json().catch(() => ({}));
+  if (res.status === 409 && corps.erreur === "parlorama_perime") signalerNouvelleVersion();
   if (!res.ok) {
     const e = /** @type {Error & { corps?: any, status?: number }} */ (new Error(corps.message ?? `Erreur ${res.status}`));
     e.corps = corps; e.status = res.status;

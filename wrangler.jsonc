@@ -40,7 +40,9 @@
       "d1_databases": [
         { "binding": "DB", "database_name": "voxbox-test", "database_id": "ca5e4354-9ad6-4060-9020-b40c8209dded", "migrations_dir": "migrations" }
       ],
-      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-test", "jurisdiction": "eu" }]
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-test", "jurisdiction": "eu" }],
+      // Identifiant du déploiement : Parlorama détecte qu'il est périmé après une mise en ligne.
+      "version_metadata": { "binding": "VERSION_DEPLOIEMENT" }
     },
     "production": {
       "name": "voxbox",
@@ -49,7 +51,9 @@
       "d1_databases": [
         { "binding": "DB", "database_name": "voxbox-prod", "database_id": "ec16fb8a-4776-4d5a-bc2f-12b8f0f4c750", "migrations_dir": "migrations" }
       ],
-      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-prod", "jurisdiction": "eu" }]
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-prod", "jurisdiction": "eu" }],
+      // Identifiant du déploiement : Parlorama détecte qu'il est périmé après une mise en ligne.
+      "version_metadata": { "binding": "VERSION_DEPLOIEMENT" }
     }
   }
 }

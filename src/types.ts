@@ -54,4 +54,6 @@ export interface Env {
   ACCESS_TEAM_DOMAIN?: string;
   /** Audience (AUD) de l'application Cloudflare Access qui protège la plateforme. */
   ACCESS_AUD?: string;
+  /** Version déployée du Worker (liaison « version_metadata » de Cloudflare) : change à chaque déploiement. */
+  VERSION_DEPLOIEMENT?: { id: string; tag?: string; timestamp?: string };
 }

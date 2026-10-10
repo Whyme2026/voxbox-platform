@@ -14,6 +14,15 @@ import { routesRetrait } from "./routes/retrait.ts";
 
 export const VERSION = "0.1.0";
 
+/**
+ * Parlorama est une page sans compilation : un onglet resté ouvert pendant un déploiement garde l'ancien code.
+ * Chaque réponse de l'API annonce la version déployée (en-tête ci-dessous) ; Parlorama renvoie celle qu'il a
+ * chargée, et une modification venant d'une version périmée est refusée (409) plutôt que mal interprétée
+ * (ex. un ancien éditeur qui ne connaît pas l'habillage d'un parcours).
+ */
+export const EN_TETE_VERSION = "x-parlorama-version";
+const versionDeploiement = (env: Env): string | null => env.VERSION_DEPLOIEMENT?.id ?? null;
+
 export function construireRouteur(): Routeur {
   const r = new Routeur();
 
@@ -25,7 +34,7 @@ export function construireRouteur(): Routeur {
     } catch {
       base = "indisponible";
     }
-    return json({ service: "voxbox", version: VERSION, environnement: ctx.env.ENVIRONNEMENT, base }, base === "ok" ? 200 : 503);
+    return json({ service: "voxbox", version: VERSION, deploiement: versionDeploiement(ctx.env), environnement: ctx.env.ENVIRONNEMENT, base }, base === "ok" ? 200 : 503);
   });
 
   routesEspace(r);
@@ -45,9 +54,22 @@ export async function traiter(request: Request, env: Env): Promise<Response> {
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("Introuvable", { status: 404 });
   }
+  const reponse = await repondre(request, env, url);
+  const version = versionDeploiement(env);
+  if (version) reponse.headers.set(EN_TETE_VERSION, version);
+  return reponse;
+}
+
+async function repondre(request: Request, env: Env, url: URL): Promise<Response> {
   const trouve = routeur.trouver(request.method, url.pathname);
   if (trouve === null) return json({ erreur: "introuvable", message: "Route inconnue" }, 404);
   if (trouve === "methode") return json({ erreur: "methode", message: "Méthode non permise" }, 405);
+  // Modification envoyée par un Parlorama chargé avant le dernier déploiement : refusée, il faut recharger la page.
+  const versionPage = request.headers.get(EN_TETE_VERSION);
+  const version = versionDeploiement(env);
+  if (request.method !== "GET" && versionPage && version && versionPage !== version && /^\/api\/(admin|espace)\//.test(url.pathname)) {
+    return json({ erreur: "parlorama_perime", message: "Une nouvelle version de Parlorama est en ligne : rechargez la page avant de continuer." }, 409);
+  }
   try {
     return await trouve.gestionnaire({ request, env, params: trouve.params, url });
   } catch (e) {

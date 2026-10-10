@@ -235,3 +235,9 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 .ligne-choix .jauge { height: 8px; border-radius: 4px; background: var(--gris-pale); overflow: hidden; }
 .ligne-choix .jauge span { display: block; height: 100%; border-radius: 4px; background: var(--vox); }
 .ligne-choix .nombre { color: var(--doux); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Nouvelle version mise en ligne pendant que la page était ouverte */
+.nouvelle-version { position: fixed; z-index: 50; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(720px, calc(100% - 32px));
+  display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 18px; background: var(--vox-fonce); color: #FFFFFF;
+  box-shadow: 0 18px 40px -18px rgba(35, 38, 63, .55); font-size: 15px; line-height: 1.4; }
+.nouvelle-version .bouton { flex: none; }

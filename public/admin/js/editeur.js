@@ -187,7 +187,10 @@ export function editeurParcours(o) {
     clearTimeout(minuterie);
     verification.replaceChildren(h("span", { class: "detail-verif" }, "Vérification…"));
     minuterie = window.setTimeout(async () => {
-      try { problemes = await o.valider(config()); } catch { problemes = ["Vérification impossible pour l'instant (connexion)."]; }
+      try { problemes = await o.valider(config()); } catch (e) {
+        // Page chargée avant le dernier déploiement : le serveur refuse, il faut recharger (voir admin.js).
+        problemes = [/** @type {any} */ (e)?.corps?.erreur === "parlorama_perime" ? /** @type {Error} */ (e).message : "Vérification impossible pour l'instant (connexion)."];
+      }
       dessinerVerification();
       dessiner();
     }, 400);

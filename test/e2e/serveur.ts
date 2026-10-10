@@ -88,7 +88,7 @@ export function demarrerServeur(port: number) {
   return new Promise<typeof serveur>((ok) => serveur.listen(port, "127.0.0.1", () => ok(serveur)));
 }
 
-export { db };
+export { db, env };
 
 // Lancement direct (essais manuels).
 if (process.argv[1] && import.meta.filename === process.argv[1]) {

@@ -97,6 +97,11 @@ ne gonfle pas le total.
 
 ## Parlorama, l'espace de gestion (`/admin/`)
 Une page sans compilation (`public/admin/`), même direction artistique, protégée par Cloudflare Access.
+- **Onglet resté ouvert pendant un déploiement** : chaque réponse de l'API porte l'en-tête `x-parlorama-version`
+  (identifiant du déploiement, liaison `version_metadata`). Parlorama renvoie la version qu'il a chargée ; dès qu'elle
+  change, un bandeau demande de recharger, et toute modification (`/api/admin`, `/api/espace`, hors GET) venant de
+  l'ancienne page est refusée en 409 `parlorama_perime`. Leçon du 10/10/2026 : un ancien éditeur, qui ne connaissait
+  pas l'habillage, signalait 42 « erreurs » sur un parcours valide. Sans en-tête (scripts, tests), rien n'est vérifié.
 - WhyMe : tableau de bord (campagnes, cabines en ligne, visiteurs, vidéos), campagnes (statut, parcours lisible et
   nouvelle version en JSON, textes de consentement), réponses vidéo par visiteur ou par question, cabines (état,
   affectation, code d'appairage), clients, comptes, journal.
