@@ -11,6 +11,7 @@ import { journaliser } from "../journal.ts";
 import { retirerAccord, retirerDiffusion, sessionPour } from "../rgpd/retrait.ts";
 import { lireMiniature, servirMiniature, servirVideo } from "../media.ts";
 import { chargerCampagne } from "./campagnes-commun.ts";
+import { volumeCampagne } from "../volumes.ts";
 
 interface LigneSession {
   id: string; prenom: string; cree_le: string; consent_diffusion: number; recontact: number;
@@ -77,6 +78,14 @@ async function chargerSession(db: D1Database, id: Identite, sessionId: string) {
 }
 
 export function routesReponses(r: Routeur): void {
+  // Volume de stockage de la campagne (vidéos, miniatures, Parlomix). Aucune donnée personnelle.
+  r.get("/api/espace/campagnes/:id/volume", async (ctx) => {
+    const id = await identifier(ctx.request, ctx.env);
+    exiger(id, "reponses.lire");
+    const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
+    return json({ volume: await volumeCampagne(ctx.env, c.id) });
+  });
+
   // Retrait d'accord demandé à la marque ou à WhyMe (voir rgpd/retrait.ts).
   r.post("/api/espace/sessions/:id/retrait", async (ctx) => {
     const id = await identifier(ctx.request, ctx.env);
@@ -194,7 +203,7 @@ export function routesReponses(r: Routeur): void {
     const corps = await lireMiniature(ctx.request);
     const cle = `campagnes/${rep.campagne_id}/sessions/${rep.session_id}/${rep.etape_id}.jpg`;
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
-    await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ? WHERE id = ? AND cle_miniature IS NULL").bind(cle, rep.id).run();
+    await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ?, octets_miniature = ? WHERE id = ? AND cle_miniature IS NULL").bind(cle, corps.byteLength, rep.id).run();
     return json({ miniature: true }, 201);
   });
 

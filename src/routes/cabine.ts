@@ -171,12 +171,12 @@ export function routesCabine(r: Routeur): void {
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: type } });
     const now = maintenant();
     await ctx.env.DB.prepare(
-      `INSERT INTO reponses (id, session_id, etape_id, cle_source, duree_ms, son_present, statut, cree_le, maj_le)
-       VALUES (?, ?, ?, ?, ?, ?, 'recue', ?, ?)
+      `INSERT INTO reponses (id, session_id, etape_id, cle_source, octets_source, duree_ms, son_present, statut, cree_le, maj_le)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'recue', ?, ?)
        ON CONFLICT (session_id, etape_id) DO UPDATE SET
-         cle_source = excluded.cle_source, duree_ms = excluded.duree_ms, son_present = excluded.son_present,
+         cle_source = excluded.cle_source, octets_source = excluded.octets_source, duree_ms = excluded.duree_ms, son_present = excluded.son_present,
          statut = 'recue', erreur = NULL, maj_le = excluded.maj_le`,
-    ).bind(nouvelId(), s.id, etape, cle, dureeMs, sonPresent, now, now).run();
+    ).bind(nouvelId(), s.id, etape, cle, corps.byteLength, dureeMs, sonPresent, now, now).run();
     return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent } }, 201);
   });
 
@@ -215,7 +215,7 @@ export function routesCabine(r: Routeur): void {
     const corps = await lireMiniature(ctx.request);
     const cle = `campagnes/${rep.campagne_id}/sessions/${ctx.params.session}/${ctx.params.etape}.jpg`;
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
-    await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ? WHERE id = ?").bind(cle, rep.id).run();
+    await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ?, octets_miniature = ? WHERE id = ?").bind(cle, corps.byteLength, rep.id).run();
     return json({ miniature: true }, 201);
   });
 

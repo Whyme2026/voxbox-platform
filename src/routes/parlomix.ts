@@ -144,7 +144,7 @@ export function routesParlomix(r: Routeur): void {
     const corps = await lireMiniature(ctx.request);
     const cle = `campagnes/${c.id}/parlomix/${p.id}.jpg`;
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
-    await ctx.env.DB.prepare("UPDATE parlomix SET cle_miniature = ? WHERE id = ?").bind(cle, p.id).run();
+    await ctx.env.DB.prepare("UPDATE parlomix SET cle_miniature = ?, octets_miniature = ? WHERE id = ?").bind(cle, corps.byteLength, p.id).run();
     return json({ miniature: true }, 201);
   });
   r.get("/api/espace/parlomix/:id/miniature", async (ctx) => {

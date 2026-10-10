@@ -27,6 +27,10 @@ export function creerR2(): R2Bucket & { objets: Map<string, { taille: number; ty
     async delete(keys) {
       for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k);
     },
+    async head(key) {
+      const o = objets.get(key);
+      return o ? { key, size: o.taille, httpMetadata: { contentType: o.type } } : null;
+    },
   };
 }
 

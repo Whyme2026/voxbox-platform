@@ -182,7 +182,9 @@ export function routesAdmin(r: Routeur): void {
     const sql = `SELECT c.*, cl.nom AS client_nom,
         (SELECT COUNT(*) FROM sessions s WHERE s.campagne_id = c.id AND s.purgee_le IS NULL) AS nb_sessions,
         (SELECT COUNT(*) FROM reponses r JOIN sessions s ON s.id = r.session_id WHERE s.campagne_id = c.id AND r.cle_source IS NOT NULL) AS nb_reponses,
-        (SELECT MAX(s.cree_le) FROM sessions s WHERE s.campagne_id = c.id) AS derniere_session
+        (SELECT MAX(s.cree_le) FROM sessions s WHERE s.campagne_id = c.id) AS derniere_session,
+        (SELECT COALESCE(SUM(COALESCE(r.octets_source, 0) + COALESCE(r.octets_miniature, 0)), 0) FROM reponses r JOIN sessions s ON s.id = r.session_id WHERE s.campagne_id = c.id)
+          + (SELECT COALESCE(SUM(COALESCE(p.octets, 0) + COALESCE(p.octets_miniature, 0)), 0) FROM parlomix p WHERE p.campagne_id = c.id) AS octets
       FROM campagnes c JOIN clients cl ON cl.id = c.client_id`
       + (client ? " WHERE c.client_id = ?" : "") + " ORDER BY c.cree_le DESC";
     const st = ctx.env.DB.prepare(sql);

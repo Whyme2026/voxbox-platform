@@ -31,6 +31,7 @@ const media: R2Bucket = {
     return { key, size: o.byteLength, body: new Response(octets).body ?? undefined, httpMetadata: { contentType: key.endsWith(".mp4") ? "video/mp4" : "video/webm" } };
   },
   async delete(keys) { for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k); },
+  async head(key) { const o = objets.get(key); return o ? { key, size: o.byteLength } : null; },
 };
 
 const ADMIN = "admin@whyme.test";

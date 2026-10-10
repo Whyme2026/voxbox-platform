@@ -251,6 +251,41 @@ async function vueAccueil() {
               h("div", { style: "color: var(--doux); font-size: 13px" }, `${j.utilisateur_email} · ${ilYa(j.quand)}`))))) : null)));
 }
 
+/** Taille lisible : 820 Ko, 12,4 Mo, 1,23 Go (unités de 1 000, comme le stockage et sa facturation). */
+function taille(/** @type {number | null | undefined} */ octets) {
+  const n = Number(octets ?? 0);
+  const f = (/** @type {number} */ x, /** @type {number} */ d) => x.toLocaleString("fr-FR", { maximumFractionDigits: d });
+  if (n < 1e3) return `${f(n, 0)} o`;
+  if (n < 1e6) return `${f(n / 1e3, 0)} Ko`;
+  if (n < 1e9) return `${f(n / 1e6, n < 1e8 ? 1 : 0)} Mo`;
+  return `${f(n / 1e9, 2)} Go`;
+}
+
+/** Durée lisible : 42 s, 12 min 05 s, 2 h 14 min. */
+function dureeLongue(/** @type {number} */ ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+  return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")} min`;
+}
+
+/** Tableau de bord de la campagne : volume de stockage (vidéos, Parlomix, miniatures), chargé sans bloquer la page. */
+function chiffresCampagne(/** @type {any} */ c) {
+  const zone = h("div", { class: "grille kpi chiffres-campagne", "aria-busy": "true" },
+    kpi("…", "Stockage", "calcul en cours"), kpi("…", "Réponses vidéo", ""), kpi("…", "Par réponse", ""));
+  api(`/api/espace/campagnes/${c.id}/volume`).then(({ volume: v }) => {
+    const parReponse = v.videos.nombre ? v.videos.octets / v.videos.nombre : 0;
+    const parMinute = v.videos.dureeMs ? (v.videos.octets / v.videos.dureeMs) * 60_000 : 0;
+    zone.removeAttribute("aria-busy");
+    zone.replaceChildren(
+      kpi(`${v.nonMesures ? "≥ " : ""}${taille(v.octets)}`, "Stockage",
+        `vidéos ${taille(v.videos.octets)} · Parlomix ${taille(v.parlomix.octets)} · miniatures ${taille(v.miniatures.octets)}${v.nonMesures ? ` · ${v.nonMesures} fichier(s) en cours de mesure` : ""}`),
+      kpi(v.videos.nombre, "Réponses vidéo", v.videos.dureeMs ? `${dureeLongue(v.videos.dureeMs)} filmées · ${v.parlomix.nombre} Parlomix` : `${v.parlomix.nombre} Parlomix`),
+      kpi(v.videos.nombre ? taille(parReponse) : "—", "Par réponse", parMinute ? `≈ ${taille(parMinute)} par minute filmée` : "en moyenne"));
+  }).catch(() => zone.replaceChildren(kpi("—", "Stockage", "indisponible pour l'instant")));
+  return zone;
+}
+
 function kpi(/** @type {any} */ valeur, /** @type {string} */ libelle, /** @type {string} */ detail) {
   return h("div", { class: "carte" }, h("span", { class: "valeur" }, String(valeur)), h("span", { class: "libelle" }, libelle), h("span", { class: "detail" }, detail));
 }
@@ -264,10 +299,12 @@ function tableauCampagnes(/** @type {any[]} */ liste) {
   if (!liste.length) return h("p", { class: "vide" }, "Aucune campagne pour l'instant.");
   return h("div", { class: "defile" }, h("table", { class: "tableau" },
     h("thead", {}, h("tr", {}, h("th", {}, "Campagne"), estWhyme() ? h("th", {}, "Client") : null, h("th", {}, "Statut"),
-      h("th", { class: "nombre" }, "Visiteurs"), h("th", { class: "nombre" }, "Vidéos"), h("th", {}, "Dernier passage"))),
+      h("th", { class: "nombre" }, "Visiteurs"), h("th", { class: "nombre" }, "Vidéos"),
+      liste.some((c) => c.octets !== undefined) ? h("th", { class: "nombre" }, "Stockage") : null, h("th", {}, "Dernier passage"))),
     h("tbody", {}, ...liste.map((c) => h("tr", { class: "lien-ligne", onclick: () => { location.hash = `#/campagnes/${c.id}`; } },
       h("td", {}, h("a", { href: `#/campagnes/${c.id}` }, c.nom)), estWhyme() ? h("td", {}, c.client_nom) : null, h("td", {}, statut(c.statut)),
       h("td", { class: "nombre" }, String(c.nb_sessions ?? "—")), h("td", { class: "nombre" }, String(c.nb_reponses ?? "—")),
+      c.octets !== undefined ? h("td", { class: "nombre" }, taille(c.octets)) : null,
       h("td", {}, ilYa(c.derniere_session)))))));
 }
 
@@ -379,7 +416,7 @@ async function vueCampagne(/** @type {string} */ id) {
 
   return h("div", {},
     enTete(c.nom, h("span", {}, statut(c.statut), " ", infos), actions, h("a", { href: "#/campagnes" }, "Campagnes")),
-    edition, barre, zone);
+    edition, peut("reponses.lire") ? chiffresCampagne(c) : null, barre, zone);
 }
 
 /** Réponses : par visiteur, ou toutes les réponses à une même question (pour écouter ce que les gens disent d'un sujet). */

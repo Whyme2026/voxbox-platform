@@ -30,6 +30,8 @@ export interface R2Bucket {
   put(key: string, value: ReadableStream | ArrayBuffer | string | null, options?: Record<string, unknown>): Promise<R2Object | null>;
   get(key: string, options?: { range?: { offset: number; length?: number } }): Promise<R2Object | null>;
   delete(keys: string | string[]): Promise<void>;
+  /** Métadonnées d'un objet (taille) sans son contenu ; null s'il n'existe pas. */
+  head(key: string): Promise<R2Object | null>;
 }
 
 export interface Fetcher {

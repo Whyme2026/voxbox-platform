@@ -97,6 +97,11 @@ ne gonfle pas le total.
 
 ## Parlorama, l'espace de gestion (`/admin/`)
 Une page sans compilation (`public/admin/`), même direction artistique, protégée par Cloudflare Access.
+- **Chiffres de la campagne** (en tête de la page de campagne) : stockage total (vidéos des réponses, Parlomix,
+  miniatures), nombre de réponses et durée filmée, taille moyenne par réponse et par minute filmée
+  (`GET /api/espace/campagnes/:id/volume`, `src/volumes.ts`). Taille notée à chaque envoi (migration
+  `0006_volumes.sql`) ; les fichiers plus anciens sont mesurés après coup par les métadonnées du stockage, 150 par
+  affichage. La liste des campagnes de WhyMe affiche aussi le stockage de chacune. Unités de 1 000 (Mo, Go).
 - **Onglet resté ouvert pendant un déploiement** : chaque réponse de l'API porte l'en-tête `x-parlorama-version`
   (identifiant du déploiement, liaison `version_metadata`). Parlorama renvoie la version qu'il a chargée ; dès qu'elle
   change, un bandeau demande de recharger, et toute modification (`/api/admin`, `/api/espace`, hors GET) venant de
