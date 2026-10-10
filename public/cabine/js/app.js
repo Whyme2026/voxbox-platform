@@ -36,6 +36,8 @@ let numeroEcran = 0;
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 const cabine = $("cabine");
 const scene = $("scene");
+/** Couleur de fond de chaque ambiance (barre du navigateur). */
+const FOND_AMBIANCE = /** @type {Record<string, string>} */ ({ conversation: "#F1F2F6", pop: "#FFF4DA", marine: "#0F2B46" });
 /** Fonds et visuels de l'habillage de la campagne en cours. */
 /** @type {Map<string, { couleur: string, couleurBas?: string, texte: string }>} */ let fonds = new Map();
 /** @type {Map<string, { nom: string, svg: string }>} */ let visuels = new Map();
@@ -237,9 +239,9 @@ function appliquerHabillage() {
   $("voxbox").hidden = !logo.hidden || !nom.hidden;
   if (client?.logo_url) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
   // Ambiance graphique du parcours (« conversation » par défaut) et textes fixes au vouvoiement ou au tutoiement.
-  const ambiance = config?.parcours?.ambiance === "pop" ? "pop" : "conversation";
+  const ambiance = ["pop", "marine"].includes(config?.parcours?.ambiance) ? config.parcours.ambiance : "conversation";
   document.documentElement.dataset.ambiance = ambiance;
-  if (!valide(c.fond)) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", ambiance === "pop" ? "#FFF4DA" : "#F1F2F6");
+  if (!valide(c.fond)) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", FOND_AMBIANCE[ambiance] ?? "#F1F2F6");
   $("compte-lire").textContent = tv("Prenez le temps de lire.", "Prends le temps de lire.");
   $("ecoute-texte").textContent = tv("On vous écoute…", "On t'écoute…");
 }

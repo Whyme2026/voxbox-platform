@@ -97,6 +97,7 @@ test("ambiance et tutoiement : facultatifs, valeurs contrôlées", () => {
   const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
   assert.deepEqual(validerParcours({ ...demo, ambiance: "pop", tutoiement: true }), []);
   assert.deepEqual(validerParcours({ ...demo, ambiance: "conversation", tutoiement: false }), []);
+  assert.deepEqual(validerParcours({ ...demo, ambiance: "marine" }), []);
   assert.ok(validerParcours({ ...demo, ambiance: "disco" }).some((p) => p.includes("ambiance")));
   assert.ok(validerParcours({ ...demo, tutoiement: "oui" }).some((p) => p.includes("tutoiement")));
 });
@@ -108,6 +109,16 @@ test("le parcours « Fabrice » (ambiance pop, tutoiement) est valide", () => {
   assert.equal(fab.tutoiement, true);
   assert.equal(questions(fab).length, 6);
   assert.equal(diffusionProposee(fab), false);
+});
+
+test("le parcours « Alexandre » (ambiance marine, tutoiement, un visuel par écran) est valide", () => {
+  const alex = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-alexandre.json"), "utf8"));
+  assert.deepEqual(validerParcours(alex), []);
+  assert.equal(alex.ambiance, "marine");
+  assert.equal(alex.tutoiement, true);
+  assert.equal(questions(alex).length, 4);
+  const ids = new Set(alex.habillage.visuels.map((v: { id: string }) => v.id));
+  for (const e of alex.etapes) if (e.visuel) assert.ok(ids.has(e.visuel), `visuel ${e.visuel} défini`);
 });
 
 // ------------------------------------------------------------------ habillage de campagne

@@ -127,6 +127,9 @@ export function problemesDe(/** @type {string} */ id, /** @type {string[]} */ pr
   return problemes.filter((p) => new RegExp(`^étape (\\d+ \\()?${id.replace(/[-]/g, "\\-")}\\)?( |,|:)`).test(p));
 }
 
+/** Ambiance connue de la cabine ; « conversation » par défaut. */
+const ambianceConnue = (/** @type {unknown} */ a) => (a === "pop" || a === "marine" ? a : "conversation");
+
 /**
  * Crée l'éditeur.
  * @param {{
@@ -141,7 +144,7 @@ export function problemesDe(/** @type {string} */ id, /** @type {string[]} */ pr
 export function editeurParcours(o) {
   let langue = o.config?.langue ?? "fr";
   /** Ambiance graphique de la cabine et tutoiement des textes fixes : réglages du parcours entier. */
-  let ambiance = o.config?.ambiance === "pop" ? "pop" : "conversation";
+  let ambiance = ambianceConnue(o.config?.ambiance);
   let tutoiement = o.config?.tutoiement === true;
   /** Habillage de la campagne (polices, couleurs, fonds, visuels) : modifié en mode expert, conservé tel quel ici. */
   /** @type {any} */ let habillage = structuredClone(o.config?.habillage);
@@ -163,7 +166,7 @@ export function editeurParcours(o) {
   /** Reprend les réglages d'un parcours chargé (JSON, modèle), habillage compris. */
   const reprendre = (/** @type {any} */ c) => {
     langue = c.langue ?? "fr";
-    ambiance = c.ambiance === "pop" ? "pop" : "conversation";
+    ambiance = ambianceConnue(c.ambiance);
     tutoiement = c.tutoiement === true;
     habillage = structuredClone(c.habillage);
     choixAmbiance.value = ambiance;
@@ -172,7 +175,8 @@ export function editeurParcours(o) {
   const liste = h("ol", { class: "editeur-etapes" });
   const choixAmbiance = /** @type {HTMLSelectElement} */ (h("select", { id: "ed-ambiance", disabled: o.lectureSeule === true },
     h("option", { value: "conversation", selected: ambiance === "conversation" }, "Conversation (neutre Parlopop)"),
-    h("option", { value: "pop", selected: ambiance === "pop" }, "Pop (festif, esprit BD)")));
+    h("option", { value: "pop", selected: ambiance === "pop" }, "Pop (festif, esprit BD)"),
+    h("option", { value: "marine", selected: ambiance === "marine" }, "Marine (bord de mer, impertinent)")));
   choixAmbiance.addEventListener("change", () => { ambiance = choixAmbiance.value; changer(); });
   const caseTutoiement = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", id: "ed-tutoiement", checked: tutoiement, disabled: o.lectureSeule === true }));
   caseTutoiement.addEventListener("change", () => { tutoiement = caseTutoiement.checked; changer(); });

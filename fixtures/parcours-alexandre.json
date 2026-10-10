@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "langue": "fr",
+  "ambiance": "marine",
+  "tutoiement": true,
+  "habillage": {
+    "visuels": [
+      {
+        "id": "kite",
+        "nom": "Kitesurfeur au planing",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 400 250\"><path d=\"M18 92C60 22 170 6 236 40\" fill=\"none\" stroke=\"#F6F1E6\" stroke-width=\"3\" stroke-dasharray=\"2 9\" stroke-linecap=\"round\" opacity=\".5\"/><path d=\"M28 104C70 30 176 14 244 50L232 66C178 40 92 50 50 112Z\" fill=\"#FF6B3D\"/><path d=\"M28 104C70 30 176 14 244 50\" fill=\"none\" stroke=\"#FFD23F\" stroke-width=\"9\" stroke-linecap=\"round\"/><path d=\"M92 50L76 94M138 34L130 74M186 34L186 64\" stroke=\"#FFD23F\" stroke-width=\"5\" stroke-linecap=\"round\"/><path d=\"M50 112L296 150M232 66L304 146\" stroke=\"#F6F1E6\" stroke-width=\"1.6\" opacity=\".8\"/><path d=\"M286 152L316 142\" stroke=\"#F6F1E6\" stroke-width=\"5\" stroke-linecap=\"round\"/><circle cx=\"330\" cy=\"128\" r=\"11\" fill=\"#F6F1E6\"/><path d=\"M326 140L312 176\" stroke=\"#F6F1E6\" stroke-width=\"11\" stroke-linecap=\"round\"/><path d=\"M322 150L300 148M322 152L314 144\" stroke=\"#F6F1E6\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M314 162L318 168\" stroke=\"#FFD23F\" stroke-width=\"13\" stroke-linecap=\"round\"/><path d=\"M312 176L294 196M312 176L328 198\" stroke=\"#F6F1E6\" stroke-width=\"8\" stroke-linecap=\"round\"/><path d=\"M272 196Q312 186 352 202\" fill=\"none\" stroke=\"#FFD23F\" stroke-width=\"9\" stroke-linecap=\"round\"/><path d=\"M356 206C372 186 386 192 392 176C380 206 370 214 356 206Z\" fill=\"#F6F1E6\" opacity=\".9\"/><path d=\"M366 196C378 178 384 170 396 168\" fill=\"none\" stroke=\"#F6F1E6\" stroke-width=\"3\" stroke-linecap=\"round\" opacity=\".7\"/><path d=\"M0 222C40 208 80 208 120 222S200 236 240 222S320 208 360 222S400 230 400 230V250H0Z\" fill=\"#3FA7C9\"/><path d=\"M190 226C220 214 250 214 280 226\" fill=\"none\" stroke=\"#F6F1E6\" stroke-width=\"3\" stroke-linecap=\"round\" opacity=\".8\"/></svg>"
+      },
+      {
+        "id": "gamelle",
+        "nom": "Gamelle dans les vagues",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 200\"><path d=\"M40 60C70 18 150 10 190 34L182 46C150 30 90 36 62 70Z\" fill=\"#FF6B3D\" transform=\"rotate(160 120 50)\"/><path d=\"M110 160C96 120 102 96 120 84C118 110 130 124 150 132C160 106 176 94 196 92C184 112 186 136 196 160Z\" fill=\"#F6F1E6\"/><circle cx=\"96\" cy=\"100\" r=\"7\" fill=\"#F6F1E6\" opacity=\".8\"/><circle cx=\"212\" cy=\"82\" r=\"6\" fill=\"#F6F1E6\" opacity=\".7\"/><circle cx=\"226\" cy=\"108\" r=\"4\" fill=\"#F6F1E6\" opacity=\".6\"/><circle cx=\"82\" cy=\"128\" r=\"4\" fill=\"#F6F1E6\" opacity=\".6\"/><path d=\"M128 120L118 92M162 122L174 98\" stroke=\"#F6F1E6\" stroke-width=\"9\" stroke-linecap=\"round\"/><path d=\"M200 140L250 120\" stroke=\"#FFD23F\" stroke-width=\"9\" stroke-linecap=\"round\"/><text x=\"196\" y=\"58\" font-family=\"sans-serif\" font-weight=\"800\" font-size=\"30\" fill=\"#FFD23F\" transform=\"rotate(10 196 58)\">PLOUF</text><path d=\"M0 168C30 154 60 154 90 168S150 182 180 168S240 154 270 168S300 176 300 176V200H0Z\" fill=\"#3FA7C9\"/></svg>"
+      },
+      {
+        "id": "coupe",
+        "nom": "Coupe du vainqueur",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 200\"><path d=\"M62 30H158V70C158 104 136 122 110 122S62 104 62 70Z\" fill=\"#FFD23F\"/><path d=\"M62 42H38C38 74 50 88 66 92M158 42H182C182 74 170 88 154 92\" fill=\"none\" stroke=\"#FFD23F\" stroke-width=\"9\" stroke-linecap=\"round\"/><path d=\"M98 122H122L126 150H94Z\" fill=\"#FFD23F\"/><rect x=\"74\" y=\"150\" width=\"72\" height=\"20\" rx=\"4\" fill=\"#FF6B3D\"/><rect x=\"64\" y=\"170\" width=\"92\" height=\"12\" rx=\"3\" fill=\"#F6F1E6\"/><path d=\"M80 44C82 64 90 80 102 88\" fill=\"none\" stroke=\"#F6F1E6\" stroke-width=\"6\" stroke-linecap=\"round\" opacity=\".7\"/><text x=\"110\" y=\"76\" text-anchor=\"middle\" font-family=\"sans-serif\" font-weight=\"800\" font-size=\"30\" fill=\"#0B1E31\">1</text><path d=\"M178 20L186 6M190 30L204 24M170 12L168 0\" stroke=\"#F6F1E6\" stroke-width=\"4\" stroke-linecap=\"round\"/><path d=\"M42 20L34 6M30 30L16 24\" stroke=\"#F6F1E6\" stroke-width=\"4\" stroke-linecap=\"round\"/></svg>"
+      },
+      {
+        "id": "manche",
+        "nom": "Manche à air, force 9",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 200\"><rect x=\"36\" y=\"20\" width=\"9\" height=\"176\" rx=\"4\" fill=\"#F6F1E6\"/><path d=\"M45 34L250 50L250 82L45 92Z\" fill=\"#FF6B3D\"/><path d=\"M95 38L95 88M145 42L145 85M196 46L196 83\" stroke=\"#F6F1E6\" stroke-width=\"18\"/><path d=\"M45 34L250 50L250 82L45 92Z\" fill=\"none\" stroke=\"#0B1E31\" stroke-width=\"2\" opacity=\".3\"/><path d=\"M262 54C278 58 284 64 296 60M262 78C280 76 286 84 298 80M258 66H292\" stroke=\"#F6F1E6\" stroke-width=\"4\" stroke-linecap=\"round\" fill=\"none\" opacity=\".8\"/><circle cx=\"128\" cy=\"138\" r=\"30\" fill=\"#FFD23F\"/><path d=\"M114 134h0M142 134h0\" stroke=\"#0B1E31\" stroke-width=\"7\" stroke-linecap=\"round\"/><ellipse cx=\"128\" cy=\"152\" rx=\"10\" ry=\"8\" fill=\"#0B1E31\"/><path d=\"M168 122l12-6M170 140h14M168 158l12 6\" stroke=\"#FFD23F\" stroke-width=\"5\" stroke-linecap=\"round\"/><text x=\"200\" y=\"152\" font-family=\"sans-serif\" font-weight=\"800\" font-size=\"34\" fill=\"#FFD23F\">bla</text><text x=\"214\" y=\"186\" font-family=\"sans-serif\" font-weight=\"800\" font-size=\"22\" fill=\"#F6F1E6\" opacity=\".8\">bla bla</text></svg>"
+      },
+      {
+        "id": "bouteille",
+        "nom": "Bouteille à la mer",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 200\"><g transform=\"translate(0 30) rotate(-18 150 100)\"><rect x=\"70\" y=\"72\" width=\"140\" height=\"62\" rx=\"28\" fill=\"#3FA7C9\" opacity=\".85\"/><path d=\"M206 88H236V118H206Z\" fill=\"#3FA7C9\" opacity=\".85\"/><rect x=\"234\" y=\"86\" width=\"18\" height=\"34\" rx=\"4\" fill=\"#C98A4B\"/><rect x=\"88\" y=\"86\" width=\"100\" height=\"34\" rx=\"6\" fill=\"#F6F1E6\" transform=\"rotate(4 138 103)\"/><path d=\"M100 98H170M100 108H156\" stroke=\"#0B1E31\" stroke-width=\"4\" stroke-linecap=\"round\" opacity=\".55\"/><path d=\"M84 84C92 78 104 76 116 76\" stroke=\"#F6F1E6\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\" opacity=\".7\"/></g><path d=\"M0 162C30 148 60 148 90 162S150 176 180 162S240 148 270 162S300 170 300 170V200H0Z\" fill=\"#3FA7C9\"/><path d=\"M40 168C60 160 80 160 100 168\" fill=\"none\" stroke=\"#F6F1E6\" stroke-width=\"3\" stroke-linecap=\"round\" opacity=\".7\"/></svg>"
+      }
+    ]
+  },
+  "etapes": [
+    {
+      "id": "accueil",
+      "type": "accueil",
+      "surtitre": "Avis de grand frais",
+      "titre": "Alexandre, vent de face.",
+      "texte": "4 questions, zéro bouée. On a interrogé tout le port : ta réputation te précède.",
+      "visuel": "kite",
+      "bulles": [
+        "Ahoy ! On nous a dit que tu ne savais pas perdre.",
+        "Ici, pas de juge et pas de chrono. Enfin… presque.",
+        "4 questions, face caméra, comme face au vent. Prêt à larguer les amarres ?"
+      ],
+      "bouton": "Je largue les amarres"
+    },
+    {
+      "id": "toi",
+      "type": "identification",
+      "titre": "Pour le livre de bord : ton prénom ?",
+      "texte": "On le connaît déjà, mais le capitaine tient à la paperasse."
+    },
+    {
+      "id": "regles",
+      "type": "consentement",
+      "titre": "Le règlement du port",
+      "texte": "Bon, {prenom}, voici les consignes de navigation. Lis bien, personne ne viendra te repêcher.",
+      "consignes": [
+        "4 questions, toutes plus salées les unes que les autres.",
+        "5 s pour lire, puis la caméra tourne.",
+        "60 s au plus pour répondre. Le vent ne t'attendra pas.",
+        "0 mauvaise réponse. Que des aveux."
+      ],
+      "bouton": "C'est parti",
+      "proposerFloutage": true
+    },
+    {
+      "id": "q-gamelle",
+      "type": "question",
+      "titreCourt": "Ta plus belle gamelle",
+      "texte": "Raconte-nous ta pire chute en kite. La vraie, pas celle que tu racontes au bar.",
+      "pistes": [
+        "Le spot",
+        "La force du vent",
+        "Qui a tout vu"
+      ],
+      "coupDePouce": "On a déjà la version de Julie. Autant donner la tienne.",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 4,
+      "theme": "kite",
+      "visuel": "gamelle"
+    },
+    {
+      "id": "q-perdant",
+      "type": "question",
+      "titreCourt": "Mauvais perdant, vraiment ?",
+      "texte": "Quel est le truc le plus absurde que tu as absolument voulu gagner ?",
+      "pistes": [
+        "Une partie de Uno",
+        "Une place de parking",
+        "Le premier arrivé au bateau"
+      ],
+      "coupDePouce": "Personne ne te juge. Enfin, si : tout le monde.",
+      "dureeMaxSec": 45,
+      "compteARebours": 5,
+      "silenceArretSec": 4,
+      "theme": "competition",
+      "visuel": "coupe"
+    },
+    {
+      "id": "q-julie",
+      "type": "question",
+      "titreCourt": "Julie, force 9",
+      "texte": "Julie parle plus vite que le vent du large. Quel est ton record de temps sans réussir à en placer une ?",
+      "pistes": [
+        "Le sujet du jour",
+        "Ta technique pour reprendre la barre",
+        "Ce que tu as fini par dire"
+      ],
+      "coupDePouce": "Rassure-toi, elle ne verra jamais cette vidéo. (Elle la verra.)",
+      "dureeMaxSec": 60,
+      "compteARebours": 5,
+      "silenceArretSec": 4,
+      "theme": "julie",
+      "visuel": "manche"
+    },
+    {
+      "id": "q-defi",
+      "type": "question",
+      "titreCourt": "Défi à la mer",
+      "texte": "Glisse un défi dans une bouteille. À qui tu le lances, et sur quoi ?",
+      "pistes": [
+        "Un pote",
+        "Un rival",
+        "Julie (si tu oses)"
+      ],
+      "coupDePouce": "Le perdant paie sa tournée. C'est la loi de la mer.",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 4,
+      "theme": "defi",
+      "visuel": "bouteille"
+    },
+    {
+      "id": "fin",
+      "type": "fin",
+      "titre": "Bien navigué, {prenom}.",
+      "texte": "Le verdict du jury : on ne note pas. Oui, ça va te rendre fou.",
+      "sortie": "Tu peux regagner la terre ferme. Le vent, lui, reste.",
+      "visuel": "kite",
+      "retourAccueilSec": 20
+    }
+  ]
+}

@@ -32,7 +32,7 @@ interface EtapeLue {
 
 /**
  * Libellés des questions et des choix, toutes versions du parcours confondues (une session garde la version qu'elle a
- * jouée ; la plus récente donne le libellé). Avec l'habillage de la version la plus récente, pour les Parlomix.
+ * jouée ; la plus récente donne le libellé). Avec l'habillage et l'ambiance de la version la plus récente, pour les Parlomix.
  */
 async function libellesParcours(db: D1Database, campagneId: string) {
   const { results: versions } = await db.prepare("SELECT config FROM parcours_versions WHERE campagne_id = ? ORDER BY numero")
@@ -40,9 +40,11 @@ async function libellesParcours(db: D1Database, campagneId: string) {
   const questions = new Map<string, { id: string; titre: string; texte: string; fond?: string; visuel?: string }>();
   const choix = new Map<string, { id: string; titre: string; options: { id: string; libelle: string; visuel?: string }[] }>();
   let habillage: unknown = null;
+  let ambiance = "conversation";
   for (const v of versions) {
-    const p = JSON.parse(v.config) as { habillage?: unknown; etapes: EtapeLue[] };
+    const p = JSON.parse(v.config) as { habillage?: unknown; ambiance?: string; etapes: EtapeLue[] };
     habillage = p.habillage ?? null;
+    ambiance = p.ambiance ?? "conversation";
     for (const e of p.etapes) {
       if (e.type === "question") {
         questions.delete(e.id);
@@ -55,7 +57,7 @@ async function libellesParcours(db: D1Database, campagneId: string) {
       }
     }
   }
-  return { questions: [...questions.values()], choix: [...choix.values()], habillage };
+  return { questions: [...questions.values()], choix: [...choix.values()], habillage, ambiance };
 }
 
 /** Choix des visiteurs d'une campagne, par session : { session → { étape → option } }. */
@@ -156,7 +158,7 @@ export function routesReponses(r: Routeur): void {
         WHERE s.campagne_id = ? AND s.purgee_le IS NULL AND r.cle_source IS NOT NULL`,
     ).bind(c.id).all<LigneReponse>();
 
-    const { questions, choix, habillage } = await libellesParcours(ctx.env.DB, c.id);
+    const { questions, choix, habillage, ambiance } = await libellesParcours(ctx.env.DB, c.id);
     const ordre = questions.map((q) => q.id);
     const choixParSession = await choixDesSessions(ctx.env.DB, c.id);
 
@@ -170,6 +172,7 @@ export function routesReponses(r: Routeur): void {
       questions,
       choix,
       habillage,
+      ambiance,
       sessions: sessions.map((s) => ({
         ...s,
         choix: choixParSession.get(s.id) ?? {},

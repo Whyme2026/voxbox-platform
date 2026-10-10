@@ -24,6 +24,11 @@ export const DUREES = /** @type {const} */ ({ intro: 2200, transition: 1300, fin
 export const CLIPS_MAX = 20;
 
 const DA = { marque: "#3F4C8F", parole: "#F2D27A", fond: "#F1F2F6", texte: "#23263F" };
+/** Couleurs par défaut de chaque ambiance de la cabine (mêmes valeurs que cabine.css) ; « conversation » : DA. */
+const DA_AMBIANCES = /** @type {Record<string, typeof DA>} */ ({
+  pop: { marque: "#FF5C93", parole: "#FFD23F", fond: "#FFF4DA", texte: "#1B1A2E" },
+  marine: { marque: "#FF6B3D", parole: "#FFD23F", fond: "#0F2B46", texte: "#F6F1E6" },
+});
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /** Blanc ou encre selon la luminance (même règle que la cabine). */
@@ -40,23 +45,25 @@ const POLICES_LARGES = new Set(["michroma"]);
 
 /**
  * Thème du film : celui de la campagne (couleurs du client, puis habillage du parcours s'il y en a un),
- * sinon la direction artistique Parlopop. L'habillage apporte aussi polices, capitales, couleur des bulles et
+ * sinon les couleurs de l'ambiance de la cabine (direction artistique Parlopop par défaut). L'habillage apporte aussi polices, capitales, couleur des bulles et
  * fonds : le Parlomix ressemble à la cabine.
  * @param {Record<string, unknown> | null | undefined} couleurs couleurs de la fiche client
  * @param {any} [habillage] habillage du parcours (parcours.habillage)
+ * @param {string} [ambiance] ambiance du parcours (« conversation », « pop » ou « marine »)
  * @returns {Theme}
  */
-export function themeDepuisCouleurs(couleurs, habillage = null) {
+export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conversation") {
+  const defaut = DA_AMBIANCES[ambiance] ?? DA;
   const c = { ...(couleurs ?? {}) };
   const hc = habillage?.couleurs ?? {};
   for (const [de, vers] of [["marque", "principale"], ["visiteur", "secondaire"], ["fond", "fond"], ["texte", "texte"]]) {
     if (typeof hc[/** @type {string} */ (de)] === "string" && HEX.test(hc[/** @type {string} */ (de)])) c[/** @type {string} */ (vers)] = hc[/** @type {string} */ (de)];
   }
   const choisir = (/** @type {string} */ cle, /** @type {string} */ defaut) => (typeof c[cle] === "string" && HEX.test(/** @type {string} */ (c[cle])) ? /** @type {string} */ (c[cle]) : defaut);
-  const marque = choisir("principale", DA.marque);
-  const parole = choisir("secondaire", DA.parole);
+  const marque = choisir("principale", defaut.marque);
+  const parole = choisir("secondaire", defaut.parole);
   /** @type {Theme} */
-  const theme = { marque, parole, fond: choisir("fond", DA.fond), texte: choisir("texte", DA.texte), surMarque: contraste(marque), surParole: contraste(parole) };
+  const theme = { marque, parole, fond: choisir("fond", defaut.fond), texte: choisir("texte", defaut.texte), surMarque: contraste(marque), surParole: contraste(parole) };
   if (!habillage || typeof habillage !== "object") return theme;
   theme.habille = true;
   if (typeof hc.bulle === "string" && HEX.test(hc.bulle)) { theme.bulle = hc.bulle; theme.surBulle = contraste(hc.bulle); }

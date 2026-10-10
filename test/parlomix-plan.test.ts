@@ -126,6 +126,16 @@ test("habillage : le Parlomix reprend couleurs, bulles, polices, capitales et fo
   assert.equal(themeDepuisCouleurs({}).habille, undefined);
 });
 
+test("ambiance : sans couleur de marque, le Parlomix prend les couleurs de l'ambiance de la cabine", () => {
+  const marine = themeDepuisCouleurs({}, null, "marine");
+  assert.equal(marine.fond, "#0F2B46");
+  assert.equal(marine.marque, "#FF6B3D");
+  assert.equal(marine.parole, "#FFD23F");
+  assert.equal(themeDepuisCouleurs({}, null, "pop").marque, "#FF5C93");
+  assert.equal(themeDepuisCouleurs({}, null, "inconnue").marque, "#3F4C8F", "ambiance inconnue : Parlopop");
+  assert.equal(themeDepuisCouleurs({ principale: "#0F6E5A" }, null, "marine").marque, "#0F6E5A", "la marque reste prioritaire");
+});
+
 test("habillage : fond de la question et visuel du modèle choisi par la personne, sur les cartes du plan", async () => {
   const { visuelDeReponse } = await import("../public/admin/js/montage/plan.js");
   const etapesChoix = [

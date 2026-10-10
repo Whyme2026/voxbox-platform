@@ -87,10 +87,20 @@ ne gonfle pas le total.
 - Polices libres (licence OFL, copies dans `public/polices/`), réduites aux caractères latins et servies par le Worker :
   rien n'est chargé depuis internet.
 - Flou : niveau **fort** retenu (10/10/2026).
-- **Ambiance** (réglage du parcours, `"ambiance"`) : `conversation` (par défaut, ci-dessus) ou `pop` (festif, esprit BD :
+- **Ambiance** (réglage du parcours, `"ambiance"`) : `conversation` (par défaut, ci-dessus), `pop` ou `marine` (festif, esprit BD :
   contours d'encre, ombres franches, trame de points, bulles de travers, rayons à l'accueil, confettis à la fin ;
   rose `#FF5C93`, jaune `#FFD23F`, cyan `#3EC1F3` en décor, papier crème). Tout est en CSS (`:root[data-ambiance="pop"]`),
   les couleurs d'une marque restent prioritaires. Exemple : `fixtures/parcours-fabrice.json`.
+  Troisième ambiance, `marine` (10/10/2026) : bord de mer et impertinence. Nuit marine `#0F2B46`, orange bouée
+  `#FF6B3D` pour la cabine, jaune ciré `#FFD23F` pour le visiteur, écume `#F6F1E6` pour le texte et les cartes,
+  turquoise `#3FA7C9` en décor. Deux rangs de vagues roulent en bas de chaque écran (masque SVG en ligne, plus hautes
+  à l'accueil et à la fin), mouettes à l'accueil, écume qui monte à la fin, fanions pour le surtitre et les titres
+  courts, bouée pour le compte à rebours, phrase de sortie soulignée d'une vague. Le décor reste visible sur une
+  campagne habillée. Exemple : `fixtures/parcours-alexandre.json` (visuels SVG kite, gamelle, coupe, manche à air,
+  bouteille). Le Parlomix prend les couleurs de l'ambiance quand la marque n'en impose pas
+  (`themeDepuisCouleurs(couleurs, habillage, ambiance)`, ambiance renvoyée avec les sessions).
+- **Visuel de question** : affiché à côté de la caméra en paysage ; une question qui a à la fois des pistes et un coup de
+  pouce n'a plus la place de l'afficher sur la cabine (il reste sur les cartes du Parlomix).
 - **Tutoiement** (`"tutoiement": true`) : les textes fixes de la cabine passent au tutoiement (prénom, accord, « On t'écoute… »).
   Les textes légaux restent au vouvoiement ; le texte de consentement cite le bouton « C'est parti », à garder tel quel.
   Les deux réglages se font dans l'éditeur (panneau « Réglages »).

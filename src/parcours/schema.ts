@@ -93,16 +93,17 @@ export type Etape =
 /**
  * Ambiance graphique de la cabine.
  * - « conversation » (par défaut) : direction artistique neutre Parlopop, fonds clairs et bulles douces ;
- * - « pop » : version festive (bande dessinée, contours épais, trames, couleurs vives), pour les animations ludiques.
+ * - « pop » : version festive (bande dessinée, contours épais, trames, couleurs vives), pour les animations ludiques ;
+ * - « marine » : bord de mer et impertinence (bleu nuit, bouée orange, ciré jaune, vagues qui roulent en bas d'écran).
  * Les couleurs de la marque cliente restent prioritaires dans les deux cas.
  */
-export type Ambiance = "conversation" | "pop";
-export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop"];
+export type Ambiance = "conversation" | "pop" | "marine";
+export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop", "marine"];
 
 /**
  * Habillage d'une campagne : ce qui donne à la cabine et aux Parlomix l'allure de la marque, sans code propre
  * à une marque ni à un secteur. Tout est facultatif : sans habillage, direction artistique Parlopop
- * (et couleurs de la fiche client). S'ajoute à l'ambiance générale (« conversation » ou « pop »).
+ * (et couleurs de la fiche client). S'ajoute à l'ambiance générale (« conversation », « pop » ou « marine »).
  */
 export const POLICES = ["fredoka", "gabarito", "michroma", "inter"] as const;
 export type Police = (typeof POLICES)[number];
@@ -145,7 +146,7 @@ export function validerParcours(brut: unknown): string[] {
   const p = brut as Partial<Parcours>;
   if (p.version !== 1) pb.push("version : 1 attendu");
   if (typeof p.langue !== "string" || !/^[a-z]{2}(-[A-Z]{2})?$/.test(p.langue)) pb.push("langue : code du type « fr » attendu");
-  if (p.ambiance !== undefined && !AMBIANCES.includes(p.ambiance)) pb.push(`ambiance : ${AMBIANCES.join(" ou ")} attendu`);
+  if (p.ambiance !== undefined && !AMBIANCES.includes(p.ambiance)) pb.push(`ambiance : ${AMBIANCES.join(", ")} attendu`);
   if (p.tutoiement !== undefined && typeof p.tutoiement !== "boolean") pb.push("tutoiement : vrai ou faux");
   if (!Array.isArray(p.etapes) || p.etapes.length === 0) return [...pb, "etapes : liste non vide attendue"];
 

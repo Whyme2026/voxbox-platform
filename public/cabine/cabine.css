@@ -235,7 +235,12 @@ button { font: inherit; color: inherit; }
 .barre-temps { flex: 1; height: 10px; border-radius: 5px; background: var(--trait); overflow: hidden; }
 .barre-temps span { display: block; height: 100%; width: 100%; border-radius: 5px; background: var(--accent); transform-origin: left; transform: scaleX(1); }
 .barre-temps[data-etat="rec"] span { background: var(--rec); }
-.aide { grid-area: aide; display: flex; flex-direction: column; gap: 12px; }
+.aide { grid-area: aide; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+/* Pistes et coup de pouce gardent leur taille. Une question qui a les deux n'a plus la place d'un visuel sur la
+   cabine (il reste sur les cartes du Parlomix) ; sinon le visuel rapetisse s'il manque de place. */
+.aide > * { flex-shrink: 0; }
+.aide > .visuel-question { flex-shrink: 1; min-height: 0; }
+.aide:has(.pistes):has(.coup-de-pouce) > .visuel-question { display: none; }
 .aide .intitule { font-size: 17px; font-weight: 600; color: var(--texte-doux); }
 .pistes { display: flex; flex-wrap: wrap; gap: 10px; }
 .pistes span { padding: 9px 18px; border-radius: 20px 20px 20px var(--queue); background: var(--carte); font-size: clamp(16px, 2.7vmin, 19px); font-weight: 600; box-shadow: 0 1px 2px rgba(35, 38, 63, .08); }
@@ -523,4 +528,163 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   :root[data-ambiance="pop"] .decor::before, :root[data-ambiance="pop"] .compte-bulle,
   :root[data-ambiance="pop"] .actions.droite.arrive .bouton { animation: none !important; }
+}
+
+/* =============================================================== ambiance « marine »
+   Bord de mer et impertinence (parcours avec "ambiance": "marine") : nuit marine, bouée orange pour la cabine,
+   ciré jaune pour le visiteur, écume pour les cartes. Deux rangs de vagues roulent en bas de chaque écran
+   (plus hautes à l'accueil et à la fin), des mouettes passent à l'accueil, l'écume monte à la fin.
+   Le compte à rebours est une bouée, les titres courts des fanions, la phrase de sortie soulignée d'une vague.
+   Tout est en CSS, rien n'est chargé depuis internet ; les couleurs d'une marque restent prioritaires. */
+
+:root[data-ambiance="marine"] {
+  --accent: #FF6B3D;      /* orange bouée : la cabine parle */
+  --parole: #FFD23F;      /* jaune ciré : le visiteur, l'action */
+  --fond: #0F2B46;        /* nuit marine */
+  --texte: #F6F1E6;       /* écume */
+  --encre: #0B1E31;       /* texte des surfaces claires */
+  --sur-accent: #0B1E31;
+  --sur-parole: #0B1E31;
+  --rec: #FF3B4E;
+  --mer: #3FA7C9;         /* turquoise, décor seulement */
+  --carte: #FFFDF7;
+  --accent-pale: color-mix(in srgb, var(--accent) 18%, #FFFFFF);
+  --parole-pale: color-mix(in srgb, var(--parole) 40%, #FFFFFF);
+  --camera: #071726;
+  --ombre: 0 2px 0 rgba(0, 0, 0, .25), 0 22px 40px -18px rgba(0, 0, 0, .6);
+  --vague: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 40' preserveAspectRatio='none'%3E%3Cpath d='M0 20C25 6 75 6 100 20S175 34 200 20V40H0Z'/%3E%3C/svg%3E");
+}
+
+/* Le large : un halo de lune en haut, puis la houle en bas. */
+:root[data-ambiance="marine"] .cabine {
+  background:
+    radial-gradient(ellipse 70% 55% at 85% -10%, color-mix(in srgb, var(--mer) 26%, transparent), transparent 70%),
+    var(--fond-scene, var(--fond));
+}
+:root[data-ambiance="marine"] .cabine::before,
+:root[data-ambiance="marine"] .cabine::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none;
+  height: clamp(36px, 7vh, 70px);
+  -webkit-mask: var(--vague) repeat-x 0 0 / clamp(240px, 42vmin, 420px) 100%; mask: var(--vague) repeat-x 0 0 / clamp(240px, 42vmin, 420px) 100%;
+  transition: height .6s ease;
+}
+:root[data-ambiance="marine"] .cabine::before { background: color-mix(in srgb, var(--mer) 45%, var(--fond)); animation: houle 11s linear infinite; }
+:root[data-ambiance="marine"] .cabine::after { height: clamp(24px, 4.6vh, 46px); background: color-mix(in srgb, var(--mer) 80%, var(--fond)); animation: houle 7s linear infinite reverse; }
+:root[data-ambiance="marine"] .cabine:is([data-ecran="accueil"], [data-ecran="fin"])::before { height: clamp(90px, 17vh, 170px); }
+:root[data-ambiance="marine"] .cabine:is([data-ecran="accueil"], [data-ecran="fin"])::after { height: clamp(60px, 11vh, 110px); }
+@keyframes houle {
+  from { -webkit-mask-position: 0 0; mask-position: 0 0; }
+  to { -webkit-mask-position: clamp(240px, 42vmin, 420px) 0; mask-position: clamp(240px, 42vmin, 420px) 0; }
+}
+:root[data-ambiance="marine"] .pied { color: color-mix(in srgb, var(--texte) 80%, var(--fond)); }
+:root[data-ambiance="marine"] .pied strong { color: var(--texte); }
+
+/* Titres : écume, avec un sillage orange. */
+:root[data-ambiance="marine"] .ecran h1:not(.bulle) { font-weight: 700; text-shadow: 0 .06em 0 color-mix(in srgb, var(--accent) 70%, transparent); }
+
+/* Bulles : la cabine parle en orange bouée, le visiteur en ciré jaune ; elles arrivent en tanguant. */
+:root[data-ambiance="marine"] .bulle.marque { box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .55); }
+:root[data-ambiance="marine"] .bulle.douce { background: color-mix(in srgb, var(--mer) 30%, var(--fond)); color: var(--texte); }
+:root[data-ambiance="marine"] .bulle.visiteur.douce { background: var(--parole-pale); color: var(--encre); }
+:root[data-ambiance="marine"] .conversation .bulle.marque:nth-child(3n + 2) { background: var(--carte); color: var(--encre); }
+:root[data-ambiance="marine"] .bulle.ecrit { background: color-mix(in srgb, var(--mer) 30%, var(--fond)); color: var(--texte); }
+:root[data-ambiance="marine"] .arrive { animation-name: arrive-tangue; }
+@keyframes arrive-tangue {
+  0% { opacity: 0; transform: translateY(26px) rotate(-4deg); }
+  45% { opacity: 1; transform: translateY(-5px) rotate(2.5deg); }
+  75% { transform: translateY(2px) rotate(-1deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* En-tête : repères en pavillons, surtitre en fanion. */
+:root[data-ambiance="marine"] .reperes .pas { border-radius: 6px; }
+:root[data-ambiance="marine"] .reperes .pas[data-etat="en-cours"] { background: var(--accent); color: var(--encre); }
+:root[data-ambiance="marine"] .reperes .surtitre {
+  padding: 6px 30px 6px 14px; background: var(--accent); color: var(--encre); text-transform: uppercase; letter-spacing: .08em;
+  font-family: var(--titres); font-weight: 700; clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 50%, 100% 100%, 0 100%);
+}
+:root[data-ambiance="marine"] .points i { background: color-mix(in srgb, var(--texte) 22%, var(--fond)); }
+:root[data-ambiance="marine"] .points i[data-etat="fait"] { background: var(--mer); }
+
+/* Cartes et consignes : voiles claires ; chiffres à l'orange bouée, une sur deux en ciré jaune. */
+:root[data-ambiance="marine"] .consignes li { border-radius: 8px 24px 24px 8px; border-left: 8px solid var(--accent); }
+:root[data-ambiance="marine"] .consignes li:nth-child(4n + 2), :root[data-ambiance="marine"] .consignes li:nth-child(4n + 3) { background: var(--parole-pale); border-left-color: var(--encre); box-shadow: var(--ombre); }
+:root[data-ambiance="marine"] .consignes .chiffre { font-weight: 700; }
+:root[data-ambiance="marine"] .case .boite { box-shadow: inset 0 0 0 2.5px color-mix(in srgb, var(--texte) 60%, var(--fond)); }
+:root[data-ambiance="marine"] .case[aria-checked="true"] .boite { background: var(--accent); box-shadow: none; }
+:root[data-ambiance="marine"] .case[aria-checked="true"] .boite::after { border-color: var(--encre); }
+
+/* Boutons : ciré jaune, avec une ombre franche ; le bouton qui attend tangue doucement. */
+:root[data-ambiance="marine"] .bouton { font-weight: 700; box-shadow: 0 5px 0 color-mix(in srgb, var(--parole) 55%, #6B4A00); }
+:root[data-ambiance="marine"] .bouton:active { transform: translateY(4px); box-shadow: 0 1px 0 color-mix(in srgb, var(--parole) 55%, #6B4A00); }
+:root[data-ambiance="marine"] .bouton.secondaire { box-shadow: 0 4px 0 rgba(0, 0, 0, .3); }
+:root[data-ambiance="marine"] .bouton:disabled { box-shadow: none; background: color-mix(in srgb, var(--texte) 18%, var(--fond)); color: color-mix(in srgb, var(--texte) 55%, var(--fond)); }
+:root[data-ambiance="marine"] .actions.droite.arrive .bouton:not(:disabled) { animation: tangage 3.2s ease-in-out 2s infinite; transform-origin: 50% 100%; }
+@keyframes tangage { 0%, 66%, 100% { transform: none; } 74% { transform: rotate(-2.5deg); } 84% { transform: rotate(2.5deg); } 92% { transform: rotate(-1deg); } }
+
+/* Question : titre court en fanion orange, pistes en bouées de couleur. */
+:root[data-ambiance="marine"] .etiquette-pastille {
+  background: var(--accent); color: var(--encre); border-radius: 4px 0 0 4px; padding-right: 30px;
+  text-transform: uppercase; letter-spacing: .07em; font-family: var(--titres); font-weight: 700;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 50%, 100% 100%, 0 100%);
+}
+:root[data-ambiance="marine"] .pistes span:nth-child(3n + 1) { background: var(--carte); }
+:root[data-ambiance="marine"] .pistes span:nth-child(3n + 2) { background: color-mix(in srgb, var(--mer) 35%, #FFFFFF); }
+:root[data-ambiance="marine"] .pistes span:nth-child(3n + 3) { background: var(--parole-pale); }
+:root[data-ambiance="marine"] .barre-temps { background: color-mix(in srgb, var(--texte) 18%, var(--fond)); }
+
+/* Caméra : un hublot (cadre épais), et une bouée pour le compte à rebours. */
+:root[data-ambiance="marine"] .apercu { box-shadow: 0 0 0 6px color-mix(in srgb, var(--mer) 55%, var(--fond)), 0 26px 44px -20px rgba(0, 0, 0, .7); }
+:root[data-ambiance="marine"] .apercu[data-rec] { box-shadow: 0 0 0 6px var(--rec), 0 26px 44px -20px rgba(0, 0, 0, .7); }
+:root[data-ambiance="marine"] .compte { background: rgba(7, 23, 38, .55); }
+:root[data-ambiance="marine"] .compte-bulle {
+  width: clamp(110px, 21vmin, 156px); height: clamp(110px, 21vmin, 156px); border-radius: 50%; clip-path: none;
+  border: clamp(16px, 3vmin, 22px) solid transparent; color: var(--encre); font-weight: 700;
+  background:
+    linear-gradient(var(--carte), var(--carte)) padding-box,
+    repeating-conic-gradient(from 22.5deg, var(--accent) 0 45deg, #FFFFFF 45deg 90deg) border-box;
+  box-shadow: 0 14px 28px -10px rgba(0, 0, 0, .6);
+  animation: bouee 2s ease-in-out infinite;
+}
+@keyframes bouee { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-8px) rotate(6deg); } }
+
+/* Choix : voiles claires qui se soulèvent quand on les touche. */
+:root[data-ambiance="marine"] .option { border-radius: 10px var(--rayon) var(--rayon) var(--rayon); border-top: 8px solid var(--accent); font-weight: 700; }
+:root[data-ambiance="marine"] .option:nth-child(2n) { border-top-color: var(--mer); }
+:root[data-ambiance="marine"] .option:active { transform: translateY(4px); }
+
+/* Champ du prénom et clavier. */
+:root[data-ambiance="marine"] .champ.visiteur[aria-pressed="true"] { box-shadow: 0 0 0 4px color-mix(in srgb, var(--parole) 40%, transparent); }
+:root[data-ambiance="marine"] .touche:active { background: var(--parole); }
+
+/* Fin : la phrase de sortie soulignée d'une vague turquoise. */
+:root[data-ambiance="marine"] .sortie {
+  text-decoration: underline wavy var(--mer); text-decoration-thickness: .07em; text-underline-offset: .18em; text-decoration-skip-ink: none;
+}
+:root[data-ambiance="marine"] .retour .barre { background: color-mix(in srgb, var(--texte) 18%, var(--fond)); }
+
+/* Décor, visible même sur une campagne habillée : mouettes à l'accueil, écume qui monte à la fin. */
+:root[data-ambiance="marine"] .cabine[data-ecran="accueil"] .decor,
+:root[data-ambiance="marine"] .cabine[data-ecran="fin"] .decor { display: block; }
+:root[data-ambiance="marine"] .decor-1,
+:root[data-ambiance="marine"] .decor-2 { fill: var(--texte); opacity: .85; }
+:root[data-ambiance="marine"] .decor-1 path,
+:root[data-ambiance="marine"] .decor-2 path { d: path("M2 24C9 13 17 12 24 21C31 12 39 13 46 24C38 19 31 19 24 27C17 19 10 19 2 24Z"); }
+:root[data-ambiance="marine"] .decor-1 { right: auto; left: 40%; top: 6%; width: clamp(54px, 9vmin, 84px); animation: mouette 9s ease-in-out infinite; }
+:root[data-ambiance="marine"] .decor-2 { left: 47%; top: 15%; bottom: auto; width: clamp(34px, 6vmin, 54px); opacity: .6; animation: mouette 9s ease-in-out -3.5s infinite; }
+@media (orientation: portrait) {
+  /* En portrait, le titre occupe toute la largeur : une seule mouette, à droite, sous le titre. */
+  :root[data-ambiance="marine"] .decor-1 { left: auto; right: 8%; top: 24%; }
+  :root[data-ambiance="marine"] .decor-2 { display: none; }
+}
+@keyframes mouette { 0%, 100% { transform: translate(0, 0) scaleY(1); } 25% { transform: translate(14px, -10px) scaleY(.7); } 50% { transform: translate(28px, 0) scaleY(1); } 75% { transform: translate(12px, 8px) scaleY(.8); } }
+:root[data-ambiance="marine"] .envol path { d: path("M24 6a14 14 0 1 1 0 28a14 14 0 1 1 0-28Z"); }
+:root[data-ambiance="marine"] .envol-1 { fill: color-mix(in srgb, var(--texte) 70%, transparent); }
+:root[data-ambiance="marine"] .envol-2 { fill: color-mix(in srgb, var(--mer) 70%, transparent); }
+:root[data-ambiance="marine"] .envol-3 { fill: color-mix(in srgb, var(--texte) 45%, transparent); }
+:root[data-ambiance="marine"] .envol-4 { fill: color-mix(in srgb, var(--parole) 70%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ambiance="marine"] .cabine::before, :root[data-ambiance="marine"] .cabine::after,
+  :root[data-ambiance="marine"] .compte-bulle, :root[data-ambiance="marine"] .actions.droite.arrive .bouton { animation: none !important; }
 }
