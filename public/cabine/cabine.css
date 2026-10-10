@@ -297,3 +297,174 @@ button { font: inherit; color: inherit; }
 .texte-retrait { display: flex; flex-direction: column; gap: 4px; font-size: clamp(15px, 2.5vmin, 18px); line-height: 1.35; color: var(--texte-doux); }
 .texte-retrait strong { color: var(--texte); font-family: var(--titres); font-weight: 600; font-size: 1.15em; }
 .code-retrait { font-family: var(--titres); font-weight: 600; letter-spacing: .08em; color: var(--accent); }
+
+/* =============================================================== ambiance « pop »
+   Version festive, pour les animations ludiques (parcours avec "ambiance": "pop").
+   Esprit bande dessinée : contours d'encre épais, ombres franches décalées, trame de points,
+   bulles un peu de travers, rayons de soleil à l'accueil et confettis à la fin.
+   Les couleurs d'une marque cliente restent prioritaires (styles en ligne sur :root). */
+
+:root[data-ambiance="pop"] {
+  --accent: #FF5C93;      /* rose bonbon : la cabine parle */
+  --parole: #FFD23F;      /* jaune citron : le visiteur, l'action */
+  --fond: #FFF4DA;        /* papier crème */
+  --texte: #1B1A2E;       /* encre */
+  --sur-accent: #1B1A2E;
+  --sur-parole: #1B1A2E;
+  --rec: #FF3B30;
+  --pop-3: #3EC1F3;       /* cyan, décor seulement */
+  --encre: var(--texte);
+  --carte: #FFFFFF;
+  --accent-pale: color-mix(in srgb, var(--accent) 22%, #FFFFFF);
+  --parole-pale: color-mix(in srgb, var(--parole) 45%, #FFFFFF);
+  --trait: color-mix(in srgb, var(--texte) 22%, var(--fond));
+  --camera: #1B1A2E;
+  --ombre: 6px 6px 0 var(--encre);
+  --contour: drop-shadow(2.5px 0 0 var(--encre)) drop-shadow(-2.5px 0 0 var(--encre)) drop-shadow(0 2.5px 0 var(--encre)) drop-shadow(0 -2.5px 0 var(--encre));
+  --contour-ombre: var(--contour) drop-shadow(5px 5px 0 var(--encre));
+}
+
+/* Papier tramé. */
+:root[data-ambiance="pop"] .cabine {
+  background-color: var(--fond);
+  background-image: radial-gradient(color-mix(in srgb, var(--accent) 30%, transparent) 1.7px, transparent 2.1px);
+  background-size: 22px 22px;
+}
+
+/* Titres : Fredoka grasse et élargie, avec un relief rose. */
+:root[data-ambiance="pop"] .ecran h1:not(.bulle),
+:root[data-ambiance="pop"] .sortie {
+  font-weight: 700; font-stretch: 112%; letter-spacing: -0.01em;
+  text-shadow: 3px 3px 0 var(--accent);
+}
+:root[data-ambiance="pop"] .bulle.grande { font-weight: 700; font-stretch: 106%; }
+
+/* Bulles : contour d'encre (queue comprise) et ombre franche, un peu de travers. */
+:root[data-ambiance="pop"] .bulle { filter: var(--contour-ombre); transform: rotate(var(--pente, 0deg)); }
+:root[data-ambiance="pop"] .bulle.marque { --pente: -.8deg; }
+:root[data-ambiance="pop"] .bulle.visiteur { --pente: .8deg; }
+:root[data-ambiance="pop"] .bulle.douce { background: #FFFFFF; color: var(--texte); filter: var(--contour); }
+:root[data-ambiance="pop"] .bulle.visiteur.douce { background: var(--parole-pale); }
+:root[data-ambiance="pop"] .conversation .bulle.marque:nth-child(2n) { background: var(--pop-3); --pente: .6deg; }
+:root[data-ambiance="pop"] .bulle.ecrit { background: #FFFFFF; filter: var(--contour); }
+:root[data-ambiance="pop"] .arrive { animation-name: arrive-pop; }
+@keyframes arrive-pop {
+  0% { opacity: 0; transform: translateY(18px) scale(.6) rotate(-6deg); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.06) rotate(2deg); }
+  100% { opacity: 1; transform: rotate(var(--pente, 0deg)); }
+}
+
+/* Cartes, clavier, consignes : papier blanc cerné d'encre. */
+:root[data-ambiance="pop"] .carte,
+:root[data-ambiance="pop"] .clavier:not(:empty) { border: 3px solid var(--encre); box-shadow: var(--ombre); }
+:root[data-ambiance="pop"] .touche { border: 2.5px solid var(--encre); background: #FFFFFF; box-shadow: 3px 3px 0 var(--encre); }
+:root[data-ambiance="pop"] .touche:active { transform: translate(3px, 3px); box-shadow: none; background: var(--parole); }
+:root[data-ambiance="pop"] .consignes li { border: 3px solid var(--encre); box-shadow: 5px 5px 0 var(--encre); background: #FFFFFF; transform: rotate(var(--pente, 0deg)); }
+:root[data-ambiance="pop"] .consignes li:nth-child(4n + 1) { --pente: -1.2deg; }
+:root[data-ambiance="pop"] .consignes li:nth-child(4n + 2) { background: var(--parole); --pente: 1deg; }
+:root[data-ambiance="pop"] .consignes li:nth-child(4n + 3) { background: var(--accent); --pente: .8deg; }
+:root[data-ambiance="pop"] .consignes li:nth-child(4n + 4) { background: var(--pop-3); --pente: -.8deg; }
+:root[data-ambiance="pop"] .consignes .chiffre,
+:root[data-ambiance="pop"] .consignes li:nth-child(4n + 2) .chiffre,
+:root[data-ambiance="pop"] .consignes li:nth-child(4n + 3) .chiffre { color: var(--encre); font-weight: 700; font-stretch: 115%; text-shadow: 2px 2px 0 #FFFFFF; }
+:root[data-ambiance="pop"] .case .boite { background: #FFFFFF; box-shadow: none; border: 3px solid var(--encre); }
+:root[data-ambiance="pop"] .case[aria-checked="true"] .boite { background: var(--accent); border-color: var(--encre); }
+:root[data-ambiance="pop"] .case[aria-checked="true"] .boite::after { border-color: var(--encre); }
+
+/* Boutons : autocollants jaunes qui s'enfoncent quand on appuie. */
+:root[data-ambiance="pop"] .bouton { filter: var(--contour-ombre); font-weight: 700; transition: transform .1s ease, filter .1s ease; }
+:root[data-ambiance="pop"] .bouton:active { transform: translate(4px, 4px); filter: var(--contour); }
+:root[data-ambiance="pop"] .bouton.secondaire { box-shadow: none; }
+:root[data-ambiance="pop"] .bouton:disabled { filter: var(--contour); opacity: .6; }
+:root[data-ambiance="pop"] .actions.droite.arrive .bouton:not(:disabled) { animation: trepigne 2.6s ease-in-out 2s infinite; }
+@keyframes trepigne { 0%, 82%, 100% { transform: none; } 86% { transform: rotate(-3deg) scale(1.04); } 90% { transform: rotate(3deg) scale(1.04); } 94% { transform: rotate(-1.5deg); } }
+
+/* En-tête : repères en étiquettes, surtitre en tampon. */
+:root[data-ambiance="pop"] .reperes .pas { border: 2.5px solid var(--encre); background: #FFFFFF; color: var(--texte); }
+:root[data-ambiance="pop"] .reperes .pas[data-etat="fait"] { background: var(--parole-pale); }
+:root[data-ambiance="pop"] .reperes .pas[data-etat="en-cours"] { background: var(--accent); color: var(--encre); box-shadow: 3px 3px 0 var(--encre); }
+:root[data-ambiance="pop"] .reperes .surtitre {
+  padding: 6px 16px; background: var(--encre); color: var(--parole); text-transform: uppercase; letter-spacing: .08em;
+  font-family: var(--titres); font-weight: 700; transform: rotate(-3deg); box-shadow: 4px 4px 0 var(--accent);
+}
+:root[data-ambiance="pop"] .points i { border: 2px solid var(--encre); height: 14px; border-radius: 7px; background: #FFFFFF; }
+:root[data-ambiance="pop"] .points i[data-etat="fait"] { background: var(--accent); }
+:root[data-ambiance="pop"] .points i[data-etat="en-cours"] { background: var(--parole); }
+
+/* Question : titre court en cartouche de BD, pistes en autocollants. */
+:root[data-ambiance="pop"] .etiquette-pastille {
+  background: var(--encre); color: var(--parole); border-radius: 4px; text-transform: uppercase; letter-spacing: .07em;
+  font-family: var(--titres); font-weight: 700; transform: rotate(-2deg); box-shadow: 4px 4px 0 var(--accent);
+}
+:root[data-ambiance="pop"] .pistes span { border: 2.5px solid var(--encre); box-shadow: 3px 3px 0 var(--encre); }
+:root[data-ambiance="pop"] .pistes span:nth-child(3n + 1) { background: var(--parole-pale); transform: rotate(-2deg); }
+:root[data-ambiance="pop"] .pistes span:nth-child(3n + 2) { background: color-mix(in srgb, var(--pop-3) 40%, #FFFFFF); transform: rotate(1.5deg); }
+:root[data-ambiance="pop"] .pistes span:nth-child(3n + 3) { background: var(--accent-pale); transform: rotate(-1deg); }
+:root[data-ambiance="pop"] .barre-temps { height: 14px; border: 2.5px solid var(--encre); background: #FFFFFF; border-radius: 7px; }
+
+/* Caméra : cadre de case de BD (box-shadow, pas de filtre sur la vidéo). */
+:root[data-ambiance="pop"] .apercu { box-shadow: 0 0 0 4px var(--encre), 9px 9px 0 4px var(--encre); }
+:root[data-ambiance="pop"] .apercu[data-rec] { box-shadow: 0 0 0 4px var(--rec), 9px 9px 0 4px var(--encre); }
+:root[data-ambiance="pop"] .compte { background: rgba(27, 26, 46, .45); }
+:root[data-ambiance="pop"] .compte-bulle {
+  border-radius: 50%; width: clamp(104px, 20vmin, 148px); height: clamp(104px, 20vmin, 148px);
+  background: var(--parole); color: var(--encre); font-weight: 700; font-stretch: 120%;
+  border: 4px solid var(--encre); box-shadow: 6px 6px 0 var(--accent);
+  clip-path: none; animation: boum 1s ease-out infinite;
+}
+@keyframes boum { 0% { transform: scale(1.35) rotate(-10deg); } 30% { transform: scale(.95) rotate(4deg); } 55%, 100% { transform: scale(1) rotate(0); } }
+:root[data-ambiance="pop"] .rec { background: var(--rec); border: 3px solid var(--encre); box-shadow: 3px 3px 0 var(--encre); transform: rotate(-2deg); }
+:root[data-ambiance="pop"] .rec-point { background: #FFFFFF; }
+:root[data-ambiance="pop"] .onde i { border: 2px solid var(--encre); width: 12px; }
+
+/* Choix : grosses étiquettes de couleur, chacune penchée à sa façon. */
+:root[data-ambiance="pop"] .option { border: 3px solid var(--encre); box-shadow: 6px 6px 0 var(--encre); font-weight: 700; transition: transform .1s ease, box-shadow .1s ease; }
+:root[data-ambiance="pop"] .option:nth-child(4n + 1) { background: var(--parole); transform: rotate(-1.5deg); }
+:root[data-ambiance="pop"] .option:nth-child(4n + 2) { background: var(--accent); transform: rotate(1.2deg); }
+:root[data-ambiance="pop"] .option:nth-child(4n + 3) { background: var(--pop-3); transform: rotate(-.8deg); }
+:root[data-ambiance="pop"] .option:nth-child(4n + 4) { background: #FFFFFF; transform: rotate(1deg); }
+:root[data-ambiance="pop"] .option:active { transform: translate(5px, 5px); box-shadow: none; }
+:root[data-ambiance="pop"] .options { gap: 22px; }
+
+/* Champ du prénom. */
+:root[data-ambiance="pop"] .champ.visiteur { background: #FFFFFF; }
+:root[data-ambiance="pop"] .champ.visiteur[aria-pressed="true"] { background: var(--parole); }
+:root[data-ambiance="pop"] .champ.secondaire { box-shadow: inset 0 0 0 2.5px var(--encre); }
+
+/* Fin : coup de surligneur sous chaque ligne de la phrase de sortie. */
+:root[data-ambiance="pop"] .sortie {
+  text-shadow: none; text-decoration: underline; text-decoration-color: var(--parole);
+  text-decoration-thickness: .34em; text-underline-offset: -.18em; text-decoration-skip-ink: none;
+}
+:root[data-ambiance="pop"] .retour .barre { height: 12px; border: 2.5px solid var(--encre); background: #FFFFFF; border-radius: 6px; }
+
+/* Décor : rayons de soleil qui tournent (accueil), bulles et confettis cernés d'encre. */
+:root[data-ambiance="pop"] .decor { overflow: hidden; }
+:root[data-ambiance="pop"] .decor::before {
+  content: ""; position: absolute; width: 150vmax; height: 150vmax; right: -75vmax; top: -75vmax;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--parole) 55%, transparent) 0deg 7deg, transparent 7deg 14deg);
+  -webkit-mask: radial-gradient(closest-side, #000 15%, transparent 72%); mask: radial-gradient(closest-side, #000 15%, transparent 72%);
+  animation: rayons 60s linear infinite;
+}
+@keyframes rayons { to { transform: rotate(1turn); } }
+:root[data-ambiance="pop"] .decor svg { stroke: var(--encre); stroke-width: 3px; vector-effect: non-scaling-stroke; paint-order: stroke; }
+:root[data-ambiance="pop"] .decor svg path { vector-effect: non-scaling-stroke; }
+:root[data-ambiance="pop"] .decor-1 { fill: var(--pop-3); }
+@media (orientation: landscape) {
+  /* En paysage, la conversation occupe la droite : la bulle cyan se pose entre le titre et la carte. */
+  :root[data-ambiance="pop"] .decor-1 { right: auto; left: 43%; top: 11%; width: clamp(70px, 13vmin, 110px); transform: rotate(-8deg); animation: none; }
+}
+:root[data-ambiance="pop"] .decor-2 { fill: var(--accent); }
+:root[data-ambiance="pop"] .envol-1 { fill: var(--parole); }
+:root[data-ambiance="pop"] .envol-2 { fill: var(--accent); }
+:root[data-ambiance="pop"] .envol-3 { fill: var(--pop-3); }
+:root[data-ambiance="pop"] .envol-4 { fill: #FFFFFF; }
+:root[data-ambiance="pop"] .envol { animation-name: envol-pop; }
+@keyframes envol-pop { 0% { opacity: 0; transform: translateY(60px) scale(.7) rotate(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-110vh) scale(1) rotate(200deg); } }
+
+:root[data-ambiance="pop"] .voxbox { font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-ambiance="pop"] .decor::before, :root[data-ambiance="pop"] .compte-bulle,
+  :root[data-ambiance="pop"] .actions.droite.arrive .bouton { animation: none !important; }
+}

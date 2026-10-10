@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "langue": "fr",
+  "ambiance": "pop",
+  "tutoiement": true,
+  "etapes": [
+    {
+      "id": "accueil",
+      "type": "accueil",
+      "surtitre": "Édition spéciale",
+      "titre": "Fabrice, la cabine sait tout.",
+      "texte": "Six questions, zéro filet. On a mené l'enquête : ta réputation te précède.",
+      "bulles": [
+        "Ah, te voilà enfin !",
+        "On a quelques questions. Rien de grave. Enfin… presque.",
+        "Installe-toi, on ne mord pas. Gaëlle, on ne sait pas."
+      ],
+      "bouton": "J'assume tout"
+    },
+    {
+      "id": "toi",
+      "type": "identification",
+      "titre": "Pour le procès-verbal : ton prénom ?",
+      "texte": "On le connaît déjà, mais le règlement, c'est le règlement."
+    },
+    {
+      "id": "regles",
+      "type": "consentement",
+      "titre": "Les règles du jeu",
+      "texte": "Bon, {prenom}, voici le deal. Lis bien, tu ne pourras pas dire qu'on ne t'a pas prévenu.",
+      "consignes": [
+        "6 questions, toutes plus indiscrètes les unes que les autres.",
+        "5 s pour lire, puis la caméra tourne. Pas de joker.",
+        "30 s pour te défendre. Ton avocat n'est pas invité.",
+        "0 mauvaise réponse. Que des aveux."
+      ],
+      "bouton": "C'est parti",
+      "proposerFloutage": true
+    },
+    {
+      "id": "chemise",
+      "type": "choix",
+      "titre": "Avant tout : ta chemise du jour, elle a été repassée par qui ?",
+      "options": [
+        { "id": "moi", "libelle": "Par moi, évidemment", "suite": "q-fer" },
+        { "id": "quelquun", "libelle": "Par quelqu'un d'autre", "suite": "q-fer" },
+        { "id": "personne", "libelle": "Personne. Froissée, assumée.", "suite": "q-fer" }
+      ]
+    },
+    {
+      "id": "q-fer",
+      "type": "question",
+      "titreCourt": "Le dossier repassage",
+      "texte": "Sois honnête : le fer à repasser, chez toi, tu sais où il est rangé ?",
+      "pistes": ["Évidemment", "Dans un placard… je crois", "C'est quoi, un fer ?"],
+      "coupDePouce": "Alors, pour être tout à fait transparent…",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "theme": "repassage"
+    },
+    {
+      "id": "q-methode",
+      "type": "question",
+      "titreCourt": "La méthode secrète",
+      "texte": "Ta technique pour une chemise impeccable. Ou pour qu'on ne voie pas qu'elle ne l'est pas.",
+      "pistes": ["La veste par-dessus", "Le pressing", "La douche chaude", "Le pull, toute l'année"],
+      "coupDePouce": "Le secret, c'est…",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "theme": "repassage"
+    },
+    {
+      "id": "q-gaelle",
+      "type": "question",
+      "titreCourt": "L'affaire Gaëlle",
+      "texte": "Il paraît que Gaëlle t'embête tout le temps. Raconte-nous la dernière fois. On veut des détails.",
+      "pistes": ["Ce matin", "Hier soir", "En continu, 24 h sur 24"],
+      "coupDePouce": "Alors la dernière fois, elle m'a…",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "theme": "gaelle"
+    },
+    {
+      "id": "q-reponse",
+      "type": "question",
+      "titreCourt": "Droit de réponse",
+      "texte": "Gaëlle regardera peut-être cette vidéo. Tu as 30 secondes pour lui dire ce que tu as sur le cœur.",
+      "coupDePouce": "Gaëlle, je voulais te dire…",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "theme": "gaelle"
+    },
+    {
+      "id": "q-fan-club",
+      "type": "question",
+      "titreCourt": "Le fan-club",
+      "texte": "Laurent est très admiratif de toi. Franchement, ça s'explique comment ?",
+      "pistes": ["Mon charisme", "Mon talent", "Mes chemises", "Il n'a pas le choix"],
+      "coupDePouce": "C'est simple, c'est parce que…",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "theme": "fan-club"
+    },
+    {
+      "id": "q-sagesse",
+      "type": "question",
+      "titreCourt": "Le mot du sage",
+      "texte": "Un conseil pour les générations futures. Sur le repassage, sur Gaëlle, ou sur la vie.",
+      "coupDePouce": "Retenez bien ceci…",
+      "dureeMaxSec": 30,
+      "compteARebours": 5,
+      "silenceArretSec": 3,
+      "theme": "sagesse"
+    },
+    {
+      "id": "fin",
+      "type": "fin",
+      "titre": "Merci {prenom}, le dossier est clos.",
+      "texte": "Toutes tes déclarations pourront être retenues contre toi au prochain dîner.",
+      "sortie": "Tu peux sortir. Et passe un coup de fer sur cette chemise.",
+      "retourAccueilSec": 20
+    }
+  ]
+}

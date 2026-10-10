@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { questions, validerParcours, type Parcours } from "../src/parcours/schema.ts";
+import { diffusionProposee, questions, validerParcours, type Parcours } from "../src/parcours/schema.ts";
 
 const auto = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-automobile.json"), "utf8")) as Parcours;
 const copie = (): Parcours => structuredClone(auto);
@@ -91,4 +91,21 @@ test("le modèle « parcours neutre » de l'éditeur est identique au parcours d
   const demo = readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8");
   const modele = readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours-neutre.json"), "utf8");
   assert.deepEqual(JSON.parse(modele), JSON.parse(demo));
+});
+
+test("ambiance et tutoiement : facultatifs, valeurs contrôlées", () => {
+  const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
+  assert.deepEqual(validerParcours({ ...demo, ambiance: "pop", tutoiement: true }), []);
+  assert.deepEqual(validerParcours({ ...demo, ambiance: "conversation", tutoiement: false }), []);
+  assert.ok(validerParcours({ ...demo, ambiance: "disco" }).some((p) => p.includes("ambiance")));
+  assert.ok(validerParcours({ ...demo, tutoiement: "oui" }).some((p) => p.includes("tutoiement")));
+});
+
+test("le parcours « Fabrice » (ambiance pop, tutoiement) est valide", () => {
+  const fab = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-fabrice.json"), "utf8"));
+  assert.deepEqual(validerParcours(fab), []);
+  assert.equal(fab.ambiance, "pop");
+  assert.equal(fab.tutoiement, true);
+  assert.equal(questions(fab).length, 6);
+  assert.equal(diffusionProposee(fab), false);
 });

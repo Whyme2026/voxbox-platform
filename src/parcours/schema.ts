@@ -76,9 +76,22 @@ export type Etape =
   | EtapeAccueil | EtapeIdentification | EtapeConsentement | EtapeCadrage
   | EtapeQuestion | EtapeChoix | EtapePause | EtapeFin;
 
+/**
+ * Ambiance graphique de la cabine.
+ * - « conversation » (par défaut) : direction artistique neutre Parlopop, fonds clairs et bulles douces ;
+ * - « pop » : version festive (bande dessinée, contours épais, trames, couleurs vives), pour les animations ludiques.
+ * Les couleurs de la marque cliente restent prioritaires dans les deux cas.
+ */
+export type Ambiance = "conversation" | "pop";
+export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop"];
+
 export interface Parcours {
   version: 1;
   langue: string;
+  /** Ambiance graphique (par défaut « conversation »). */
+  ambiance?: Ambiance;
+  /** Textes fixes de la cabine au tutoiement (par défaut : vouvoiement). Les textes légaux restent au vouvoiement. */
+  tutoiement?: boolean;
   etapes: Etape[];
 }
 
@@ -92,6 +105,8 @@ export function validerParcours(brut: unknown): string[] {
   const p = brut as Partial<Parcours>;
   if (p.version !== 1) pb.push("version : 1 attendu");
   if (typeof p.langue !== "string" || !/^[a-z]{2}(-[A-Z]{2})?$/.test(p.langue)) pb.push("langue : code du type « fr » attendu");
+  if (p.ambiance !== undefined && !AMBIANCES.includes(p.ambiance)) pb.push(`ambiance : ${AMBIANCES.join(" ou ")} attendu`);
+  if (p.tutoiement !== undefined && typeof p.tutoiement !== "boolean") pb.push("tutoiement : vrai ou faux");
   if (!Array.isArray(p.etapes) || p.etapes.length === 0) return [...pb, "etapes : liste non vide attendue"];
 
   const ids = new Set<string>();

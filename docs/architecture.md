@@ -57,6 +57,13 @@ consentement avant toute question, toutes les étapes atteignables, fin obligato
 - Polices libres (licence OFL, copies dans `public/polices/`), réduites aux caractères latins et servies par le Worker :
   rien n'est chargé depuis internet.
 - Flou : niveau **fort** retenu (10/10/2026).
+- **Ambiance** (réglage du parcours, `"ambiance"`) : `conversation` (par défaut, ci-dessus) ou `pop` (festif, esprit BD :
+  contours d'encre, ombres franches, trame de points, bulles de travers, rayons à l'accueil, confettis à la fin ;
+  rose `#FF5C93`, jaune `#FFD23F`, cyan `#3EC1F3` en décor, papier crème). Tout est en CSS (`:root[data-ambiance="pop"]`),
+  les couleurs d'une marque restent prioritaires. Exemple : `fixtures/parcours-fabrice.json`.
+- **Tutoiement** (`"tutoiement": true`) : les textes fixes de la cabine passent au tutoiement (prénom, accord, « On t'écoute… »).
+  Les textes légaux restent au vouvoiement ; le texte de consentement cite le bouton « C'est parti », à garder tel quel.
+  Les deux réglages se font dans l'éditeur (panneau « Réglages »).
 
 ## Parlorama, l'espace de gestion (`/admin/`)
 Une page sans compilation (`public/admin/`), même direction artistique, protégée par Cloudflare Access.

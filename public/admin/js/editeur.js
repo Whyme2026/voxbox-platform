@@ -140,6 +140,9 @@ export function problemesDe(/** @type {string} */ id, /** @type {string[]} */ pr
  */
 export function editeurParcours(o) {
   let langue = o.config?.langue ?? "fr";
+  /** Ambiance graphique de la cabine et tutoiement des textes fixes : réglages du parcours entier. */
+  let ambiance = o.config?.ambiance === "pop" ? "pop" : "conversation";
+  let tutoiement = o.config?.tutoiement === true;
   /** @type {Record<string, any>[]} */
   let etapes = structuredClone(o.config?.etapes ?? []);
   /** @type {string[]} */
@@ -148,8 +151,30 @@ export function editeurParcours(o) {
   let modifie = false;
   let minuterie = 0;
 
-  const config = () => ({ version: 1, langue, etapes: etapes.map(nettoyer) });
+  const config = () => ({
+    version: 1, langue,
+    ...(ambiance !== "conversation" ? { ambiance } : {}),
+    ...(tutoiement ? { tutoiement: true } : {}),
+    etapes: etapes.map(nettoyer),
+  });
+  /** Reprend les réglages d'un parcours chargé (JSON, modèle). */
+  const reprendre = (/** @type {any} */ c) => {
+    langue = c.langue ?? "fr";
+    ambiance = c.ambiance === "pop" ? "pop" : "conversation";
+    tutoiement = c.tutoiement === true;
+    choixAmbiance.value = ambiance;
+    caseTutoiement.checked = tutoiement;
+  };
   const liste = h("ol", { class: "editeur-etapes" });
+  const choixAmbiance = /** @type {HTMLSelectElement} */ (h("select", { id: "ed-ambiance", disabled: o.lectureSeule === true },
+    h("option", { value: "conversation", selected: ambiance === "conversation" }, "Conversation (neutre Parlopop)"),
+    h("option", { value: "pop", selected: ambiance === "pop" }, "Pop (festif, esprit BD)")));
+  choixAmbiance.addEventListener("change", () => { ambiance = choixAmbiance.value; changer(); });
+  const caseTutoiement = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", id: "ed-tutoiement", checked: tutoiement, disabled: o.lectureSeule === true }));
+  caseTutoiement.addEventListener("change", () => { tutoiement = caseTutoiement.checked; changer(); });
+  const reglages = h("div", { class: "pile", style: "gap: 8px" },
+    h("label", { class: "champ", for: "ed-ambiance" }, "Ambiance de la cabine", choixAmbiance),
+    h("label", { class: "case-admin", for: "ed-tutoiement" }, caseTutoiement, "Tutoyer le visiteur (textes fixes de la cabine)"));
   const verification = h("div", { class: "verification" });
   const enregistrer = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton action", disabled: true }, "Enregistrer la version"));
   const etat = h("span", { class: "etat-editeur" });
@@ -298,7 +323,7 @@ export function editeurParcours(o) {
     try {
       const c = JSON.parse(zoneJson.value);
       if (!Array.isArray(c.etapes)) throw new Error();
-      langue = c.langue ?? "fr"; etapes = c.etapes; ouverte = null; dessiner(); changer();
+      reprendre(c); etapes = c.etapes; ouverte = null; dessiner(); changer();
     } catch { problemes = ["Le texte n'est pas un fichier de parcours JSON valide."]; dessinerVerification(); }
   });
 
@@ -313,7 +338,7 @@ export function editeurParcours(o) {
     ...o.modeles.map((m) => h("button", { type: "button", class: "bouton discret petit", style: "justify-content: flex-start", onclick: async () => {
       const c = await m.charger();
       if (!c) return;
-      langue = c.langue ?? "fr"; etapes = structuredClone(c.etapes); ouverte = null; dessiner(); changer();
+      reprendre(c); etapes = structuredClone(c.etapes); ouverte = null; dessiner(); changer();
     } }, m.libelle)));
 
   dessiner();
@@ -328,6 +353,8 @@ export function editeurParcours(o) {
         h("span", { class: "detail-verif" }, "Dans tous les textes, {prenom} est remplacé par le prénom du visiteur.")),
       liste, ajout, expert),
     h("aside", { class: "carte pile panneau-editeur" },
+      h("h2", { style: "margin: 0" }, "Réglages"),
+      reglages,
       h("h2", { style: "margin: 0" }, "Vérification"),
       verification,
       h("div", { class: "boutons" },

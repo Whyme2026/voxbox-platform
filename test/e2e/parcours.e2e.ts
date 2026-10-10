@@ -1,10 +1,11 @@
 // Essais de bout en bout de la cabine, dans un vrai Chrome sans écran avec caméra et micro simulés.
 // Deux scénarios :
 //  - demo : parcours neutre Parlopop (accueil, consignes et accord, 5 questions, fin), flou activé ;
-//  - auto : parcours automobile (prénom, consentement, cadrage, choix, pause avant/après, reprise).
+//  - auto : parcours automobile (prénom, consentement, cadrage, choix, pause avant/après, reprise) ;
+//  - fabrice : ambiance « pop » et tutoiement (choix, 6 questions), en paysage puis en portrait.
 // Chaque scénario vérifie ensuite que toutes les vidéos reçues contiennent une piste son et de la voix.
 //
-// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto]
+// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice]
 // Nécessite Playwright et Chromium (variables PLAYWRIGHT_MODULE et PLAYWRIGHT_BROWSERS_PATH).
 
 import { createRequire } from "node:module";
@@ -21,7 +22,7 @@ const [audio, captures = "captures", scenario = "demo"] = process.argv.slice(2);
 if (!audio) throw new Error("Fichier audio de test manquant");
 mkdirSync(captures, { recursive: true });
 
-const fixture = scenario === "auto" ? "parcours-automobile.json" : "parcours-demo.json";
+const fixture = scenario === "auto" ? "parcours-automobile.json" : scenario === "fabrice" ? "parcours-fabrice.json" : "parcours-demo.json";
 const parcours = JSON.parse(readFileSync(join(import.meta.dirname, `../../fixtures/${fixture}`), "utf8"));
 // Parcours accéléré pour l'essai. E2E_RYTHME=demo garde un rythme proche du réel (pour filmer une démonstration).
 const rythmeDemo = process.env.E2E_RYTHME === "demo";
@@ -34,7 +35,7 @@ const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
 const { code } = await preparer(parcours,
   scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : { nom: "Parlopop" },
-  scenario === "auto" ? "Essai routier" : "Démo Parlopop (neutre)");
+  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : "Démo Parlopop (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
@@ -185,6 +186,62 @@ async function scenarioAuto() {
   await page.getByText("Merci !").waitFor({ timeout: 60_000 });
   await capture("04-fin");
   return { sessions: 1, consentDiffusion: 1, prenom: "Camille" };
+}
+
+async function scenarioFabrice() {
+  await page.getByText("la cabine sait tout").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.ambiance), "pop");
+  await page.waitForTimeout(2200);
+  await capture("01-accueil");
+  await bouton("J'assume tout");
+  await page.getByText("ton prénom ?").waitFor();
+  await page.getByText("Ton prénom").first().waitFor(); // textes fixes au tutoiement
+  await touche("F");
+  for (const c of "abrice") await touche(c);
+  await page.waitForTimeout(500);
+  await capture("02-identification");
+  await bouton("Continuer");
+  await page.getByText("Bon, Fabrice, voici le deal.").waitFor();
+  await cocher("J'accepte que Parlopop");
+  await page.getByText("En savoir plus sur tes données").waitFor();
+  assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique");
+  await page.waitForTimeout(1200);
+  await capture("03-regles");
+  await bouton("C'est parti");
+  await page.getByText("ta chemise du jour").waitFor({ timeout: 20_000 });
+  await page.waitForTimeout(900);
+  await capture("04-choix");
+  await page.getByRole("button", { name: "Personne. Froissée, assumée." }).click();
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  for (const [i, titre] of titres.entries()) {
+    const n = String(i + 1);
+    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator("#compte:not([hidden])").waitFor();
+    await page.waitForTimeout(350);
+    if (i === 0) assert.equal(await page.locator("#compte-lire").textContent(), "Prends le temps de lire.");
+    await capture(`05-q${n}-a-lire`);
+    await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    await capture(`06-q${n}-on-tourne`);
+  }
+  await page.getByText("Merci Fabrice, le dossier est clos.").waitFor({ timeout: 90_000 });
+  await page.waitForTimeout(2500);
+  await capture("07-fin");
+  // Portrait (9:16) : accueil et une question.
+  await page.setViewportSize({ width: 720, height: 1280 });
+  await page.getByText("la cabine sait tout").waitFor({ timeout: 25_000 });
+  await page.waitForTimeout(2200);
+  await capture("08-accueil-portrait");
+  await bouton("J'assume tout");
+  await touche("F"); await touche("a"); await touche("b");
+  await bouton("Continuer");
+  await cocher("J'accepte que Parlopop");
+  await bouton("C'est parti");
+  await page.getByRole("button", { name: "Par moi, évidemment" }).click();
+  await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(800);
+  await capture("09-question-portrait");
+  return { sessions: 2, consentDiffusion: 0, prenom: "Fabrice" };
 }
 
 /** Visite de l'espace de gestion avec les réponses que le scénario vient d'enregistrer. */
@@ -379,7 +436,7 @@ const bilanParlomix: any[] = [];
 
 try {
   await appairer();
-  const attendu = scenario === "auto" ? await scenarioAuto() : await scenarioDemo();
+  const attendu = scenario === "auto" ? await scenarioAuto() : scenario === "fabrice" ? await scenarioFabrice() : await scenarioDemo();
 
   // La file d'envoi se vide.
   const videosRecues = () => [...objets.keys()].filter((k) => k.endsWith(".webm")).length;

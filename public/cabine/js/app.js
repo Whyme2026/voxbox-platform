@@ -70,11 +70,14 @@ function afficher(/** @type {(Node|null)[]} */ contenu, /** @type {string} */ ty
   numeroEcran += 1;
 }
 
+/** Texte fixe de la cabine selon le parcours : vouvoiement par défaut, tutoiement si le parcours le demande. */
+const tv = (/** @type {string} */ vous, /** @type {string} */ tu) => (config?.parcours?.tutoiement === true ? tu : vous);
+
 /** Texte du parcours avec le prénom du visiteur. */
 const perso = (/** @type {string | undefined} */ t) => personnaliser(t ?? "", visiteur?.prenom ?? "");
 
 /** Repères de l'en-tête : étapes du parcours (Vous, Mode d'emploi, Questions, Merci) ou progression des questions. */
-const ETAPES_REPERES = /** @type {const} */ ([["identification", "Vous"], ["consentement", "Mode d'emploi"], ["question", "Questions"], ["fin", "Merci"]]);
+const ETAPES_REPERES = /** @type {const} */ ([["identification", "@vous"], ["consentement", "Mode d'emploi"], ["question", "Questions"], ["fin", "Merci"]]);
 function reperes(/** @type {string} */ type, /** @type {{ numero: number, total: number } | null} */ progression = null, /** @type {string} */ surtitre = "") {
   const el = $("reperes");
   if (progression) {
@@ -90,7 +93,7 @@ function reperes(/** @type {string} */ type, /** @type {{ numero: number, total:
   const ici = liste.findIndex(([t]) => t === type);
   if (ici < 0 || type === "accueil") { el.replaceChildren(); return; }
   el.replaceChildren(h("nav", { "aria-label": "Étapes", class: "reperes" },
-    ...liste.map(([, nom], i) => h("span", { class: "pas", "data-etat": i < ici ? "fait" : i === ici ? "en-cours" : "a-venir" }, nom))));
+    ...liste.map(([, nom], i) => h("span", { class: "pas", "data-etat": i < ici ? "fait" : i === ici ? "en-cours" : "a-venir" }, nom === "@vous" ? tv("Vous", "Toi") : nom))));
 }
 
 const bulle = (/** @type {string} */ classe, /** @type {(Node|string|null)[]} */ ...enfants) => h("p", { class: `bulle ${classe}` }, ...enfants);
@@ -192,6 +195,12 @@ function appliquerHabillage() {
   logo.hidden = !client?.logo_url;
   $("voxbox").hidden = Boolean(client?.logo_url);
   if (client?.logo_url) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
+  // Ambiance graphique du parcours (« conversation » par défaut) et textes fixes au vouvoiement ou au tutoiement.
+  const ambiance = config?.parcours?.ambiance === "pop" ? "pop" : "conversation";
+  document.documentElement.dataset.ambiance = ambiance;
+  if (!valide(c.fond)) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", ambiance === "pop" ? "#FFF4DA" : "#F1F2F6");
+  $("compte-lire").textContent = tv("Prenez le temps de lire.", "Prends le temps de lire.");
+  $("ecoute-texte").textContent = tv("On vous écoute…", "On t'écoute…");
 }
 
 /** Blanc ou encre selon la luminance de la couleur de marque. */
@@ -356,7 +365,7 @@ function ecranAccueil(/** @type {any} */ e) {
           h("h1", {}, e.titre),
           e.texte ? h("p", { class: "chapo" }, e.texte) : null,
           enPause.length ? h("div", { class: "actions" }, bouton("Je reviens", ecranReprise, "secondaire")) : null),
-        h("section", { class: "carte conversation", "aria-label": "La cabine vous parle" },
+        h("section", { class: "carte conversation", "aria-label": tv("La cabine vous parle", "La cabine te parle") },
           ...bulles.map((t) => bulle("marque arrive", t)),
           h("p", { class: "bulle marque arrive ecrit", "aria-hidden": "true" }, h("i"), h("i"), h("i")),
           h("div", { class: "actions droite arrive" }, bouton(e.bouton, () => { nouvelleSession(); suite(e); }))))),
@@ -368,8 +377,8 @@ function ecranReprise() {
   const liste = pauses().sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
   afficher([
     h("div", { class: "ecran" },
-      bulle("marque grande arrive", "Content de vous revoir !"),
-      h("p", { class: "chapo" }, "Touchez votre prénom pour reprendre là où vous en étiez."),
+      bulle("marque grande arrive", tv("Content de vous revoir !", "Content de te revoir !")),
+      h("p", { class: "chapo" }, tv("Touchez votre prénom pour reprendre là où vous en étiez.", "Touche ton prénom pour reprendre là où tu en étais.")),
       h("div", { class: "reprises" }, ...liste.map((p) => bouton(p.prenom, () => {
         visiteur = p.visiteur;
         retirerPause(p.id);
@@ -384,9 +393,9 @@ function ecranIdentification(/** @type {any} */ e) {
   if (!visiteur) return accueil();
   const v = visiteur;
   /** @type {{ cle: "prenom"|"nom"|"email", etiquette: string, indice: string, mode: "nom"|"email", max: number, principal: boolean }[]} */
-  const defs = [{ cle: "prenom", etiquette: "Votre prénom", indice: "Votre prénom", mode: "nom", max: 40, principal: true }];
-  if (e.demanderNom) defs.push({ cle: "nom", etiquette: "Nom, facultatif", indice: "Votre nom", mode: "nom", max: 60, principal: false });
-  if (e.demanderEmail) defs.push({ cle: "email", etiquette: "E-mail, facultatif : pour être recontacté(e) par la marque", indice: "vous@exemple.fr", mode: "email", max: 160, principal: false });
+  const defs = [{ cle: "prenom", etiquette: tv("Votre prénom", "Ton prénom"), indice: tv("Votre prénom", "Ton prénom"), mode: "nom", max: 40, principal: true }];
+  if (e.demanderNom) defs.push({ cle: "nom", etiquette: "Nom, facultatif", indice: tv("Votre nom", "Ton nom"), mode: "nom", max: 60, principal: false });
+  if (e.demanderEmail) defs.push({ cle: "email", etiquette: "E-mail, facultatif : pour être recontacté(e) par la marque", indice: tv("vous@exemple.fr", "toi@exemple.fr"), mode: "email", max: 160, principal: false });
 
   const continuer = bouton("Continuer", () => suite(e));
   const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1);
@@ -450,13 +459,13 @@ function ecranConsentement(/** @type {any} */ e) {
             const { chiffre, reste } = decouperConsigne(perso(c));
             return h("li", { class: "arrive", style: `animation-delay: ${0.15 * (i + 1)}s` }, h("span", { class: "chiffre", "aria-hidden": chiffre ? null : "true" }, chiffre ?? String(i + 1)), h("span", {}, reste));
           })) : null),
-        h("section", { class: "carte accord", "aria-label": "Votre accord" },
+        h("section", { class: "carte accord", "aria-label": tv("Votre accord", "Ton accord") },
           h("div", { class: "cases" },
             caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses clients.`, false,
               (x) => { accord = x; partir.toggleAttribute("disabled", !x); }, "Obligatoire pour commencer."),
             proposee ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
-            e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, "Votre voix reste, votre visage disparaît.") : null),
-          h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, "En savoir plus sur vos données"),
+            e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, tv("Votre voix reste, votre visage disparaît.", "Ta voix reste, ton visage disparaît.")) : null),
+          h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, tv("En savoir plus sur vos données", "En savoir plus sur tes données")),
           details,
           h("div", { class: "actions" }, partir)))),
   ], "consentement");
@@ -483,7 +492,7 @@ function ecranErreurCamera() {
   afficher([
     h("div", { class: "ecran" },
       h("h1", {}, "Caméra indisponible"),
-      h("p", { class: "chapo" }, "La caméra ou le micro ne répond pas. Prévenez un conseiller : la cabine revient à l'accueil.")),
+      h("p", { class: "chapo" }, tv("La caméra ou le micro ne répond pas. Prévenez un conseiller : la cabine revient à l'accueil.", "La caméra ou le micro ne répond pas. Préviens un conseiller : la cabine revient à l'accueil."))),
   ], "erreur");
   setTimeout(accueil, 8000);
 }
@@ -611,7 +620,7 @@ function ecranPause(/** @type {any} */ e) {
     h("div", { class: "ecran" },
       h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
       e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
-      bulle("marque douce moyenne arrive", `À votre retour, touchez « Je reviens » puis « ${prenom || "votre prénom"} ».`),
+      bulle("marque douce moyenne arrive", tv(`À votre retour, touchez « Je reviens » puis « ${prenom || "votre prénom"} ».`, `À ton retour, touche « Je reviens » puis « ${prenom || "ton prénom"} ».`)),
       h("div", { class: "actions droite" }, bouton(e.bouton, accueil))),
   ], "pause");
   const ecran = numeroEcran;
@@ -625,7 +634,7 @@ function carteRetrait(/** @type {string} */ code) {
   svg.setAttribute("viewBox", `0 0 ${cote} ${cote}`);
   svg.setAttribute("class", "qr");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "QR code pour retirer votre accord");
+  svg.setAttribute("aria-label", tv("QR code pour retirer votre accord", "QR code pour retirer ton accord"));
   svg.setAttribute("shape-rendering", "crispEdges");
   const fond = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   fond.setAttribute("width", String(cote)); fond.setAttribute("height", String(cote)); fond.setAttribute("fill", "#FFFFFF");
@@ -635,8 +644,8 @@ function carteRetrait(/** @type {string} */ code) {
   const lisible = `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
   return h("div", { class: "carte retrait arrive" }, svg,
     h("div", { class: "texte-retrait" },
-      h("strong", {}, "Vous changez d'avis ?"),
-      h("span", {}, "Scannez ce code pour retirer votre accord, à tout moment."),
+      h("strong", {}, tv("Vous changez d'avis ?", "Tu changes d'avis ?")),
+      h("span", {}, tv("Scannez ce code pour retirer votre accord, à tout moment.", "Scanne ce code pour retirer ton accord, à tout moment.")),
       h("span", { class: "code-retrait" }, lisible)));
 }
 
