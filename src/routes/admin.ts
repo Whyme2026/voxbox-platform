@@ -150,7 +150,11 @@ export function routesAdmin(r: Routeur): void {
   r.get("/api/admin/campagnes", async (ctx) => {
     await whyme(ctx, "campagnes.lire");
     const client = ctx.url.searchParams.get("client");
-    const sql = "SELECT c.*, cl.nom AS client_nom FROM campagnes c JOIN clients cl ON cl.id = c.client_id"
+    const sql = `SELECT c.*, cl.nom AS client_nom,
+        (SELECT COUNT(*) FROM sessions s WHERE s.campagne_id = c.id AND s.purgee_le IS NULL) AS nb_sessions,
+        (SELECT COUNT(*) FROM reponses r JOIN sessions s ON s.id = r.session_id WHERE s.campagne_id = c.id AND r.cle_source IS NOT NULL) AS nb_reponses,
+        (SELECT MAX(s.cree_le) FROM sessions s WHERE s.campagne_id = c.id) AS derniere_session
+      FROM campagnes c JOIN clients cl ON cl.id = c.client_id`
       + (client ? " WHERE c.client_id = ?" : "") + " ORDER BY c.cree_le DESC";
     const st = ctx.env.DB.prepare(sql);
     const { results } = await (client ? st.bind(client) : st).all();

@@ -18,10 +18,17 @@ export interface EtapeAccueil extends EtapeBase {
   titre: string;
   texte?: string;
   bouton: string;
+  /** Bulles de la cabine qui « parle » au visiteur sur l'écran d'accueil (3 au plus). */
+  bulles?: string[];
 }
+
+// Dans tous les textes affichés, {prenom} est remplacé par le prénom du visiteur (ou retiré s'il est inconnu).
+
 export interface EtapeIdentification extends EtapeBase {
   type: "identification";
   titre: string;
+  /** Petite bulle sous la question (ex. « Juste le prénom, promis. »). */
+  texte?: string;
   demanderNom?: boolean;
   demanderEmail?: boolean;
 }
@@ -29,6 +36,8 @@ export interface EtapeConsentement extends EtapeBase {
   type: "consentement";
   titre: string;
   bouton: string;
+  /** Bulle d'introduction (ex. « Merci {prenom} ! Avant de commencer, voici le deal. »). */
+  texte?: string;
   /** Consignes affichées avant l'accord (« 5 questions, 30 secondes… »). L'écran sert alors de « mode d'emploi ». */
   consignes?: string[];
   /** Propose au visiteur de flouter son visage (case facultative). */
@@ -120,10 +129,15 @@ export function validerParcours(brut: unknown): string[] {
       case "accueil":
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
         if (e.surtitre !== undefined) txt(ou, "surtitre", e.surtitre, 40);
+        if (e.bulles !== undefined) liste(ou, "bulles", e.bulles, 3, 120);
         break;
       case "pause":
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40); break;
-      case "identification": case "cadrage":
+      case "identification":
+        txt(ou, "titre", e.titre);
+        if (e.texte !== undefined) txt(ou, "texte", e.texte, 120);
+        break;
+      case "cadrage":
         txt(ou, "titre", e.titre); break;
       case "fin":
         txt(ou, "titre", e.titre);
@@ -131,6 +145,7 @@ export function validerParcours(brut: unknown): string[] {
         break;
       case "consentement":
         consentementVu = true; txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
+        if (e.texte !== undefined) txt(ou, "texte", e.texte, 160);
         if (e.consignes !== undefined) liste(ou, "consignes", e.consignes, 6, 140);
         if (e.proposerFloutage !== undefined && typeof e.proposerFloutage !== "boolean") pb.push(`${ou} : « proposerFloutage » vrai ou faux`);
         if (e.proposerDiffusion !== undefined && typeof e.proposerDiffusion !== "boolean") pb.push(`${ou} : « proposerDiffusion » vrai ou faux`);

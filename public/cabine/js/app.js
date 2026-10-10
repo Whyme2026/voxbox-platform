@@ -1,13 +1,13 @@
 // @ts-check
 // Application de la cabine : affiche le parcours écran par écran, filme, met les envois en file.
 
-import { creerMoteur, diffusionProposee } from "./moteur.js";
+import { creerMoteur, diffusionProposee, personnaliser, decouperConsigne } from "./moteur.js";
 import { creerClavier } from "./clavier.js";
 import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from "./enregistreur.js";
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -55,24 +55,51 @@ function h(/** @type {string} */ tag, /** @type {Record<string, any>} */ attrs =
 const bouton = (/** @type {string} */ texte, /** @type {() => void} */ action, classe = "") =>
   h("button", { type: "button", class: `bouton ${classe}`.trim(), onclick: action }, texte);
 
-function afficher(/** @type {(Node|null)[]} */ contenu) {
+function afficher(/** @type {(Node|null)[]} */ contenu, /** @type {string} */ type = "") {
   clavier.fermer();
+  $("cabine").dataset.ecran = type;
+  reperes(type);
   scene.replaceChildren(.../** @type {Node[]} */ (contenu.filter(Boolean)));
   // L'aperçu caméra est un élément unique, déplacé dans l'écran qui le demande.
   const place = scene.querySelector(".emplacement-camera");
   if (place) { place.append(apercu); apercu.hidden = false; video.play().catch(() => {}); }
   else if (apercu.parentElement !== document.body) { apercu.hidden = true; document.body.append(apercu); }
-  const premier = scene.querySelector("button");
+  const premier = scene.querySelector("button:not([disabled])");
   if (premier instanceof HTMLElement) premier.focus({ preventScroll: true });
   numeroEcran += 1;
 }
 
-/** Vumètre du voyant REC : 5 barres qui suivent la voix. */
+/** Texte du parcours avec le prénom du visiteur. */
+const perso = (/** @type {string | undefined} */ t) => personnaliser(t ?? "", visiteur?.prenom ?? "");
+
+/** Repères de l'en-tête : étapes du parcours (Vous, Mode d'emploi, Questions, Merci) ou progression des questions. */
+const ETAPES_REPERES = /** @type {const} */ ([["identification", "Vous"], ["consentement", "Mode d'emploi"], ["question", "Questions"], ["fin", "Merci"]]);
+function reperes(/** @type {string} */ type, /** @type {{ numero: number, total: number } | null} */ progression = null, /** @type {string} */ surtitre = "") {
+  const el = $("reperes");
+  if (progression) {
+    el.replaceChildren(
+      h("span", { class: "points", "aria-hidden": "true" },
+        ...Array.from({ length: progression.total }, (_, i) => h("i", { "data-etat": i + 1 < progression.numero ? "fait" : i + 1 === progression.numero ? "en-cours" : "a-venir" }))),
+      h("span", {}, `Question ${progression.numero} sur ${progression.total}`));
+    return;
+  }
+  if (surtitre) { el.replaceChildren(h("span", { class: "surtitre" }, surtitre)); return; }
+  const presents = new Set(config?.parcours?.etapes?.map((/** @type {any} */ e) => e.type) ?? []);
+  const liste = ETAPES_REPERES.filter(([t]) => presents.has(t));
+  const ici = liste.findIndex(([t]) => t === type);
+  if (ici < 0 || type === "accueil") { el.replaceChildren(); return; }
+  el.replaceChildren(h("nav", { "aria-label": "Étapes", class: "reperes" },
+    ...liste.map(([, nom], i) => h("span", { class: "pas", "data-etat": i < ici ? "fait" : i === ici ? "en-cours" : "a-venir" }, nom))));
+}
+
+const bulle = (/** @type {string} */ classe, /** @type {(Node|string|null)[]} */ ...enfants) => h("p", { class: `bulle ${classe}` }, ...enfants);
+
+/** Onde de la voix pendant l'enregistrement : 8 barres qui suivent le niveau réel du micro. */
 function onde(/** @type {number} */ niveau) {
   const barres = $("onde").children;
-  const profil = [0.55, 0.85, 1, 0.75, 0.5];
+  const profil = [0.45, 0.8, 1, 0.7, 0.9, 0.6, 0.85, 0.5];
   for (let i = 0; i < barres.length; i++) {
-    /** @type {HTMLElement} */ (barres[i]).style.transform = `scaleY(${Math.max(0.15, niveau * /** @type {number} */ (profil[i]))})`;
+    /** @type {HTMLElement} */ (barres[i]).style.transform = `scaleY(${Math.max(0.22, Math.min(1, niveau * 1.4 * /** @type {number} */ (profil[i % profil.length])))})`;
   }
 }
 
@@ -115,12 +142,13 @@ function ecranAppairage(message = "") {
   });
   valider.toggleAttribute("disabled", true);
   afficher([
-    h("h1", {}, "Appairer cette cabine"),
-    h("p", {}, "Saisissez le code affiché dans l'espace WhyMe, fiche de la cabine."),
-    h("div", { class: "champ", "aria-pressed": "true" }, h("span", { class: "etiquette" }, "Code d'appairage"), champ),
-    message ? h("p", { role: "alert" }, message) : null,
-    h("div", { class: "actions" }, valider),
-  ]);
+    h("div", { class: "ecran" },
+      h("h1", {}, "Appairer cette cabine"),
+      h("p", { class: "chapo" }, "Saisissez le code affiché dans l'espace WhyMe, fiche de la cabine."),
+      h("div", { class: "champ bulle visiteur", "aria-pressed": "true" }, h("span", { class: "etiquette" }, "Code d'appairage"), champ),
+      message ? h("p", { class: "chapo", role: "alert" }, message) : null,
+      h("div", { class: "actions droite" }, valider)),
+  ], "appairage");
   clavier.ouvrir(champ, { mode: "code", max: 6, onChange: (v) => valider.toggleAttribute("disabled", v.length !== 6) });
 }
 
@@ -142,18 +170,23 @@ async function chargerConfig() {
 
 /**
  * Thème : celui de Vox Box par défaut ; une marque cliente le remplace par ses couleurs
- * (couleurs.principale → accent, couleurs.fond, couleurs.texte) et son logo.
+ * (couleurs.principale → la marque parle, couleurs.secondaire → le visiteur répond, couleurs.fond, couleurs.texte) et son logo.
  */
 function appliquerHabillage() {
   const client = config?.client;
   const racine = document.documentElement.style;
   const c = client?.couleurs ?? {};
-  for (const [cle, prop] of [["principale", "--accent"], ["fond", "--fond"], ["texte", "--texte"]]) {
-    if (typeof c[cle] === "string" && /^#[0-9a-fA-F]{6}$/.test(c[cle])) racine.setProperty(/** @type {string} */ (prop), c[cle]);
-    else racine.removeProperty(/** @type {string} */ (prop));
+  const valide = (/** @type {unknown} */ x) => typeof x === "string" && /^#[0-9a-fA-F]{6}$/.test(x);
+  for (const [cle, prop, sur] of [["principale", "--accent", "--sur-accent"], ["secondaire", "--parole", "--sur-parole"], ["fond", "--fond", ""], ["texte", "--texte", ""]]) {
+    if (valide(c[cle])) {
+      racine.setProperty(/** @type {string} */ (prop), c[cle]);
+      if (sur) racine.setProperty(sur, contraste(c[cle]));
+    } else {
+      racine.removeProperty(/** @type {string} */ (prop));
+      if (sur) racine.removeProperty(sur);
+    }
   }
-  if (c.principale) racine.setProperty("--sur-accent", contraste(c.principale)); else racine.removeProperty("--sur-accent");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", c.fond ?? "#17122E");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", valide(c.fond) ? c.fond : "#F1F2F6");
   const logo = /** @type {HTMLImageElement} */ ($("logo"));
   logo.hidden = !client?.logo_url;
   $("voxbox").hidden = Boolean(client?.logo_url);
@@ -165,7 +198,7 @@ function contraste(/** @type {string} */ hex) {
   const n = parseInt(hex.slice(1), 16);
   const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
   const L = 0.2126 * /** @type {number} */ (r) + 0.7152 * /** @type {number} */ (g) + 0.0722 * /** @type {number} */ (b);
-  return L > 0.4 ? "#221F3A" : "#FFFFFF";
+  return L > 0.4 ? "#23263F" : "#FFFFFF";
 }
 
 // ------------------------------------------------------------------ caméra
@@ -281,48 +314,55 @@ function accueil() {
 
 function ecranAttente() {
   afficher([
-    h("h1", {}, "Bientôt prêt"),
-    h("p", {}, "Cette cabine attend le lancement de sa campagne."),
-  ]);
+    h("div", { class: "ecran" },
+      h("h1", {}, "Bientôt prêt"),
+      h("p", { class: "chapo" }, "Cette cabine attend le lancement de sa campagne.")),
+  ], "attente");
   setTimeout(async () => { await chargerConfig(); if (!visiteur) accueil(); }, 30_000);
 }
 
 function ecranAccueil(/** @type {any} */ e) {
   const enPause = pauses();
+  /** @type {string[]} */
+  const bulles = Array.isArray(e.bulles) && e.bulles.length ? e.bulles : ["Bonjour !"];
   afficher([
-    h("div", { class: "onde-accueil", "aria-hidden": "true" }, ...Array.from({ length: 7 }, () => h("i"))),
-    e.surtitre ? h("p", { class: "surtitre" }, e.surtitre) : null,
-    h("h1", {}, e.titre),
-    e.texte ? h("p", {}, e.texte) : null,
-    h("div", { class: "actions" },
-      bouton(e.bouton, () => { nouvelleSession(); suite(e); }),
-      enPause.length ? bouton("Je reviens", ecranReprise, "secondaire") : null,
-    ),
-  ]);
+    h("div", { class: "ecran" },
+      h("div", { class: "deux" },
+        h("div", { class: "colonne" },
+          h("h1", {}, e.titre),
+          e.texte ? h("p", { class: "chapo" }, e.texte) : null,
+          enPause.length ? h("div", { class: "actions" }, bouton("Je reviens", ecranReprise, "secondaire")) : null),
+        h("section", { class: "carte conversation", "aria-label": "La cabine vous parle" },
+          ...bulles.map((t) => bulle("marque arrive", t)),
+          h("p", { class: "bulle marque arrive ecrit", "aria-hidden": "true" }, h("i"), h("i"), h("i")),
+          h("div", { class: "actions droite arrive" }, bouton(e.bouton, () => { nouvelleSession(); suite(e); }))))),
+  ], "accueil");
+  reperes("accueil", null, e.surtitre ?? "");
 }
 
 function ecranReprise() {
   const liste = pauses().sort((a, b) => a.prenom.localeCompare(b.prenom, "fr"));
   afficher([
-    h("h1", {}, "Content de vous revoir"),
-    h("p", {}, "Touchez votre prénom pour reprendre là où vous en étiez."),
-    h("div", { class: "reprises" }, ...liste.map((p) => bouton(p.prenom, () => {
-      visiteur = p.visiteur;
-      retirerPause(p.id);
-      activerFlou(Boolean(visiteur?.floutage));
-      aller(p.reprise);
-    }, "secondaire"))),
-    h("div", { class: "actions" }, h("button", { type: "button", class: "lien", onclick: accueil }, "Retour")),
-  ]);
+    h("div", { class: "ecran" },
+      bulle("marque grande arrive", "Content de vous revoir !"),
+      h("p", { class: "chapo" }, "Touchez votre prénom pour reprendre là où vous en étiez."),
+      h("div", { class: "reprises" }, ...liste.map((p) => bouton(p.prenom, () => {
+        visiteur = p.visiteur;
+        retirerPause(p.id);
+        activerFlou(Boolean(visiteur?.floutage));
+        aller(p.reprise);
+      }, "secondaire"))),
+      h("button", { type: "button", class: "lien", onclick: accueil }, "Retour")),
+  ], "reprise");
 }
 
 function ecranIdentification(/** @type {any} */ e) {
   if (!visiteur) return accueil();
   const v = visiteur;
-  /** @type {{ cle: "prenom"|"nom"|"email", etiquette: string, indice: string, mode: "nom"|"email", max: number }[]} */
-  const defs = [{ cle: "prenom", etiquette: "Prénom", indice: "Votre prénom", mode: "nom", max: 40 }];
-  if (e.demanderNom) defs.push({ cle: "nom", etiquette: "Nom (facultatif)", indice: "Votre nom", mode: "nom", max: 60 });
-  if (e.demanderEmail) defs.push({ cle: "email", etiquette: "E-mail (facultatif)", indice: "vous@exemple.fr", mode: "email", max: 160 });
+  /** @type {{ cle: "prenom"|"nom"|"email", etiquette: string, indice: string, mode: "nom"|"email", max: number, principal: boolean }[]} */
+  const defs = [{ cle: "prenom", etiquette: "Votre prénom", indice: "Votre prénom", mode: "nom", max: 40, principal: true }];
+  if (e.demanderNom) defs.push({ cle: "nom", etiquette: "Nom, facultatif", indice: "Votre nom", mode: "nom", max: 60, principal: false });
+  if (e.demanderEmail) defs.push({ cle: "email", etiquette: "E-mail, facultatif : pour être recontacté(e) par la marque", indice: "vous@exemple.fr", mode: "email", max: 160, principal: false });
 
   const continuer = bouton("Continuer", () => suite(e));
   const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1);
@@ -332,7 +372,8 @@ function ecranIdentification(/** @type {any} */ e) {
 
   const champs = defs.map((d) => {
     const valeur = h("span", { class: "valeur", "data-indice": d.indice, "data-vide": v[d.cle] ? "non" : "oui" }, v[d.cle]);
-    const el = h("button", { type: "button", class: "champ", "aria-pressed": "false" }, h("span", { class: "etiquette" }, d.etiquette), valeur);
+    const el = h("button", { type: "button", class: d.principal ? "champ bulle visiteur" : "champ secondaire", "aria-pressed": "false" },
+      h("span", { class: "etiquette" }, d.etiquette), valeur);
     el.addEventListener("click", () => {
       scene.querySelectorAll(".champ").forEach((c) => c.setAttribute("aria-pressed", "false"));
       el.setAttribute("aria-pressed", "true");
@@ -347,11 +388,14 @@ function ecranIdentification(/** @type {any} */ e) {
   });
 
   afficher([
-    h("h1", {}, e.titre),
-    h("div", { class: "champs" }, ...champs),
-    recontact,
-    h("div", { class: "actions" }, continuer),
-  ]);
+    h("div", { class: "ecran" },
+      h("div", { class: "colonne" },
+        h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
+        e.texte ? bulle("marque douce moyenne arrive", perso(e.texte)) : null),
+      h("div", { class: "champs" }, ...champs),
+      recontact,
+      h("div", { class: "actions droite" }, continuer)),
+  ], "identification");
   majBouton();
   champs[0]?.click();
 }
@@ -373,18 +417,25 @@ function ecranConsentement(/** @type {any} */ e) {
   const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_interne ?? "");
 
   afficher([
-    h("h1", {}, e.titre),
-    e.consignes?.length ? h("ol", { class: "consignes" }, ...e.consignes.map((/** @type {string} */ c) => h("li", {}, c))) : null,
-    h("div", { class: "cases" },
-      caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses clients.`, false,
-        (x) => { accord = x; partir.toggleAttribute("disabled", !x); }, "Obligatoire pour commencer."),
-      proposee ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
-      e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, "Votre voix reste, votre visage disparaît.") : null,
-    ),
-    h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, "En savoir plus sur vos données"),
-    details,
-    h("div", { class: "actions" }, partir),
-  ]);
+    h("div", { class: "ecran" },
+      h("div", { class: "deux" },
+        h("section", { class: "colonne", "aria-label": "Comment ça marche" },
+          e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
+          h("h1", {}, perso(e.titre)),
+          e.consignes?.length ? h("ol", { class: "consignes" }, ...e.consignes.map((/** @type {string} */ c, /** @type {number} */ i) => {
+            const { chiffre, reste } = decouperConsigne(perso(c));
+            return h("li", { class: "arrive", style: `animation-delay: ${0.15 * (i + 1)}s` }, h("span", { class: "chiffre", "aria-hidden": chiffre ? null : "true" }, chiffre ?? String(i + 1)), h("span", {}, reste));
+          })) : null),
+        h("section", { class: "carte accord", "aria-label": "Votre accord" },
+          h("div", { class: "cases" },
+            caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses clients.`, false,
+              (x) => { accord = x; partir.toggleAttribute("disabled", !x); }, "Obligatoire pour commencer."),
+            proposee ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
+            e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, "Votre voix reste, votre visage disparaît.") : null),
+          h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, "En savoir plus sur vos données"),
+          details,
+          h("div", { class: "actions" }, partir)))),
+  ], "consentement");
 }
 
 async function ecranCadrage(/** @type {any} */ e) {
@@ -394,19 +445,30 @@ async function ecranCadrage(/** @type {any} */ e) {
   if (!ok) return ecranErreurCamera();
   activerFlou(v.floutage);
   afficher([
-    h("h1", {}, e.titre),
-    h("div", { class: "emplacement-camera", style: "min-height: 40vh" }),
-    e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
-    h("div", { class: "actions" }, bouton("Je suis prêt", () => { envoyerSession(); suite(e); })),
-  ]);
+    h("div", { class: "ecran ecran-cadrage" },
+      h("h1", { class: "bulle marque grande" }, perso(e.titre)),
+      h("div", { class: "emplacement-camera" }),
+      h("div", { class: "actions" },
+        e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
+        h("span", { style: "flex: 1" }),
+        bouton("Je suis prêt", () => { envoyerSession(); suite(e); }))),
+  ], "cadrage");
 }
 
 function ecranErreurCamera() {
   afficher([
-    h("h1", {}, "Caméra indisponible"),
-    h("p", {}, "La caméra ou le micro ne répond pas. Prévenez un conseiller : la cabine revient à l'accueil."),
-  ]);
+    h("div", { class: "ecran" },
+      h("h1", {}, "Caméra indisponible"),
+      h("p", { class: "chapo" }, "La caméra ou le micro ne répond pas. Prévenez un conseiller : la cabine revient à l'accueil.")),
+  ], "erreur");
   setTimeout(accueil, 8000);
+}
+
+/** Compte à rebours sur l'aperçu : la bulle jaune et « On tourne dans N secondes ». */
+function compte(/** @type {number} */ n) {
+  $("compte").hidden = n <= 0;
+  $("compte-chiffre").textContent = n > 0 ? String(n) : "";
+  $("compte-detail").textContent = n > 1 ? `On tourne dans ${n} secondes.` : "On tourne !";
 }
 
 async function ecranQuestion(/** @type {any} */ e) {
@@ -415,32 +477,39 @@ async function ecranQuestion(/** @type {any} */ e) {
   if (!(await preparerCamera()) || !camera || !vumetre) return ecranErreurCamera();
   activerFlou(v.floutage);
   envoyerSession();
-  const { numero, total } = moteur.progression(e.id, v.repondues);
-  const derniere = numero >= total;
+  const progression = moteur.progression(e.id, v.repondues);
+  const derniere = progression.numero >= progression.total;
   /** @type {(() => void) | null} */ let arret = null;
-  const suivant = bouton(derniere ? "J'ai terminé" : "Question suivante", () => arret?.());
+  const suivant = bouton(derniere ? "J'ai terminé" : "Question suivante", () => arret?.(), "plein");
   suivant.toggleAttribute("disabled", true);
   const remplissage = h("span");
   const barre = h("div", { class: "barre-temps", role: "progressbar", "aria-label": "Temps restant" }, remplissage);
+  const secondes = h("span", {}, `${e.dureeMaxSec} s`);
+  const aPistes = Boolean(e.pistes?.length || e.aide);
 
   afficher([
-    h("div", { class: "ecran-question" },
-      h("div", { class: "progression" },
-        h("span", { class: "points", "aria-label": `Question ${numero} sur ${total}` },
-          ...Array.from({ length: total }, (_, i) => h("i", { "data-etat": i + 1 < numero ? "fait" : i + 1 === numero ? "en-cours" : "a-venir" }))),
-        e.titreCourt ? h("span", { class: "titre-court" }, e.titreCourt) : h("span", { class: "titre-court" }, `Question ${numero}`)),
-      h("p", { class: "question" }, e.texte),
-      h("div", { class: "emplacement-camera" }),
-      barre,
-      (e.pistes?.length || e.coupDePouce || e.aide) ? h("div", { class: "aide" },
-        e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,
-        e.coupDePouce ? h("p", { class: "coup-de-pouce" }, `« ${e.coupDePouce} »`) : null,
-        e.aide ? h("p", {}, e.aide) : null) : null,
-      h("div", { class: "actions" }, suivant)),
-  ]);
+    h("div", { class: "ecran ecran-question" },
+      h("div", { class: "tete arrive" },
+        h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
+        h("p", { class: "bulle marque grande question" }, perso(e.texte))),
+      h("div", { class: "corps" },
+        h("div", { class: "zone-camera" },
+          h("div", { class: "emplacement-camera" }),
+          h("div", { class: "temps" }, barre, secondes)),
+        h("div", { class: "aide" },
+          aPistes ? h("div", { class: "colonne", style: "gap: 12px" },
+            h("span", { class: "intitule" }, "Des idées, si besoin :"),
+            e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,
+            e.aide ? h("p", { class: "chapo" }, perso(e.aide)) : null) : h("span"),
+          e.coupDePouce ? h("div", { class: "coup-de-pouce" },
+            h("span", { class: "intitule" }, "Pour démarrer"),
+            bulle("visiteur douce", perso(e.coupDePouce))) : null),
+        h("div", { class: "actions" }, suivant))),
+  ], "question");
+  reperes("question", progression);
 
   let annule = false;
-  annulerEnCours = () => { annule = true; arret?.(); $("compte").textContent = ""; $("rec").hidden = true; };
+  annulerEnCours = () => { annule = true; arret?.(); compte(0); $("rec").hidden = true; $("ecoute").hidden = true; delete apercu.dataset.rec; };
   vumetre.reprendre();
   arreterInactivite();
   const temps = (/** @type {number} */ f) => { remplissage.style.transform = `scaleX(${Math.max(0, Math.min(1, f))})`; };
@@ -450,23 +519,31 @@ async function ecranQuestion(/** @type {any} */ e) {
   let reste = Math.max(0, Number(e.compteARebours ?? 5));
   const decompte = () => {
     if (annule) return;
-    if (reste > 0) { $("compte").textContent = String(reste); reste -= 1; setTimeout(decompte, 1000); return; }
-    $("compte").textContent = "";
+    if (reste > 0) { compte(reste); reste -= 1; setTimeout(decompte, 1000); return; }
+    compte(0);
     lancer();
   };
 
   const lancer = () => {
     $("rec").hidden = false;
+    $("ecoute").hidden = false;
+    apercu.dataset.rec = "";
     barre.dataset.etat = "rec";
     suivant.toggleAttribute("disabled", false);
     const prise = enregistrer({
       flux: fluxAEnregistrer(), vumetre: /** @type {any} */ (vumetre),
       dureeMaxSec: e.dureeMaxSec, silenceArretSec: e.silenceArretSec ?? 3,
-      surNiveau: (n, ecoule) => { onde(n); temps(1 - ecoule / e.dureeMaxSec); $("chrono").textContent = chrono(ecoule); },
+      surNiveau: (n, ecoule) => {
+        onde(n); temps(1 - ecoule / e.dureeMaxSec);
+        $("chrono").textContent = chrono(ecoule);
+        secondes.textContent = `${Math.max(0, Math.ceil(e.dureeMaxSec - ecoule))} s`;
+      },
     });
     arret = prise.arreter;
     prise.resultat.then(async (r) => {
       $("rec").hidden = true;
+      $("ecoute").hidden = true;
+      delete apercu.dataset.rec;
       onde(0);
       $("chrono").textContent = "0:00";
       if (annule) return;
@@ -484,11 +561,12 @@ async function ecranQuestion(/** @type {any} */ e) {
 
 function ecranChoix(/** @type {any} */ e) {
   afficher([
-    h("h1", {}, e.titre),
-    h("div", { class: "options" }, ...e.options.map((/** @type {any} */ o) =>
-      h("button", { type: "button", class: "option", onclick: () => suite(e, o.id) },
-        o.image ? h("img", { src: o.image, alt: "" }) : null, o.libelle))),
-  ]);
+    h("div", { class: "ecran" },
+      h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
+      h("div", { class: "options" }, ...e.options.map((/** @type {any} */ o) =>
+        h("button", { type: "button", class: "option", onclick: () => suite(e, o.id) },
+          o.image ? h("img", { src: o.image, alt: "" }) : null, o.libelle)))),
+  ], "choix");
 }
 
 function ecranPause(/** @type {any} */ e) {
@@ -498,11 +576,12 @@ function ecranPause(/** @type {any} */ e) {
   const prenom = visiteur.prenom;
   activerFlou(false);
   afficher([
-    h("h1", {}, e.titre),
-    h("p", {}, e.texte ?? ""),
-    h("p", {}, `À votre retour, touchez « Je reviens » puis « ${prenom || "votre prénom"} ».`),
-    h("div", { class: "actions" }, bouton(e.bouton, accueil)),
-  ]);
+    h("div", { class: "ecran" },
+      h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
+      e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
+      bulle("marque douce moyenne arrive", `À votre retour, touchez « Je reviens » puis « ${prenom || "votre prénom"} ».`),
+      h("div", { class: "actions droite" }, bouton(e.bouton, accueil))),
+  ], "pause");
   const ecran = numeroEcran;
   setTimeout(() => { if (numeroEcran === ecran) accueil(); }, 12_000);
 }
@@ -510,20 +589,28 @@ function ecranPause(/** @type {any} */ e) {
 function ecranFin(/** @type {any} */ e) {
   if (visiteur) retirerPause(visiteur.id);
   activerFlou(false);
+  const nb = visiteur?.repondues.length ?? 0;
   let reste = Math.max(3, Number(e.retourAccueilSec ?? 10));
-  const retour = h("p", { class: "retour" }, `Retour à l'accueil dans ${reste} s`);
+  const libelle = h("span", {}, `Retour à l'accueil dans ${reste} s`);
+  const coche = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  coche.setAttribute("viewBox", "0 0 24 24");
+  coche.setAttribute("aria-hidden", "true");
+  coche.innerHTML = '<path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>';
   afficher([
-    h("div", { class: "onde-accueil", "aria-hidden": "true" }, ...Array.from({ length: 7 }, () => h("i"))),
-    h("h1", {}, e.titre),
-    e.texte ? h("p", {}, e.texte) : null,
-    e.sortie ? h("p", { class: "sortie" }, e.sortie) : null,
-    retour,
-  ]);
+    h("div", { class: "ecran" },
+      h("div", { class: "deux" },
+        h("section", { class: "colonne", "aria-label": "Fin de la conversation" },
+          h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
+          nb ? h("p", { class: "bulle visiteur envoye arrive" }, coche, nb > 1 ? `${nb} réponses envoyées` : "1 réponse envoyée") : null,
+          e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null),
+        e.sortie ? h("p", { class: "sortie" }, perso(e.sortie)) : h("span")),
+      h("div", { class: "retour", style: `--duree: ${reste}s` }, h("div", { class: "barre" }, h("span")), libelle)),
+  ], "fin");
   const ecran = numeroEcran;
   const tic = () => {
     if (numeroEcran !== ecran) return;
     if (--reste <= 0) return accueil();
-    retour.textContent = `Retour à l'accueil dans ${reste} s`;
+    libelle.textContent = `Retour à l'accueil dans ${reste} s`;
     setTimeout(tic, 1000);
   };
   setTimeout(tic, 1000);
@@ -566,7 +653,7 @@ async function signal() {
 
 async function demarrer() {
   if (!formatEnregistrement()) {
-    return afficher([h("h1", {}, "Navigateur non compatible"), h("p", {}, "Ce navigateur ne sait pas enregistrer la vidéo avec le son. Utilisez Chrome à jour.")]);
+    return afficher([h("div", { class: "ecran" }, h("h1", {}, "Navigateur non compatible"), h("p", { class: "chapo" }, "Ce navigateur ne sait pas enregistrer la vidéo avec le son. Utilisez Chrome à jour."))], "erreur");
   }
   if (!jeton()) return ecranAppairage();
   const etat = await chargerConfig();

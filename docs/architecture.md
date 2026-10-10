@@ -39,13 +39,27 @@ Fichier JSON validé par `src/parcours/schema.ts` : étapes `accueil`, `identifi
 `question`, `choix` (embranchement), `pause` (avant/après), `fin`. Contrôles : identifiants uniques, renvois valides,
 consentement avant toute question, toutes les étapes atteignables, fin obligatoire.
 
-## Parcours de démonstration et thème
+## Parcours de démonstration et direction artistique
 - `fixtures/parcours-demo.json` : parcours **neutre Vox Box**, base vendue puis personnalisée par marque.
-  Accueil, consignes + accord (bouton grisé tant que l'accord obligatoire n'est pas donné), 5 questions
-  (titre court, pistes, coup de pouce), fin. Prénom, choix, pause avant/après, cadrage : options par campagne.
-- Thème maison Vox Box (fond nuit, accent « voix » magenta) ; une marque le remplace via `clients.couleurs`
-  (`principale` → accent, `fond`, `texte`) et son logo. Les autres teintes sont dérivées automatiquement.
+  Accueil (la cabine « parle » en bulles), prénom (+ e-mail facultatif), mode d'emploi + accord (bouton grisé tant que
+  l'accord obligatoire n'est pas donné), 5 questions (titre court, pistes, coup de pouce), fin personnalisée.
+  Choix, pause avant/après, cadrage : options par campagne. `{prenom}` est remplacé dans tous les textes affichés.
+- Direction artistique « la conversation » (validée le 10/10/2026 sur maquette 16:9) : fonds clairs, une seule forme,
+  la bulle (la marque parle à gauche, le visiteur répond à droite), titres en **Fredoka**, texte en **Gabarito**,
+  indigo `#3F4C8F` pour la marque, jaune beurre `#F2D27A` pour le visiteur et les boutons, corail réservé à l'enregistrement.
+  Une marque remplace ces couleurs via `clients.couleurs` (`principale`, `secondaire`, `fond`, `texte`) et son logo.
+- Polices libres (licence OFL, copies dans `public/polices/`), réduites aux caractères latins et servies par le Worker :
+  rien n'est chargé depuis internet.
 - Flou : niveau **fort** retenu (10/10/2026).
+
+## Espace de gestion (`/admin/`)
+Une page sans compilation (`public/admin/`), même direction artistique, protégée par Cloudflare Access.
+- WhyMe : tableau de bord (campagnes, cabines en ligne, visiteurs, vidéos), campagnes (statut, parcours lisible et
+  nouvelle version en JSON, textes de consentement), réponses vidéo par visiteur ou par question, cabines (état,
+  affectation, code d'appairage), clients, comptes, journal.
+- Comptes client : leurs campagnes et leurs réponses uniquement, validation des questions et des textes.
+- Vidéos : `GET /api/espace/reponses/:id/video`, droit `reponses.lire`, cloisonnement par client,
+  **chaque visionnage est journalisé** ; plus rien n'est servi si le visiteur a retiré son accord.
 
 ## Cabine (tablette)
 Page `public/cabine/`, sans compilation ni dépendance :
@@ -56,7 +70,7 @@ Page `public/cabine/`, sans compilation ni dépendance :
 - `flou.js` : flou doux elliptique, irréversible (réduction forte puis flou), détection intégrée au navigateur ;
   sans détecteur, toute l'image est floutée ;
 - `file-envoi.js` : file IndexedDB strictement ordonnée (session puis vidéos), reprise après coupure ;
-- `app.js` : écrans, pauses avant/après (reprise par le prénom, 12 h max), inactivité 90 s, signal de vie.
+- `app.js` : écrans en bulles (16:9 d'abord, portrait 9:16 géré), pauses avant/après (reprise par le prénom, 12 h max), inactivité 90 s, signal de vie.
 La session est créée par la tablette (UUID) pour fonctionner hors ligne ; l'envoi est idempotent.
 
 ## Points à vérifier (lot 0)

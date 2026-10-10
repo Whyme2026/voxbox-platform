@@ -13,7 +13,7 @@ import { creerD1 } from "../aide/d1-local.ts";
 const PUBLIC = join(import.meta.dirname, "../../public");
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json",
+  ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".woff": "font/woff", ".webm": "video/webm",
 };
 
 export const objets = new Map<string, Uint8Array>();
@@ -23,7 +23,10 @@ const media: R2Bucket = {
     objets.set(key, octets);
     return { key, size: octets.byteLength };
   },
-  async get(key) { const o = objets.get(key); return o ? { key, size: o.byteLength } : null; },
+  async get(key) {
+    const o = objets.get(key);
+    return o ? { key, size: o.byteLength, body: new Response(o).body ?? undefined, httpMetadata: { contentType: key.endsWith(".mp4") ? "video/mp4" : "video/webm" } } : null;
+  },
   async delete(keys) { for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k); },
 };
 
@@ -53,15 +56,15 @@ async function appel(methode: string, chemin: string, corps?: unknown) {
 }
 
 /** Client, campagne active avec le parcours fourni, cabine affectée. Renvoie le code d'appairage. */
-export async function preparer(parcours: unknown, client: { nom: string; couleurs?: Record<string, string> } = { nom: "Vox Box" }) {
+export async function preparer(parcours: unknown, client: { nom: string; couleurs?: Record<string, string> } = { nom: "Vox Box" }, nomCampagne = "Essai") {
   const cl = await appel("POST", "/api/admin/clients", { nom: client.nom, raison_sociale: `${client.nom} (démo)`, contact_rgpd: "rgpd@demo.test", couleurs: client.couleurs });
-  const cp = await appel("POST", "/api/admin/campagnes", { client_id: cl.client.id, nom: "Essai" });
+  const cp = await appel("POST", "/api/admin/campagnes", { client_id: cl.client.id, nom: nomCampagne, debut: "2026-10-01", fin: "2026-12-31" });
   const id = cp.campagne.id;
   await appel("POST", `/api/admin/campagnes/${id}/parcours`, { config: parcours });
   await appel("POST", `/api/admin/campagnes/${id}/consentement`, {});
   await appel("POST", `/api/admin/campagnes/${id}/statut`, { statut: "validee" });
   await appel("POST", `/api/admin/campagnes/${id}/statut`, { statut: "active" });
-  const cab = await appel("POST", "/api/admin/cabines", { nom: "Cabine e2e" });
+  const cab = await appel("POST", "/api/admin/cabines", { nom: "Tablette démo 1" });
   await appel("PATCH", `/api/admin/cabines/${cab.cabine.id}`, { campagne_id: id });
   return { code: cab.cabine.code_appairage as string, campagneId: id as string };
 }
@@ -89,5 +92,5 @@ if (process.argv[1] && import.meta.filename === process.argv[1]) {
   const port = Number(process.argv[2] ?? 8787);
   const parcours = JSON.parse(readFileSync(join(import.meta.dirname, "../../fixtures/parcours-demo.json"), "utf8"));
   await demarrerServeur(port);
-  console.log(JSON.stringify({ url: `http://localhost:${port}/cabine/`, ...(await preparer(parcours)) }));
+  console.log(JSON.stringify({ url: `http://localhost:${port}/cabine/`, admin: `http://localhost:${port}/admin/`, ...(await preparer(parcours, { nom: "Vox Box" }, "Démo Vox Box (neutre)")) }));
 }

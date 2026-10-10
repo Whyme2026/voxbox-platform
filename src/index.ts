@@ -8,6 +8,7 @@ import { erreur, json } from "./http.ts";
 import { routesAdmin } from "./routes/admin.ts";
 import { routesEspace } from "./routes/espace.ts";
 import { routesCabine } from "./routes/cabine.ts";
+import { routesReponses } from "./routes/reponses.ts";
 
 export const VERSION = "0.1.0";
 
@@ -28,6 +29,7 @@ export function construireRouteur(): Routeur {
   routesEspace(r);
   routesAdmin(r);
   routesCabine(r);
+  routesReponses(r);
   return r;
 }
 

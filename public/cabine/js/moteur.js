@@ -67,6 +67,27 @@ export function creerMoteur(parcours) {
   return { premiere: () => etapes[0]?.id ?? null, etape, suivante, progression, questionsSurLeChemin };
 }
 
+/**
+ * Remplace {prenom} dans un texte du parcours. Sans prénom, l'emplacement disparaît proprement :
+ * « Merci {prenom}, c'est dans la boîte » → « Merci, c'est dans la boîte ».
+ * @param {string} texte
+ * @param {string} prenom
+ */
+export function personnaliser(texte, prenom) {
+  const p = prenom.trim();
+  return p ? texte.replaceAll("{prenom}", p) : texte.replace(/[  ]?\{prenom\}/g, "");
+}
+
+/**
+ * Sépare le chiffre de tête d'une consigne, affiché en grand : « 30 s pour répondre » → { chiffre: "30 s", reste: "pour répondre" }.
+ * @param {string} texte
+ * @returns {{ chiffre: string | null, reste: string }}
+ */
+export function decouperConsigne(texte) {
+  const m = /^(\d+(?:[  ]?s(?=[  ]))?)[  ]+(.+)$/s.exec(texte.trim());
+  return m ? { chiffre: /** @type {string} */ (m[1]).replace(/[  ]/, " "), reste: /** @type {string} */ (m[2]) } : { chiffre: null, reste: texte.trim() };
+}
+
 /** Le parcours propose-t-il la case « diffusion publique » ? */
 export function diffusionProposee(/** @type {Parcours} */ p) {
   return p.etapes.some((e) => e.type === "consentement" && e.proposerDiffusion === true);

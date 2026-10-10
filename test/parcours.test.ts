@@ -78,3 +78,11 @@ test("pistes et coup de pouce sont bornés", () => {
   assert.ok(pb.some((m) => m.includes("pistes")));
   assert.ok(pb.some((m) => m.includes("coupDePouce")));
 });
+
+test("les bulles d'accueil sont limitées à 3 textes courts", () => {
+  const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
+  demo.etapes[0].bulles = ["a", "b", "c", "d"];
+  assert.ok(validerParcours(demo).some((p) => p.includes("bulles")));
+  demo.etapes[0].bulles = ["x".repeat(121)];
+  assert.ok(validerParcours(demo).some((p) => p.includes("bulles")));
+});

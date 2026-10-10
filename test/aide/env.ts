@@ -7,19 +7,19 @@ import { creerD1 } from "./d1-local.ts";
 export const ADMIN = "admin@whyme.test";
 
 /** Stockage R2 en mémoire : garde les objets pour que les tests puissent les vérifier. */
-export function creerR2(): R2Bucket & { objets: Map<string, { taille: number; type?: string }> } {
-  const objets = new Map<string, { taille: number; type?: string }>();
+export function creerR2(): R2Bucket & { objets: Map<string, { taille: number; type?: string; octets: Uint8Array }> } {
+  const objets = new Map<string, { taille: number; type?: string; octets: Uint8Array }>();
   return {
     objets,
     async put(key, value, options) {
-      const taille = value instanceof ArrayBuffer ? value.byteLength : typeof value === "string" ? value.length : 0;
+      const octets = value instanceof ArrayBuffer ? new Uint8Array(value.slice(0)) : new TextEncoder().encode(typeof value === "string" ? value : "");
       const type = (options?.httpMetadata as { contentType?: string } | undefined)?.contentType;
-      objets.set(key, { taille, type });
-      return { key, size: taille };
+      objets.set(key, { taille: octets.byteLength, type, octets });
+      return { key, size: octets.byteLength };
     },
     async get(key) {
       const o = objets.get(key);
-      return o ? { key, size: o.taille } : null;
+      return o ? { key, size: o.taille, body: new Response(o.octets).body ?? undefined, httpMetadata: { contentType: o.type } } : null;
     },
     async delete(keys) {
       for (const k of Array.isArray(keys) ? keys : [keys]) objets.delete(k);

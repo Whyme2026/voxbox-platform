@@ -23,19 +23,29 @@ mkdirSync(captures, { recursive: true });
 
 const fixture = scenario === "auto" ? "parcours-automobile.json" : "parcours-demo.json";
 const parcours = JSON.parse(readFileSync(join(import.meta.dirname, `../../fixtures/${fixture}`), "utf8"));
-// Parcours accéléré pour l'essai.
-for (const e of parcours.etapes) if (e.type === "question") Object.assign(e, { compteARebours: 1, dureeMaxSec: 8, silenceArretSec: 2 });
+// Parcours accéléré pour l'essai. E2E_RYTHME=demo garde un rythme proche du réel (pour filmer une démonstration).
+const rythmeDemo = process.env.E2E_RYTHME === "demo";
+for (const e of parcours.etapes) {
+  if (e.type === "question") Object.assign(e, rythmeDemo ? { compteARebours: 3, dureeMaxSec: 9, silenceArretSec: 3 } : { compteARebours: 2, dureeMaxSec: 8, silenceArretSec: 2 });
+}
 const nbQuestions = parcours.etapes.filter((e: any) => e.type === "question").length;
 
 const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
-const { code } = await preparer(parcours, scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : { nom: "Vox Box" });
+const { code } = await preparer(parcours,
+  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : { nom: "Vox Box" },
+  scenario === "auto" ? "Essai routier" : "Démo Vox Box (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
 });
-const portrait = { width: 834, height: 1194 };
-const page = await navigateur.newPage({ viewport: portrait });
+// Format de référence : 16:9 paysage (écran de cabine). Le portrait est vérifié en fin de scénario.
+const paysage = { width: 1280, height: 720 };
+const contexte = await navigateur.newContext({
+  viewport: paysage,
+  ...(process.env.E2E_VIDEO ? { recordVideo: { dir: process.env.E2E_VIDEO, size: paysage } } : {}),
+});
+const page = await contexte.newPage();
 const erreurs: string[] = [];
 page.on("pageerror", (e: Error) => erreurs.push(e.message));
 page.on("console", (m: any) => { if (m.type() === "error") erreurs.push(m.text()); });
@@ -54,39 +64,55 @@ async function appairer() {
 
 async function scenarioDemo() {
   await page.getByText("Une minute pour dire").waitFor();
+  await page.waitForTimeout(1800); // les bulles arrivent une à une
   await capture("01-accueil");
   await bouton("Je me lance");
+  await page.getByText("comment vous appelez-vous ?").waitFor();
+  await touche("C");
+  for (const c of "amille") await touche(c);
+  await page.waitForTimeout(500);
+  await capture("02-identification");
+  await bouton("Continuer");
   await page.getByText("Comment ça marche").waitFor();
+  await page.getByText("Merci Camille ! Avant de commencer").waitFor();
   // Le bouton reste grisé tant que l'accord obligatoire n'est pas donné.
   assert.equal(await page.getByRole("button", { name: "C'est parti" }).isDisabled(), true);
   await cocher("J'accepte que Vox Box");
   await cocher("J'accepte aussi");
-  await cocher("Flouter mon visage");
-  await capture("02-consignes");
-  await bouton("C'est parti");
-  await page.locator(".titre-court", { hasText: "Le premier mot" }).waitFor();
-  await page.waitForTimeout(400);
-  await capture("03-question-compte-a-rebours");
-  await page.locator("#rec:not([hidden])").waitFor();
-  await page.waitForTimeout(1500);
-  await capture("04-question-enregistrement");
-  await page.locator(".titre-court", { hasText: "Le coup de cœur" }).waitFor({ timeout: 20_000 });
-  await page.locator("#rec:not([hidden])").waitFor();
   await page.waitForTimeout(800);
-  await capture("05-question-pistes");
-  await page.getByText("Merci, c'est dans la boîte.").waitFor({ timeout: 90_000 });
+  await capture("03-consignes");
+  await cocher("Flouter mon visage");
+  await bouton("C'est parti");
+  // Chaque question : le temps de lire (compte à rebours), puis l'enregistrement.
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  for (const [i, titre] of titres.entries()) {
+    const n = String(i + 1);
+    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator("#compte:not([hidden])").waitFor();
+    await page.waitForTimeout(300);
+    await capture(`04-q${n}-a-lire`);
+    await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    await capture(`05-q${n}-on-tourne`);
+  }
+  await page.getByText("Merci Camille, c'est dans la boîte !").waitFor({ timeout: 90_000 });
+  await page.waitForTimeout(1600);
   await capture("06-fin");
-  // Paysage (tablette tournée) : mise en page de la question.
-  await page.setViewportSize({ width: 1194, height: 834 });
+  if (process.env.E2E_VIDEO) return { sessions: 1, consentDiffusion: 1, prenom: "Camille" }; // film en 16:9 seulement
+  // Portrait (écran tourné, futur format 9:16) : mise en page de l'accueil et d'une question.
+  await page.setViewportSize({ width: 720, height: 1280 });
   await page.getByText("Une minute pour dire").waitFor({ timeout: 20_000 });
-  await capture("07-accueil-paysage");
+  await page.waitForTimeout(1800);
+  await capture("07-accueil-portrait");
   await bouton("Je me lance");
+  await touche("L"); await touche("é"); await touche("a");
+  await bouton("Continuer");
   await cocher("J'accepte que Vox Box");
   await bouton("C'est parti");
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(800);
-  await capture("08-question-paysage");
-  return { sessions: 2, consentDiffusion: 1, prenom: "Visiteur" };
+  await capture("08-question-portrait");
+  return { sessions: 2, consentDiffusion: 1, prenom: "Camille" };
 }
 
 async function scenarioAuto() {
@@ -119,6 +145,63 @@ async function scenarioAuto() {
   return { sessions: 1, consentDiffusion: 1, prenom: "Camille" };
 }
 
+/** Visite de l'espace de gestion avec les réponses que le scénario vient d'enregistrer. */
+async function visiteAdmin() {
+  const admin = await contexte.newPage();
+  admin.on("pageerror", (e: Error) => erreurs.push(`admin : ${e.message}`));
+  await admin.setViewportSize(process.env.E2E_VIDEO ? { width: 1280, height: 720 } : { width: 1440, height: 900 });
+  const pause = (ms: number) => (process.env.E2E_VIDEO ? admin.waitForTimeout(ms) : Promise.resolve());
+  const photo = async (nom: string) => { await admin.screenshot({ path: join(captures, `admin-${nom}.png`) }); await pause(2200); };
+  await admin.goto(`http://localhost:${port}/admin/`);
+  await admin.getByRole("heading", { name: "Tableau de bord" }).waitFor();
+  await photo("01-tableau-de-bord");
+  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.getByRole("heading", { name: "Campagnes" }).waitFor();
+  await photo("02-campagnes");
+  await admin.locator("td a").first().click();
+  await admin.locator(".session").first().waitFor();
+  await photo("03-campagne-reponses");
+  await admin.locator(".ecran-video").first().click();
+  await admin.locator(".ecran-video video").first().waitFor();
+  await admin.waitForTimeout(1500);
+  await photo("04-lecture-video");
+  const titre = parcours.etapes.find((e: any) => e.type === "question" && e.pistes)?.titreCourt ?? "";
+  await admin.getByRole("button", { name: titre, exact: true }).click();
+  await admin.locator(".question-texte").waitFor();
+  await photo("05-reponses-par-question");
+  await admin.getByRole("tab", { name: "Parcours" }).click();
+  await admin.locator(".etapes").waitFor();
+  await photo("06-parcours");
+  await admin.getByRole("tab", { name: "Consentement" }).click();
+  await admin.getByText("Usage interne (obligatoire)").waitFor();
+  await photo("07-consentement");
+  await admin.getByRole("link", { name: "Cabines" }).click();
+  await admin.getByRole("button", { name: "Nouvelle cabine" }).click();
+  await admin.getByLabel("Nom de la cabine").fill("Tablette salon 2");
+  await admin.getByRole("button", { name: "Créer la cabine" }).click();
+  await admin.locator(".code").first().waitFor();
+  await photo("08-cabines");
+  await admin.getByRole("link", { name: "Clients" }).click();
+  await admin.getByRole("button", { name: "Nouveau client" }).click();
+  await admin.getByLabel("Nom de marque").fill("Maison Lumière");
+  await admin.getByLabel("Raison sociale").fill("Maison Lumière SAS (fictive)");
+  await admin.getByLabel("Contact RGPD").fill("dpo@maison-lumiere.test");
+  await admin.getByRole("button", { name: "Créer le client" }).click();
+  await admin.getByRole("cell", { name: "Maison Lumière", exact: true }).waitFor();
+  await photo("09-clients");
+  await admin.getByRole("link", { name: "Comptes" }).click();
+  await admin.getByRole("button", { name: "Nouveau compte" }).click();
+  await admin.getByLabel("E-mail").fill("marketing@maison-lumiere.test");
+  await admin.locator("select[name=client_id]").selectOption({ label: "Maison Lumière" });
+  await admin.getByRole("button", { name: "Créer le compte" }).click();
+  await admin.getByRole("cell", { name: "marketing@maison-lumiere.test" }).waitFor();
+  await photo("10-comptes");
+  await admin.getByRole("link", { name: "Journal" }).click();
+  await admin.getByRole("cell", { name: "Vidéo visionnée" }).first().waitFor();
+  await photo("11-journal");
+  await admin.close();
+}
+
 try {
   await appairer();
   const attendu = scenario === "auto" ? await scenarioAuto() : await scenarioDemo();
@@ -148,12 +231,14 @@ try {
     assert.equal(b.son_detecte_tablette, 1, `${b.etape} : voix détectée par la tablette`);
   }
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
+  if (process.env.E2E_ADMIN) await visiteAdmin();
   console.log(JSON.stringify({ ok: true, scenario }));
 } catch (e) {
   await capture("zz-echec").catch(() => {});
   console.log(JSON.stringify({ ok: false, scenario, erreur: String(e), erreurs }, null, 2));
   process.exitCode = 1;
 } finally {
+  await contexte.close(); // termine l'enregistrement vidéo éventuel
   await navigateur.close();
   serveur.close();
 }

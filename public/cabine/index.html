@@ -4,35 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="robots" content="noindex">
-  <meta name="theme-color" content="#17122E">
+  <meta name="theme-color" content="#F1F2F6">
   <title>Vox Box</title>
+  <link rel="preload" href="../polices/fredoka.woff" as="font" type="font/woff" crossorigin>
+  <link rel="preload" href="../polices/gabarito.woff" as="font" type="font/woff" crossorigin>
   <link rel="stylesheet" href="cabine.css">
 </head>
 <body>
   <div class="cabine" id="cabine">
+    <!-- Décor : les bulles de la conversation, en teintes pâles (accueil et fin seulement). -->
+    <div class="decor" aria-hidden="true">
+      <svg class="decor-1" viewBox="0 0 48 40"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z"/></svg>
+      <svg class="decor-2" viewBox="0 0 48 40"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z"/></svg>
+      <svg class="envol envol-1" viewBox="0 0 48 40"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z"/></svg>
+      <svg class="envol envol-2" viewBox="0 0 48 40"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z"/></svg>
+      <svg class="envol envol-3" viewBox="0 0 48 40"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z"/></svg>
+      <svg class="envol envol-4" viewBox="0 0 48 40"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z"/></svg>
+    </div>
+
     <header class="entete">
       <!-- Logo de la marque cliente si elle en a un, sinon la marque Vox Box. -->
       <img class="logo" id="logo" alt="" hidden>
       <span class="voxbox" id="voxbox" aria-label="Vox Box">
-        <svg viewBox="0 0 40 32" aria-hidden="true"><path d="M6 2h28a4 4 0 0 1 4 4v15a4 4 0 0 1-4 4H17l-8 6v-6H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z" fill="var(--accent)"/><g fill="var(--sur-accent)"><rect x="11" y="10" width="3" height="7" rx="1.5"/><rect x="16.5" y="7" width="3" height="13" rx="1.5"/><rect x="22" y="9" width="3" height="9" rx="1.5"/><rect x="27.5" y="11.5" width="3" height="4" rx="1.5"/></g></svg>
+        <svg viewBox="0 0 48 40" aria-hidden="true"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z" fill="var(--accent)"/><g fill="var(--parole)"><rect x="13" y="13" width="3.6" height="7" rx="1.8"/><rect x="19.6" y="9.5" width="3.6" height="14" rx="1.8"/><rect x="26.2" y="11.5" width="3.6" height="10" rx="1.8"/><rect x="32.8" y="14" width="3.6" height="5" rx="1.8"/></g></svg>
         <span>Vox Box</span>
       </span>
       <span class="etat-reseau" id="etat-reseau" aria-live="polite"></span>
+      <div class="reperes" id="reperes"></div>
     </header>
 
     <main class="scene" id="scene" aria-live="polite"></main>
     <div class="clavier" id="clavier"></div>
 
-    <footer class="pied">by <strong>whyme</strong></footer>
+    <footer class="pied"><span id="pied-aide">Un conseiller est à deux pas si besoin.</span><span>by <strong>whyme</strong></span></footer>
   </div>
 
   <!-- Aperçu caméra : un seul élément, déplacé dans l'écran qui en a besoin. -->
   <div class="apercu" id="apercu" hidden>
     <video id="video" muted playsinline autoplay></video>
-    <div class="compte" id="compte" aria-live="assertive"></div>
+    <div class="compte" id="compte" aria-live="assertive" hidden>
+      <span class="compte-bulle" id="compte-chiffre"></span>
+      <span class="compte-texte">Prenez le temps de lire.<small id="compte-detail"></small></span>
+    </div>
     <div class="rec" id="rec" hidden>
       <span class="rec-point"></span><span>REC</span><span class="chrono" id="chrono">0:00</span>
-      <span class="onde" id="onde" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="ecoute" id="ecoute" hidden>
+      <span class="onde" id="onde" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span>On vous écoute…</span>
     </div>
   </div>
 

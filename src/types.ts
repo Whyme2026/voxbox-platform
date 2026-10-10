@@ -23,6 +23,7 @@ export interface R2Object {
   key: string;
   size: number;
   body?: ReadableStream;
+  httpMetadata?: { contentType?: string };
 }
 
 export interface R2Bucket {

@@ -43,3 +43,19 @@ test("option diffusion lue depuis le parcours", () => {
   for (const e of sans.etapes) delete e.proposerDiffusion;
   assert.equal(diffusionProposee(sans), false);
 });
+
+test("le prénom s'insère dans les textes, et disparaît proprement s'il est inconnu", async () => {
+  const { personnaliser } = await import("../public/cabine/js/moteur.js");
+  assert.equal(personnaliser("Merci {prenom}, c'est dans la boîte !", "Camille"), "Merci Camille, c'est dans la boîte !");
+  assert.equal(personnaliser("Merci {prenom}, c'est dans la boîte !", ""), "Merci, c'est dans la boîte !");
+  assert.equal(personnaliser("Merci {prenom} !", "  "), "Merci !");
+  assert.equal(personnaliser("Sans emplacement", "Léa"), "Sans emplacement");
+});
+
+test("le chiffre de tête d'une consigne est isolé pour être affiché en grand", async () => {
+  const { decouperConsigne } = await import("../public/cabine/js/moteur.js");
+  assert.deepEqual(decouperConsigne("5 questions, une à la fois."), { chiffre: "5", reste: "questions, une à la fois." });
+  assert.deepEqual(decouperConsigne("30 s pour répondre."), { chiffre: "30 s", reste: "pour répondre." });
+  assert.deepEqual(decouperConsigne("30 secondes maximum."), { chiffre: "30", reste: "secondes maximum." });
+  assert.deepEqual(decouperConsigne("Pas de mauvaise réponse."), { chiffre: null, reste: "Pas de mauvaise réponse." });
+});
