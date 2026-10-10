@@ -402,8 +402,11 @@ export function routesAdmin(r: Routeur): void {
   r.patch("/api/admin/campagnes/:id", async (ctx) => {
     const id = await whyme(ctx, "campagnes.gerer");
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
-    if (c.statut === "close") throw conflit("Une campagne close ne se modifie plus");
     const d = await lireJson(ctx.request);
+    // Une campagne close garde ses dates et sa durée ; seul son nom peut encore changer.
+    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined)) {
+      throw conflit("Une campagne close ne se modifie plus, sauf son nom");
+    }
     const nom = d.nom === undefined ? c.nom : texte(d, "nom", { requis: true, max: 120 })!;
     const debut = d.debut === undefined ? c.debut : (texte(d, "debut", { max: 10 }) ?? null);
     const fin = d.fin === undefined ? c.fin : (texte(d, "fin", { max: 10 }) ?? null);
@@ -441,22 +444,39 @@ export function routesAdmin(r: Routeur): void {
     return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation } });
   });
 
-  // Suppression d'un brouillon jamais joué (aucun visiteur). Les cabines affectées sont libérées.
+  // Suppression d'une campagne : un brouillon jamais joué, ou une campagne close (ex. campagnes d'essai) avec tout ce
+  // qu'elle contient (vidéos, miniatures, Parlomix, réponses, choix, visiteurs). Les cabines affectées sont libérées.
+  // Une campagne validée ou active ne se supprime pas : on la clôt d'abord.
   r.ajouter("DELETE", "/api/admin/campagnes/:id", async (ctx) => {
     const id = await whyme(ctx, "campagnes.gerer");
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
-    if (c.statut !== "brouillon") throw conflit("Seule une campagne en brouillon peut être supprimée ; une campagne active se clôt");
-    const n = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM sessions WHERE campagne_id = ?").bind(c.id).first<{ n: number }>();
-    if ((n?.n ?? 0) > 0) throw conflit("Cette campagne a déjà des visiteurs : elle ne peut pas être supprimée");
+    const n = (await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM sessions WHERE campagne_id = ?").bind(c.id).first<{ n: number }>())?.n ?? 0;
+    if (c.statut === "brouillon" && n > 0) throw conflit("Cette campagne a déjà des visiteurs : elle ne peut pas être supprimée");
+    if (c.statut !== "brouillon" && c.statut !== "close") throw conflit("Seule une campagne en brouillon ou close peut être supprimée ; une campagne active se clôt d'abord");
+    // Fichiers d'abord : si le stockage échoue, rien n'est effacé en base et l'opération peut être refaite.
+    const { results: fichiersReponses } = await ctx.env.DB.prepare(
+      `SELECT r.cle_source, r.cle_16_9, r.cle_9_16, r.cle_miniature FROM reponses r JOIN sessions s ON s.id = r.session_id WHERE s.campagne_id = ?`,
+    ).bind(c.id).all<Record<string, string | null>>();
+    const { results: fichiersMontages } = await ctx.env.DB.prepare("SELECT cle, cle_miniature FROM parlomix WHERE campagne_id = ?").bind(c.id).all<Record<string, string | null>>();
+    const cles = [...fichiersReponses, ...fichiersMontages].flatMap((x) => Object.values(x)).filter((k): k is string => Boolean(k));
+    for (let i = 0; i < cles.length; i += 500) await ctx.env.MEDIA.delete(cles.slice(i, i + 500));
+    const sessions = "SELECT id FROM sessions WHERE campagne_id = ?";
     await ctx.env.DB.batch([
+      ctx.env.DB.prepare(`DELETE FROM choix WHERE session_id IN (${sessions})`).bind(c.id),
+      ctx.env.DB.prepare(`DELETE FROM reponses WHERE session_id IN (${sessions})`).bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM parlomix WHERE campagne_id = ?").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM sessions WHERE campagne_id = ?").bind(c.id),
       ctx.env.DB.prepare("UPDATE cabines SET campagne_id = NULL WHERE campagne_id = ?").bind(c.id),
       ctx.env.DB.prepare("UPDATE campagnes SET parcours_version_id = NULL, consentement_version_id = NULL WHERE id = ?").bind(c.id),
       ctx.env.DB.prepare("DELETE FROM parcours_versions WHERE campagne_id = ?").bind(c.id),
       ctx.env.DB.prepare("DELETE FROM consentement_versions WHERE campagne_id = ?").bind(c.id),
       ctx.env.DB.prepare("DELETE FROM campagnes WHERE id = ?").bind(c.id),
-      ligneJournal(ctx.env.DB, id, { action: "campagne.suppression", cibleType: "campagne", cibleId: c.id, clientId: c.client_id, details: { nom: c.nom } }),
+      ligneJournal(ctx.env.DB, id, {
+        action: "campagne.suppression", cibleType: "campagne", cibleId: c.id, clientId: c.client_id,
+        details: { nom: c.nom, statut: c.statut, visiteurs: n, fichiers_supprimes: cles.length, parlomix: fichiersMontages.length },
+      }),
     ]);
-    return json({ campagne: { id: c.id, supprimee: true } });
+    return json({ campagne: { id: c.id, supprimee: true, visiteurs: n, fichiers_supprimes: cles.length } });
   });
 
   // Vérification d'un parcours sans l'enregistrer (éditeur de Parlorama).

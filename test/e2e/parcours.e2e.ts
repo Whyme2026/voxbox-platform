@@ -127,6 +127,28 @@ async function scenarioDemo() {
 }
 
 
+/** Parlorama : clore la campagne de démo, la renommer, puis la supprimer avec toutes ses données. */
+async function visiteSuppressionCampagne() {
+  const admin = await contexte.newPage();
+  admin.on("pageerror", (e: Error) => erreurs.push(`admin : ${e.message}`));
+  await admin.setViewportSize({ width: 1440, height: 900 });
+  const c = await db.prepare("SELECT id, nom FROM campagnes WHERE nom LIKE 'Démo Parlopop%'").first<any>();
+  await admin.goto(`http://localhost:${port}/admin/#/campagnes/${c.id}`);
+  await admin.getByRole("button", { name: "Clore la campagne" }).click();
+  await admin.getByRole("button", { name: "Confirmer la clôture" }).click();
+  await admin.getByRole("button", { name: "Renommer" }).click();
+  await admin.getByLabel("Nom de la campagne").fill("Démo Parlopop (essai)");
+  await admin.getByRole("button", { name: "Enregistrer" }).click();
+  await admin.getByRole("heading", { name: "Démo Parlopop (essai)" }).waitFor();
+  await admin.screenshot({ path: join(captures, "admin-20-campagne-close.png") });
+  await admin.getByRole("button", { name: "Supprimer la campagne" }).click();
+  await admin.getByRole("button", { name: "Confirmer : tout supprimer, vidéos comprises" }).click();
+  await admin.getByRole("heading", { name: "Campagnes" }).waitFor();
+  await admin.close();
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM campagnes WHERE id = ?").bind(c.id).first<any>()).n, 0, "campagne supprimée");
+  assert.ok(![...objets.keys()].some((k) => k.startsWith(`campagnes/${c.id}/`)), "plus aucun fichier de la campagne");
+}
+
 /**
  * Page du QR code extérieur, sur téléphone : le visiteur saisit son e-mail, reçoit un lien, regarde une vidéo,
  * puis supprime ses réponses.
@@ -661,6 +683,7 @@ try {
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   if (process.env.E2E_ADMIN) await (scenario === "geely" ? visiteAdminGeely() : visiteAdmin());
   if (scenario === "demo" && !process.env.E2E_VIDEO) await visiteRetrait();
+  if (scenario === "demo" && process.env.E2E_ADMIN && !process.env.E2E_VIDEO) await visiteSuppressionCampagne();
   if (bilanParlomix.length) console.log(JSON.stringify({ parlomix: bilanParlomix }, null, 2));
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   console.log(JSON.stringify({ ok: true, scenario }));

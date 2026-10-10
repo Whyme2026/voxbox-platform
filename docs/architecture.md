@@ -133,7 +133,7 @@ Une page sans compilation (`public/admin/`), même direction artistique, protég
   (requêtes partielles « Range ») ; un seul visionnage journalisé par lecture.
 - Modifier et supprimer : fiches client (couleurs, logo PNG/JPEG/WebP envoyé dans R2 et servi publiquement par
   `/api/cabine/logo/<client>.<ext>`, SVG refusé), rôle des comptes, nom/dates/conservation des campagnes (durée figée
-  une fois active ; la changer régénère les textes et remet en brouillon), suppression d'un brouillon sans visiteur,
+  une fois active ; la changer régénère les textes et remet en brouillon), renommer une campagne close, suppression d'un brouillon sans visiteur ou d'une campagne close avec toutes ses données (vidéos, miniatures, Parlomix, visiteurs ; journalisée),
   cabines (renommer ; supprimer, ou retirer si déjà utilisée), Parlomix (auteur ou WhyMe).
 - Visiteurs (droit `visiteurs.gerer` : WhyMe et validateurs du client) : **retrait d'accord** (vidéos, réponses et
   Parlomix où la personne apparaît supprimés, session anonymisée, trace dans le journal sans le prénom) et retrait du

@@ -352,13 +352,17 @@ async function vueCampagne(/** @type {string} */ id) {
     await api(`/api/admin/campagnes/${c.id}/statut`, { methode: "POST", corps: { statut: cible } });
     toast(message); router();
   };
-  if (peut("campagnes.gerer") && estWhyme() && c.statut !== "close") {
-    actions.append(h("button", { type: "button", class: "bouton discret", onclick: () => { edition.hidden = !edition.hidden; } }, "Modifier"));
+  if (peut("campagnes.gerer") && estWhyme()) {
+    actions.append(h("button", { type: "button", class: "bouton discret", onclick: () => { edition.hidden = !edition.hidden; if (!edition.hidden) edition.querySelector("input")?.focus(); } },
+      c.statut === "close" ? "Renommer" : "Modifier"));
   }
-  if (peut("campagnes.gerer") && estWhyme() && c.statut === "brouillon") {
-    actions.append(boutonConfirme("Supprimer", "Confirmer la suppression", async () => {
-      await api(`/api/admin/campagnes/${c.id}`, { methode: "DELETE" });
-      toast("Campagne supprimée."); location.hash = "#/campagnes";
+  if (peut("campagnes.gerer") && estWhyme() && (c.statut === "brouillon" || c.statut === "close")) {
+    // Une campagne close (ex. campagne d'essai) se supprime avec tout ce qu'elle contient.
+    const avecDonnees = c.statut === "close";
+    actions.append(boutonConfirme("Supprimer la campagne", avecDonnees ? "Confirmer : tout supprimer, vidéos comprises" : "Confirmer la suppression", async () => {
+      const r = await api(`/api/admin/campagnes/${c.id}`, { methode: "DELETE" });
+      toast(avecDonnees && r.campagne.visiteurs ? `Campagne supprimée : ${r.campagne.visiteurs} visiteur(s), ${r.campagne.fichiers_supprimes} fichier(s).` : "Campagne supprimée.");
+      location.hash = "#/campagnes";
     }, "bouton danger"));
   }
   if (peut("campagnes.gerer")) {
@@ -384,10 +388,11 @@ async function vueCampagne(/** @type {string} */ id) {
   // Modification du nom, des dates et de la durée de conservation.
   const edition = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire", style: "margin-bottom: 18px", hidden: true },
     champ("Nom de la campagne", h("input", { name: "nom", required: true, maxlength: 120, value: c.nom })),
-    champ("Début", h("input", { name: "debut", type: "date", value: c.debut ?? null })),
-    champ("Fin", h("input", { name: "fin", type: "date", value: c.fin ?? null })),
-    champ("Conservation des vidéos (jours)", h("input", { name: "conservation_jours", type: "number", min: 1, max: 1095, value: c.conservation_jours, disabled: c.statut === "active" })),
-    c.statut === "active" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "La durée de conservation ne change plus une fois la campagne active : elle figure dans les textes acceptés par les visiteurs.")
+    c.statut === "close" ? null : champ("Début", h("input", { name: "debut", type: "date", value: c.debut ?? null })),
+    c.statut === "close" ? null : champ("Fin", h("input", { name: "fin", type: "date", value: c.fin ?? null })),
+    c.statut === "close" ? null : champ("Conservation des vidéos (jours)", h("input", { name: "conservation_jours", type: "number", min: 1, max: 1095, value: c.conservation_jours, disabled: c.statut === "active" })),
+    c.statut === "close" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Campagne close : seul son nom peut encore changer.")
+      : c.statut === "active" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "La durée de conservation ne change plus une fois la campagne active : elle figure dans les textes acceptés par les visiteurs.")
       : c.statut === "validee" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Changer la durée régénère les textes de consentement et remet la campagne en brouillon (nouvelle validation du client).") : null,
     h("div", { class: "boutons large" }, h("button", { type: "submit", class: "bouton" }, "Enregistrer"),
       h("button", { type: "button", class: "bouton discret", onclick: () => { edition.hidden = true; } }, "Annuler"))));
@@ -395,7 +400,7 @@ async function vueCampagne(/** @type {string} */ id) {
     ev.preventDefault();
     const v = valeurs(edition);
     try {
-      await api(`/api/admin/campagnes/${c.id}`, { methode: "PATCH", corps: {
+      await api(`/api/admin/campagnes/${c.id}`, { methode: "PATCH", corps: c.statut === "close" ? { nom: v.nom } : {
         nom: v.nom, debut: v.debut || null, fin: v.fin || null,
         ...(c.statut === "active" ? {} : { conservation_jours: Number(v.conservation_jours) }),
       } });

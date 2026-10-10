@@ -93,6 +93,34 @@ test("campagne : seul un brouillon sans visiteur se supprime, ses cabines sont l
   assert.equal((await active.api("DELETE", `/api/admin/campagnes/${active.cid}`, ADMIN)).status, 409);
 });
 
+test("campagne close : on peut la renommer, pas changer ses dates ; un client ne la supprime pas", async () => {
+  const { api, cid } = await campagneAvecReponses();
+  await api("POST", `/api/admin/campagnes/${cid}/statut`, ADMIN, { statut: "close" });
+  assert.equal((await api("PATCH", `/api/admin/campagnes/${cid}`, ADMIN, { nom: "Essai salon (test)" })).status, 200);
+  assert.equal((await api("GET", `/api/admin/campagnes/${cid}`, ADMIN)).corps.campagne.nom, "Essai salon (test)");
+  assert.equal((await api("PATCH", `/api/admin/campagnes/${cid}`, ADMIN, { fin: "2026-12-31" })).status, 409);
+  assert.notEqual((await api("DELETE", `/api/admin/campagnes/${cid}`, "valide@alpha.test")).status, 200, "réservé à WhyMe");
+});
+
+test("campagne close : supprimée avec ses vidéos, miniatures, Parlomix, visiteurs ; journalisée", async () => {
+  const { db, media, api, cid, camille, tablette, cabines } = await campagneAvecReponses();
+  await tablette("A", "PUT", `/api/cabine/sessions/${camille}/reponses/q-premier-mot/miniature`, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), { "content-type": "image/jpeg" });
+  assert.ok(media.objets.size > 0);
+  assert.equal((await api("DELETE", `/api/admin/campagnes/${cid}`, ADMIN)).status, 409, "active : on la clôt d'abord");
+  await api("POST", `/api/admin/campagnes/${cid}/statut`, ADMIN, { statut: "close" });
+  const r = await api("DELETE", `/api/admin/campagnes/${cid}`, ADMIN);
+  assert.equal(r.status, 200, JSON.stringify(r.corps));
+  assert.equal(r.corps.campagne.visiteurs, 3);
+  assert.equal([...media.objets.keys()].filter((k) => k.startsWith(`campagnes/${cid}/`)).length, 0, "plus aucun fichier");
+  for (const t of ["sessions", "parcours_versions", "consentement_versions", "parlomix"]) {
+    assert.equal((await db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE campagne_id = ?`).bind(cid).first<any>()).n, 0, t);
+  }
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM reponses").first<any>()).n, 0);
+  assert.equal((await db.prepare("SELECT campagne_id FROM cabines WHERE id = ?").bind(cabines.A).first<any>()).campagne_id, null);
+  const j = await db.prepare("SELECT details FROM journal WHERE action = 'campagne.suppression'").first<any>();
+  assert.match(j.details, /"statut":"close"/);
+});
+
 test("éditeur : vérification d'un parcours sans l'enregistrer", async () => {
   const { env } = creerEnv();
   const api = client(env);
