@@ -5,27 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Parlopop</title>
+  <meta name="theme-color" content="#F1F2F6">
   <style>
     @font-face { font-family: "Fredoka"; src: url("polices/fredoka.woff") format("woff"); font-weight: 300 700; font-display: swap; }
     @font-face { font-family: "Gabarito"; src: url("polices/gabarito.woff") format("woff"); font-weight: 400 900; font-display: swap; }
     :root { --vox: #3F4C8F; --parole: #F2D27A; --fond: #F1F2F6; --encre: #23263F; --doux: #5D6280; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--fond); color: var(--encre);
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--fond); color: var(--encre);
            font: 17px/1.5 "Gabarito", system-ui, sans-serif; }
-    main { display: flex; flex-direction: column; gap: 18px; max-width: 520px; }
-    h1 { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 44px; line-height: 1.05; margin: 0; }
-    p { margin: 0; color: var(--doux); }
-    .liens { display: flex; flex-wrap: wrap; gap: 12px; }
-    a { display: inline-flex; align-items: center; min-height: 52px; padding: 0 24px; border-radius: 26px 26px 6px 26px; text-decoration: none;
-        font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 20px; background: var(--parole); color: var(--encre); }
-    a.vox { background: var(--vox); color: #fff; border-radius: 26px 26px 26px 6px; }
+    main { display: flex; flex-direction: column; align-items: center; gap: clamp(28px, 6vh, 48px); width: min(100%, 720px); text-align: center; }
+    .logo { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .marque { display: flex; align-items: center; gap: clamp(12px, 2.5vw, 20px); }
+    .marque svg { width: clamp(64px, 14vw, 104px); height: auto; }
+    .marque span { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: clamp(48px, 11vw, 88px); line-height: 1; letter-spacing: -0.02em; }
+    .by { align-self: flex-end; margin-top: -2px; font-size: clamp(16px, 2.6vw, 21px); color: var(--doux); }
+    .by strong { color: var(--encre); font-weight: 700; }
+    h1 { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; font-family: "Fredoka", sans-serif; font-weight: 600;
+         font-size: clamp(26px, 5.4vw, 42px); line-height: 1.15; }
+    .bulle { position: relative; padding: .5em .9em; text-wrap: balance; }
+    .bulle::after { content: ""; position: absolute; bottom: 0; width: 26px; height: 26px; background: inherit; }
+    .marque-parle { align-self: flex-start; background: var(--vox); color: #FFFFFF; border-radius: 30px 30px 30px 6px; }
+    .marque-parle::after { left: -12px; clip-path: path("M26 0C26 15 18 23 0 26H26Z"); }
+    .client-repond { align-self: flex-end; background: var(--parole); color: var(--encre); border-radius: 30px 30px 6px 30px; margin-right: 12px; }
+    .client-repond::after { right: -12px; clip-path: path("M0 0C0 15 8 23 26 26H0Z"); }
+    h1 .lignes { display: flex; flex-direction: column; gap: 12px; margin-left: 12px; }
+    .liens { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+    a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 24px; text-decoration: none;
+        font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 18px; color: var(--vox); background: #FFFFFF; box-shadow: 0 1px 2px rgba(35, 38, 63, .08); }
+    a:hover { background: #E4E6F3; }
+    @media (prefers-reduced-motion: no-preference) {
+      .bulle { animation: arrive .6s cubic-bezier(.2, .9, .3, 1.2) both; }
+      .client-repond { animation-delay: .7s; }
+      @keyframes arrive { from { opacity: 0; transform: translateY(14px) scale(.94); } }
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>Parlopop</h1>
-    <p>Cabines vidéo d'avis consommateurs, by whyme.</p>
-    <div class="liens"><a class="vox" href="admin/">Parlorama</a><a href="cabine/">Écran de cabine</a></div>
+    <div class="logo" role="img" aria-label="Parlopop by whyme">
+      <div class="marque">
+        <svg viewBox="0 0 48 40" aria-hidden="true"><path d="M10 3h28a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H22c-3 4-8 7-14 7 3-2 4-4 4-7h-2a7 7 0 0 1-7-7V10a7 7 0 0 1 7-7z" fill="#3F4C8F"/><g fill="#F2D27A"><rect x="13" y="13" width="3.6" height="7" rx="1.8"/><rect x="19.6" y="9.5" width="3.6" height="14" rx="1.8"/><rect x="26.2" y="11.5" width="3.6" height="10" rx="1.8"/><rect x="32.8" y="14" width="3.6" height="5" rx="1.8"/></g></svg>
+        <span aria-hidden="true">Parlopop</span>
+      </div>
+      <span class="by" aria-hidden="true">by <strong>whyme</strong></span>
+    </div>
+    <h1><span class="lignes"><span class="bulle marque-parle">Vos clients ont des choses à dire :</span><span class="bulle client-repond">Donnez-leur la parole !</span></span></h1>
+    <nav class="liens" aria-label="Accès"><a href="admin/">Parlorama</a><a href="cabine/">Écran de cabine</a></nav>
   </main>
 </body>
 </html>
