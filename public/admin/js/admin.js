@@ -108,7 +108,7 @@ const ACTIONS = /** @type {Record<string, string>} */ ({
   "campagne.statut.validee": "Campagne validée", "campagne.statut.active": "Campagne activée", "campagne.statut.close": "Campagne close",
   "campagne.statut.brouillon": "Campagne repassée en brouillon",
   "cabine.creation": "Cabine créée", "cabine.affectation": "Cabine affectée", "cabine.nouveau_code": "Nouveau code d'appairage", "cabine.appairage": "Tablette appairée",
-  "reponse.visionnage": "Vidéo visionnée",
+  "reponse.visionnage": "Vidéo visionnée", "demo.preparation": "Préparation de la démo",
 });
 const TYPES_ETAPES = /** @type {Record<string, string>} */ ({
   accueil: "Accueil", identification: "Identification", consentement: "Mode d'emploi et accord", cadrage: "Cadrage",
