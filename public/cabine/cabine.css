@@ -374,12 +374,11 @@ button { font: inherit; color: inherit; }
 .bandeau-apercu { position: fixed; z-index: 10; top: 10px; left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 16px 16px 16px 5px;
   background: var(--texte); color: var(--fond); font-size: 14px; font-weight: 600; pointer-events: none; opacity: .85; }
 
-/* Lien de retrait (écran de fin) */
+/* Rappel du droit de changer d'avis (écran de fin) : le QR code est affiché à l'extérieur de la cabine. */
 .retrait { display: flex; align-items: center; gap: 18px; padding: 16px 20px; max-width: 30em; }
-.retrait .qr { flex: none; width: clamp(110px, 19vmin, 150px); height: auto; border-radius: 10px; }
+.retrait .picto-qr { flex: none; width: clamp(44px, 7vmin, 56px); height: auto; color: var(--accent); }
 .texte-retrait { display: flex; flex-direction: column; gap: 4px; font-size: clamp(15px, 2.5vmin, 18px); line-height: 1.35; color: var(--texte-doux); }
 .texte-retrait strong { color: var(--texte); font-family: var(--titres); font-weight: 600; font-size: 1.15em; }
-.code-retrait { font-family: var(--titres); font-weight: 600; letter-spacing: .08em; color: var(--accent); }
 
 /* =============================================================== ambiance « pop »
    Version festive, pour les animations ludiques (parcours avec "ambiance": "pop").

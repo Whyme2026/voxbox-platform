@@ -77,6 +77,7 @@ async function scenarioDemo() {
   await touche("C");
   for (const c of "amille") await touche(c);
   await page.waitForTimeout(500);
+  await page.getByText("E-mail, facultatif : pour retrouver vos vidéos et changer d'avis").waitFor();
   await capture("02-identification");
   await bouton("Continuer");
   await page.getByText("Comment ça marche").waitFor();
@@ -104,10 +105,9 @@ async function scenarioDemo() {
   await page.getByText("Merci Camille, c'est dans la boîte !").waitFor({ timeout: 90_000 });
   await page.waitForTimeout(1600);
   await capture("06-fin");
-  // Le QR code de l'écran de fin mène à la page de retrait, avec le code de la session.
-  const lu = lireQR(join(captures, `${scenario}-06-fin.png`));
-  const session = await db.prepare("SELECT code_retrait FROM sessions ORDER BY cree_le LIMIT 1").first<any>();
-  assert.equal(lu, `http://localhost:${port}/retrait/#${session.code_retrait}`, "QR code de fin lisible et juste");
+  // Plus de QR code propre à la session : un rappel renvoie au QR code affiché à l'extérieur de la cabine.
+  await page.getByText("Scannez le QR code à l'extérieur de la cabine").waitFor();
+  assert.equal(await page.locator(".ecran svg.qr").count(), 0, "pas de QR code sur l'écran de fin");
   if (process.env.E2E_VIDEO) return { sessions: 1, consentDiffusion: 1, prenom: "Camille" }; // film en 16:9 seulement
   // Portrait (écran tourné, futur format 9:16) : mise en page de l'accueil et d'une question.
   await page.setViewportSize({ width: 720, height: 1280 });
@@ -125,12 +125,6 @@ async function scenarioDemo() {
   return { sessions: 2, consentDiffusion: 1, prenom: "Camille" };
 }
 
-/** Décode le QR code d'une capture (OpenCV). Chaîne vide si OpenCV est absent. */
-function lireQR(fichier: string): string {
-  if (spawnSync("python3", ["-c", "import cv2"]).status !== 0) return "";
-  const r = spawnSync("python3", ["-c", "import cv2,sys\nimg=cv2.imread(sys.argv[1])\nprint(cv2.QRCodeDetector().detectAndDecode(img)[0])", fichier], { encoding: "utf8" });
-  return r.stdout.trim();
-}
 
 /** Page publique de retrait, sur téléphone : saisie manuelle du code, puis suppression des réponses. */
 async function visiteRetrait() {

@@ -18,13 +18,15 @@ espace client ─────┘        └────────────�
 - **Cabine** (`/cabine/`, `/api/cabine/*`) : jamais Cloudflare Access. La tablette est appairée une fois avec un code
   à usage unique (fiche cabine, espace WhyMe) et reçoit un jeton secret ; seule son empreinte SHA-256 est stockée.
   Un nouveau code révoque l'ancienne tablette. ⚠ Ces chemins doivent être exclus de la protection Access (règle « bypass »).
-- **Lien de retrait** (`/retrait/`, `/api/retrait/*`) : public, jamais Cloudflare Access (⚠ règle « bypass » à
-  ajouter, comme pour la cabine). Le seul secret est le code de retrait de la session : 10 caractères sans O/0 ni I/1
-  (32^10 combinaisons), tiré par la tablette (pour fonctionner hors ligne) et accepté par le serveur s'il est libre.
-  L'écran de fin l'affiche en **QR code** (générateur local `public/cabine/js/qr.js`, rien de chargé d'internet)
-  et en clair (XXXX-XXXX-XX). Le code est placé après `#` dans l'adresse : il n'apparaît dans aucun journal de
-  serveur. La page propose « retirer seulement l'accord de diffusion » ou « supprimer mes réponses » (mêmes
-  effets que le retrait depuis Parlorama, `src/rgpd/retrait.ts`), journalisé « visiteur (lien de retrait) ».
+- **Retrait par le visiteur** (`/retrait/`, `/api/retrait/*`) : public, jamais Cloudflare Access (⚠ règle « bypass »
+  à ajouter, comme pour la cabine). Décision du 10/10/2026 : **plus de QR code propre à chaque session sur l'écran de
+  fin**. Un QR code fixe est affiché à l'extérieur de la cabine ; l'écran de fin le rappelle (« Vous changez d'avis ?
+  Scannez le QR code à l'extérieur de la cabine… »). L'e-mail demandé à l'identification sert à retrouver ses vidéos
+  et à changer d'avis ; il reste facultatif (on peut aussi écrire au contact RGPD) et ne vaut pas accord pour être
+  recontacté, qui reste une case séparée. **À construire** : la page derrière ce QR code (saisie de l'e-mail, lien
+  envoyé, accès aux vidéos, retrait). En attendant, la page `/retrait/` fonctionne avec le code de retrait de la
+  session (10 caractères sans O/0 ni I/1, tiré par la tablette), mêmes effets que le retrait depuis Parlorama
+  (`src/rgpd/retrait.ts`), journalisé « visiteur (lien de retrait) ».
 - **Développement local** : `AUTH_MODE=dev` et en-tête `X-Dev-Email`, refusé hors `localhost` et en production.
 
 ## Rôles
@@ -200,8 +202,9 @@ Page `public/cabine/`, sans compilation ni dépendance :
   sans détecteur, toute l'image est floutée ;
 - `file-envoi.js` : file IndexedDB strictement ordonnée (session puis vidéos), reprise après coupure ;
 - `app.js` : écrans en bulles (16:9 d'abord, portrait 9:16 géré), pauses avant/après (reprise par le prénom, 12 h max), inactivité 90 s, signal de vie,
-  miniature de chaque réponse, QR code du lien de retrait sur l'écran de fin (retour à l'accueil après 20 s par défaut, le temps de scanner) ;
-- `qr.js` : générateur de QR code (mode octets, correction M, versions 1 à 10), vérifié par décodage OpenCV dans les tests.
+  miniature de chaque réponse, rappel du QR code extérieur sur l'écran de fin (retour à l'accueil après 20 s par défaut) ;
+- `qr.js` : générateur de QR code (mode octets, correction M, versions 1 à 10), vérifié par décodage OpenCV dans les tests ;
+  plus utilisé par l'écran de fin, gardé pour produire le QR code de l'affiche extérieure.
 La session est créée par la tablette (UUID) pour fonctionner hors ligne ; l'envoi est idempotent.
 
 ## Points à vérifier (lot 0)

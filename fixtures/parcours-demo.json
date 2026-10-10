@@ -18,7 +18,7 @@
       "id": "vous",
       "type": "identification",
       "titre": "Pour commencer, comment vous appelez-vous ?",
-      "texte": "Juste le prénom, promis.",
+      "texte": "Le prénom suffit. L'e-mail, seulement si vous voulez retrouver vos vidéos.",
       "demanderEmail": true
     },
     {

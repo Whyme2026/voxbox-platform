@@ -26,7 +26,8 @@ export function genererTextes(client: FicheClient, conservationJours: number): T
     `vos réponses en vidéo pour analyser les avis de ses clients. ` +
     `Les vidéos sont réservées à un usage interne, hébergées dans l'Union européenne par WhyMe pour le compte ` +
     `de ${client.nom}, et supprimées au bout de ${duree}. ` +
-    `Vous pouvez retirer votre accord à tout moment grâce au lien qui vous est remis, ou en écrivant à ${client.contact_rgpd}.`;
+    `Vous pouvez retirer votre accord ou supprimer vos vidéos à tout moment grâce au QR code affiché à l'extérieur de la cabine, ` +
+    `ou en écrivant à ${client.contact_rgpd}.`;
   const texte_diffusion =
     `J'accepte aussi que ${client.nom} utilise ma vidéo dans ses communications publiques ` +
     `(site, réseaux sociaux, publicité) pendant ${duree}. Facultatif.`;

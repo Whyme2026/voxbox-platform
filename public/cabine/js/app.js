@@ -6,7 +6,6 @@ import { creerClavier } from "./clavier.js";
 import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from "./enregistreur.js";
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
-import { genererQR, cheminQR } from "./qr.js";
 
 const VERSION = "0.3.0";
 const CLE_JETON = "voxbox.jeton";
@@ -498,13 +497,13 @@ function ecranIdentification(/** @type {any} */ e) {
   /** @type {{ cle: "prenom"|"nom"|"email", etiquette: string, indice: string, mode: "nom"|"email", max: number, principal: boolean }[]} */
   const defs = [{ cle: "prenom", etiquette: tv("Votre prénom", "Ton prénom"), indice: tv("Votre prénom", "Ton prénom"), mode: "nom", max: 40, principal: true }];
   if (e.demanderNom) defs.push({ cle: "nom", etiquette: "Nom, facultatif", indice: tv("Votre nom", "Ton nom"), mode: "nom", max: 60, principal: false });
-  if (e.demanderEmail) defs.push({ cle: "email", etiquette: "E-mail, facultatif : pour être recontacté(e) par la marque", indice: tv("vous@exemple.fr", "toi@exemple.fr"), mode: "email", max: 160, principal: false });
+  if (e.demanderEmail) defs.push({ cle: "email", etiquette: tv("E-mail, facultatif : pour retrouver vos vidéos et changer d'avis", "E-mail, facultatif : pour retrouver tes vidéos et changer d'avis"), indice: tv("vous@exemple.fr", "toi@exemple.fr"), mode: "email", max: 160, principal: false });
 
   const continuer = bouton("Continuer", () => suite(e));
   const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1);
   const recontact = h("button", { type: "button", class: "case", role: "checkbox", "aria-checked": String(v.recontact), hidden: !v.email,
     onclick: () => { v.recontact = !v.recontact; recontact.setAttribute("aria-checked", String(v.recontact)); } },
-    h("span", { class: "boite" }), h("span", {}, "J'accepte d'être recontacté(e) par la marque."));
+    h("span", { class: "boite" }), h("span", {}, "J'accepte aussi d'être recontacté(e) par la marque."));
 
   const champs = defs.map((d) => {
     const valeur = h("span", { class: "valeur", "data-indice": d.indice, "data-vide": v[d.cle] ? "non" : "oui" }, v[d.cle]);
@@ -742,26 +741,22 @@ function ecranPause(/** @type {any} */ e) {
   setTimeout(() => { if (numeroEcran === ecran) accueil(); }, 12_000);
 }
 
-/** QR code du lien de retrait, avec le code en clair pour qui ne peut pas scanner. */
-function carteRetrait(/** @type {string} */ code) {
-  const { d, cote } = cheminQR(genererQR(`${location.origin}/retrait/#${code}`));
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", `0 0 ${cote} ${cote}`);
-  svg.setAttribute("class", "qr");
-  svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", tv("QR code pour retirer votre accord", "QR code pour retirer ton accord"));
-  svg.setAttribute("shape-rendering", "crispEdges");
-  const fond = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  fond.setAttribute("width", String(cote)); fond.setAttribute("height", String(cote)); fond.setAttribute("fill", "#FFFFFF");
-  const chemin = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  chemin.setAttribute("d", d); chemin.setAttribute("fill", "#23263F");
-  svg.append(fond, chemin);
-  const lisible = `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
-  return h("div", { class: "carte retrait arrive" }, svg,
+/**
+ * Rappel du droit de changer d'avis : le QR code affiché à l'extérieur de la cabine mène à la page où l'on retire
+ * son accord ou supprime ses vidéos (avec l'e-mail donné à l'identification).
+ */
+function rappelRetrait() {
+  const picto = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  picto.setAttribute("viewBox", "0 0 24 24");
+  picto.setAttribute("class", "picto-qr");
+  picto.setAttribute("aria-hidden", "true");
+  picto.innerHTML = '<g fill="currentColor"><path d="M3 3h7v7H3zM5 5v3h3V5zM14 3h7v7h-7zm2 2v3h3V5zM3 14h7v7H3zm2 2v3h3v-3z"/><path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z"/></g>';
+  return h("div", { class: "carte retrait arrive" }, picto,
     h("div", { class: "texte-retrait" },
       h("strong", {}, tv("Vous changez d'avis ?", "Tu changes d'avis ?")),
-      h("span", {}, tv("Scannez ce code pour retirer votre accord, à tout moment.", "Scanne ce code pour retirer ton accord, à tout moment.")),
-      h("span", { class: "code-retrait" }, lisible)));
+      h("span", {}, tv(
+        "Scannez le QR code à l'extérieur de la cabine : vous pourrez retirer votre accord ou supprimer vos vidéos, à tout moment.",
+        "Scanne le QR code à l'extérieur de la cabine : tu pourras retirer ton accord ou supprimer tes vidéos, à tout moment."))));
 }
 
 function ecranFin(/** @type {any} */ e) {
@@ -784,7 +779,7 @@ function ecranFin(/** @type {any} */ e) {
           visuelEtape(e, "visuel-fin")),
         h("div", { class: "colonne" },
           e.sortie ? h("p", { class: "sortie" }, perso(e.sortie)) : null,
-          visiteur?.codeRetrait ? carteRetrait(visiteur.codeRetrait) : null)),
+          rappelRetrait())),
       h("div", { class: "retour", style: `--duree: ${reste}s` }, h("div", { class: "barre" }, h("span")), libelle)),
   ], "fin");
   const ecran = numeroEcran;
