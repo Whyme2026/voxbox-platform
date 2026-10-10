@@ -155,7 +155,7 @@ async function visiteAdmin() {
   await admin.goto(`http://localhost:${port}/admin/`);
   await admin.getByRole("heading", { name: "Tableau de bord" }).waitFor();
   await photo("01-tableau-de-bord");
-  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
   await admin.getByRole("heading", { name: "Campagnes" }).waitFor();
   await photo("02-campagnes");
   await admin.locator("td a").first().click();
@@ -235,7 +235,7 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   await admin.getByRole("button", { name: "Enregistrer" }).click();
   await admin.getByText("Rôle modifié").waitFor();
   // Nouvelle campagne en brouillon et éditeur de parcours.
-  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
   await admin.getByRole("button", { name: "Nouvelle campagne" }).click();
   await admin.getByLabel("Client").selectOption({ label: "Maison Lumière" });
   await admin.getByLabel("Nom de la campagne").fill("Printemps en boutique");
@@ -265,7 +265,7 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   assert.equal(config.etapes.filter((e: any) => e.type === "question").length, 6, "5 questions du modèle + 1 ajoutée");
   assert.ok(config.etapes.some((e: any) => e.texte === "Qu'est-ce qui vous a fait sourire en boutique ?"));
   // Actions sur un visiteur dans la campagne de démo : retrait de l'accord de diffusion, recherche.
-  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
+  await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
   await admin.getByRole("link", { name: "Démo Parlopop (neutre)" }).click();
   await admin.getByLabel("Rechercher un prénom").fill("cam");
   await admin.locator(".session").first().waitFor();
@@ -280,8 +280,8 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
 
 /** Parlomix : un montage par personne (16:9 et 9:16) et un montage par question, vérifiés avec ffprobe. */
 async function visiteParlomix(admin: any, photo: (nom: string) => Promise<void>) {
-  await admin.getByRole("link", { name: "Campagnes", exact: true }).click();
-  await admin.locator("td a").first().click();
+  await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
+  await admin.getByRole("link", { name: "Démo Parlopop (neutre)" }).click();
   await admin.getByRole("tab", { name: "Parlomix" }).click();
   await admin.getByRole("heading", { name: "Créer un Parlomix" }).waitFor();
   // Par personne : Camille, qui a répondu aux cinq questions.
