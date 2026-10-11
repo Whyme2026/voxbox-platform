@@ -13,7 +13,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { monter, type PlanMontage } from "./monter.ts";
 
-const CLE = process.env.MONTAGE_CLE ?? "";
+// Un secret absent peut arriver comme le texte « undefined » : il compte comme absent (refus au démarrage).
+const CLE = process.env.MONTAGE_CLE && process.env.MONTAGE_CLE !== "undefined" ? process.env.MONTAGE_CLE : "";
 const AUTORISEES = (process.env.MONTAGE_API_AUTORISEES ?? "").split(",").map((s) => s.trim().replace(/\/$/, "")).filter(Boolean);
 const file: { id: string; api: string }[] = [];
 let enCours: string | null = null;
@@ -70,7 +71,7 @@ async function vider(): Promise<void> {
 }
 
 export function demarrerService(port: number) {
-  if (!CLE) throw new Error("MONTAGE_CLE manquant");
+  if (CLE.length < 32) throw new Error("MONTAGE_CLE manquant ou trop court (32 caractères au moins)");
   const serveur = createServer(async (req, res) => {
     const repondre = (status: number, corps: unknown) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(corps)); };
     if (req.method === "GET" && (req.url === "/sante" || req.url === "/health")) return repondre(200, { service: "montage whyme", enCours, attente: file.length, faits });

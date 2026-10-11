@@ -16,7 +16,14 @@ const PORT = 8080;
 export class ConteneurMontage extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const conteneur = this.ctx.container!;
+    // Le conteneur garde le secret reçu à son démarrage : si le secret a changé (ajout, rotation), on le redémarre.
+    const empreinte = await empreinteCle(this.env.MONTAGE_CLE);
+    if (conteneur.running && (await this.ctx.storage.get<string>("cle")) !== empreinte) {
+      await conteneur.destroy();
+      for (let i = 0; i < 50 && conteneur.running; i++) await new Promise((r) => setTimeout(r, 200));
+    }
     if (!conteneur.running) {
+      await this.ctx.storage.put("cle", empreinte);
       conteneur.start({
         env: { MONTAGE_CLE: this.env.MONTAGE_CLE, MONTAGE_API_AUTORISEES: this.env.MONTAGE_API_AUTORISEES, PORT: String(PORT) },
         enableInternet: true, // le service lit et renvoie les vidéos à la plateforme
@@ -36,8 +43,15 @@ export class ConteneurMontage extends DurableObject<Env> {
   }
 }
 
+async function empreinteCle(cle: string): Promise<string> {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(cle));
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Sans secret (variable MONTAGE_CLE absente), le service refuse tout : jamais de montage ouvert à tous.
+    if (!env.MONTAGE_CLE || env.MONTAGE_CLE.length < 32) return new Response("Service de montage non configuré (secret MONTAGE_CLE)", { status: 503 });
     const url = new URL(request.url);
     if (!["/monter", "/sante"].includes(url.pathname)) return new Response("Introuvable", { status: 404 });
     // Une seule instance : les montages sont traités l'un après l'autre (un peu plus de 10 s par interview).
