@@ -174,7 +174,7 @@ export function editeurParcours(o) {
   };
   const liste = h("ol", { class: "editeur-etapes" });
   const choixAmbiance = /** @type {HTMLSelectElement} */ (h("select", { id: "ed-ambiance", disabled: o.lectureSeule === true },
-    h("option", { value: "conversation", selected: ambiance === "conversation" }, "Conversation (neutre Parlopop)"),
+    h("option", { value: "conversation", selected: ambiance === "conversation" }, "Conversation (neutre Parlobox)"),
     h("option", { value: "pop", selected: ambiance === "pop" }, "Pop (festif, esprit BD)"),
     h("option", { value: "marine", selected: ambiance === "marine" }, "Marine (bord de mer, impertinent)")));
   choixAmbiance.addEventListener("change", () => { ambiance = choixAmbiance.value; changer(); });

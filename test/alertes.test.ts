@@ -1,4 +1,4 @@
-// Alertes d'exploitation (Parlopop) : cabine hors ligne, batterie, file d'envoi, micro, vidéos sans voix, analyse.
+// Alertes d'exploitation (Parlobox) : cabine hors ligne, batterie, file d'envoi, micro, vidéos sans voix, analyse.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ADMIN } from "./aide/env.ts";

@@ -1,7 +1,9 @@
-# Parlopop — consignes pour Claude
+# Parlobox — consignes pour Claude
 
-Plateforme de cabines vidéo d'avis consommateurs, **by whyme** (ex-« Vox Boxes » : les noms techniques `voxbox` restent).
-Vocabulaire : **Parlopop** = la marque, la cabine et l'expérience ; **Parlorama** = l'interface de gestion et de consultation (`/admin/`) ;
+Plateforme de cabines vidéo d'avis consommateurs, **by whyme**. Nom de marque **Parlobox** depuis le 11/10/2026 (domaine
+`parlobox.com`) ; anciens noms « Vox Boxes » puis « Parlopop » : ne plus les employer. Les noms techniques `voxbox`
+(Workers, bases, stockages, dépôt) restent : invisibles pour les visiteurs, les changer demanderait de déplacer les données.
+Vocabulaire : **Parlobox** = la marque, la cabine et l'expérience ; **Parlorama** = l'interface de gestion et de consultation (`/admin/`) ;
 **Parlomètre** = mesure et indicateurs ; **Parlomix** = le clip monté (à venir). Maintenue par Claude, avec un développeur freelance en filet.
 Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploitation.md` en cas d'incident.
 **Why me** (11/10/2026) : second produit sur la même plateforme, l'interview vidéo RH du candidat sur son propre

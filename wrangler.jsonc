@@ -1,4 +1,4 @@
-// Configuration Cloudflare de la plateforme Parlopop (noms techniques « voxbox » conservés).
+// Configuration Cloudflare de la plateforme Parlobox (noms techniques « voxbox » conservés).
 // Trois environnements : dev (machine locale), test et production.
 // Bases D1 et stockages R2 créés le 10/10/2026, tous en juridiction UE.
 {
@@ -17,7 +17,7 @@
   // sont saisies dans le tableau de bord Cloudflare et conservées à chaque déploiement.
   "keep_vars": true,
   // Toutes les 5 minutes : Why me (relance des montages, e-mails de reprise, purges, src/whyme/taches.ts) et
-  // Parlopop option Analyse (reprise des transcriptions, src/analyse/transcription.ts).
+  // Parlobox option Analyse (reprise des transcriptions, src/analyse/transcription.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
 
   "env": {

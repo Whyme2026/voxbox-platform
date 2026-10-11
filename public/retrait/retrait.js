@@ -63,7 +63,7 @@ function demande(/** @type {string} */ message = "", /** @type {string} */ valeu
     } catch { erreurReseau(() => demande("", email)); }
   };
   afficher(
-    h("h1", { class: "bulle titre" }, "Vos vidéos Parlopop"),
+    h("h1", { class: "bulle titre" }, "Vos vidéos Parlobox"),
     h("p", { class: "bulle douce" }, "Saisissez l'e-mail donné dans la cabine : nous vous envoyons un lien pour retrouver vos vidéos et, si vous le souhaitez, retirer votre accord ou les supprimer."),
     h("form", { class: "carte champ", onsubmit: soumettre },
       h("label", { for: "email" }, "Votre e-mail"), champ,

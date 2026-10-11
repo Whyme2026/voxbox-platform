@@ -1,6 +1,6 @@
 // Essais de bout en bout de la cabine, dans un vrai Chrome sans écran avec caméra et micro simulés.
 // Quatre scénarios :
-//  - demo : parcours neutre Parlopop (accueil, consignes et accord, 5 questions, fin), flou activé ;
+//  - demo : parcours neutre Parlobox (accueil, consignes et accord, 5 questions, fin), flou activé ;
 //  - auto : parcours automobile (prénom, consentement, cadrage, choix, pause avant/après, reprise) ;
 //  - fabrice : ambiance « pop » et tutoiement (choix, 6 questions), en paysage puis en portrait ;
 //  - alexandre : ambiance « marine », tutoiement et un visuel par écran (4 questions), en paysage puis en portrait ;
@@ -40,8 +40,8 @@ const nbQuestions = scenario === "geely" ? 6 : parcours.etapes.filter((e: any) =
 const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
 const { code } = await preparer(parcours,
-  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : { nom: "Parlopop" },
-  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "alexandre" ? "Spécial Alexandre" : scenario === "geely" ? "Geely — concession" : "Démo Parlopop (neutre)");
+  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : { nom: "Parlobox" },
+  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "alexandre" ? "Spécial Alexandre" : scenario === "geely" ? "Geely — concession" : "Démo Parlobox (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
@@ -85,7 +85,7 @@ async function scenarioDemo() {
   await page.getByText("Merci Camille ! Avant de commencer").waitFor();
   // Le bouton reste grisé tant que l'accord obligatoire n'est pas donné.
   assert.equal(await page.getByRole("button", { name: "C'est parti" }).isDisabled(), true);
-  await cocher("J'accepte que Parlopop");
+  await cocher("J'accepte que Parlobox");
   await cocher("J'accepte aussi");
   await page.waitForTimeout(800);
   await capture("03-consignes");
@@ -118,7 +118,7 @@ async function scenarioDemo() {
   await bouton("Je me lance");
   await touche("L"); await touche("é"); await touche("a");
   await bouton("Continuer");
-  await cocher("J'accepte que Parlopop");
+  await cocher("J'accepte que Parlobox");
   await bouton("C'est parti");
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(800);
@@ -132,14 +132,14 @@ async function visiteSuppressionCampagne() {
   const admin = await contexte.newPage();
   admin.on("pageerror", (e: Error) => erreurs.push(`admin : ${e.message}`));
   await admin.setViewportSize({ width: 1440, height: 900 });
-  const c = await db.prepare("SELECT id, nom FROM campagnes WHERE nom LIKE 'Démo Parlopop%'").first<any>();
+  const c = await db.prepare("SELECT id, nom FROM campagnes WHERE nom LIKE 'Démo Parlobox%'").first<any>();
   await admin.goto(`http://localhost:${port}/admin/#/campagnes/${c.id}`);
   await admin.getByRole("button", { name: "Clore la campagne" }).click();
   await admin.getByRole("button", { name: "Confirmer la clôture" }).click();
   await admin.getByRole("button", { name: "Renommer" }).click();
-  await admin.getByLabel("Nom de la campagne").fill("Démo Parlopop (essai)");
+  await admin.getByLabel("Nom de la campagne").fill("Démo Parlobox (essai)");
   await admin.getByRole("button", { name: "Enregistrer" }).click();
-  await admin.getByRole("heading", { name: "Démo Parlopop (essai)" }).waitFor();
+  await admin.getByRole("heading", { name: "Démo Parlobox (essai)" }).waitFor();
   await admin.screenshot({ path: join(captures, "admin-20-campagne-close.png") });
   await admin.getByRole("button", { name: "Supprimer la campagne" }).click();
   await admin.getByRole("button", { name: "Confirmer : tout supprimer, vidéos comprises" }).click();
@@ -235,7 +235,7 @@ async function scenarioFabrice() {
   await capture("02-identification");
   await bouton("Continuer");
   await page.getByText("Bon, Fabrice, voici le deal.").waitFor();
-  await cocher("J'accepte que Parlopop");
+  await cocher("J'accepte que Parlobox");
   await page.getByText("En savoir plus sur tes données").waitFor();
   assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique");
   await page.waitForTimeout(1200);
@@ -268,7 +268,7 @@ async function scenarioFabrice() {
   await bouton("J'assume tout");
   await touche("F"); await touche("a"); await touche("b");
   await bouton("Continuer");
-  await cocher("J'accepte que Parlopop");
+  await cocher("J'accepte que Parlobox");
   await bouton("C'est parti");
   await page.getByRole("button", { name: "Par moi, évidemment" }).click();
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
@@ -291,7 +291,7 @@ async function scenarioAlexandre() {
   await capture("02-identification");
   await bouton("Continuer");
   await page.getByText("Bon, Alexandre, voici les consignes").waitFor();
-  await cocher("J'accepte que Parlopop");
+  await cocher("J'accepte que Parlobox");
   await page.waitForTimeout(1200);
   await capture("03-regles");
   await bouton("C'est parti");
@@ -316,7 +316,7 @@ async function scenarioAlexandre() {
   await bouton("Je largue les amarres");
   await touche("A"); await touche("l"); await touche("e");
   await bouton("Continuer");
-  await cocher("J'accepte que Parlopop");
+  await cocher("J'accepte que Parlobox");
   await bouton("C'est parti");
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(800);
@@ -516,7 +516,7 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   await admin.getByRole("button", { name: "Créer la campagne" }).click();
   await admin.getByRole("heading", { name: "Printemps en boutique" }).waitFor();
   await admin.getByRole("tab", { name: "Parcours" }).click();
-  await admin.getByRole("button", { name: "Parcours neutre Parlopop (démo)" }).click();
+  await admin.getByRole("button", { name: "Parcours neutre Parlobox (démo)" }).click();
   await admin.getByText("Parcours valide").waitFor();
   await admin.getByRole("button", { name: /Le coup de cœur/ }).click();
   await admin.locator("#ed-q-coup-de-coeur-texte").fill("Qu'est-ce qui vous a fait sourire en boutique ?");
@@ -540,7 +540,7 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   assert.ok(config.etapes.some((e: any) => e.texte === "Qu'est-ce qui vous a fait sourire en boutique ?"));
   // Actions sur un visiteur dans la campagne de démo : retrait de l'accord de diffusion, recherche.
   await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
-  await admin.getByRole("link", { name: "Démo Parlopop (neutre)" }).click();
+  await admin.getByRole("link", { name: "Démo Parlobox (neutre)" }).click();
   await admin.getByLabel("Rechercher un prénom").fill("cam");
   await admin.locator(".session").first().waitFor();
   assert.equal(await admin.locator(".session").count(), 1);
@@ -555,7 +555,7 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
 /** Parlomix : un montage par personne (16:9 et 9:16) et un montage par question, vérifiés avec ffprobe. */
 async function visiteParlomix(admin: any, photo: (nom: string) => Promise<void>) {
   await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
-  await admin.getByRole("link", { name: "Démo Parlopop (neutre)" }).click();
+  await admin.getByRole("link", { name: "Démo Parlobox (neutre)" }).click();
   await admin.getByRole("tab", { name: "Parlomix" }).click();
   await admin.getByRole("heading", { name: "Créer un Parlomix" }).waitFor();
   // Par personne : Camille, qui a répondu aux cinq questions.

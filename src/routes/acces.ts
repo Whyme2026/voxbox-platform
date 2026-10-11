@@ -51,13 +51,13 @@ async function sessionDuVisiteur(env: Env, email: string, id: string) {
 
 function messageLien(prenom: string, lien: string) {
   const bonjour = prenom ? `Bonjour ${prenom},` : "Bonjour,";
-  const texteBrut = `${bonjour}\n\nVoici votre lien pour retrouver vos vidéos Parlopop et, si vous le souhaitez, retirer votre accord ou les supprimer :\n${lien}\n\nCe lien est valable ${DUREE_LIEN_MIN} minutes. Si vous n'avez rien demandé, ignorez simplement ce message.\n\nParlopop by whyme`;
+  const texteBrut = `${bonjour}\n\nVoici votre lien pour retrouver vos vidéos Parlobox et, si vous le souhaitez, retirer votre accord ou les supprimer :\n${lien}\n\nCe lien est valable ${DUREE_LIEN_MIN} minutes. Si vous n'avez rien demandé, ignorez simplement ce message.\n\nParlobox by whyme`;
   const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5;color:#23263F;max-width:520px">
 <p>${bonjour.replace(/[<>&]/g, "")}</p>
-<p>Voici votre lien pour retrouver vos vidéos Parlopop et, si vous le souhaitez, retirer votre accord ou les supprimer :</p>
+<p>Voici votre lien pour retrouver vos vidéos Parlobox et, si vous le souhaitez, retirer votre accord ou les supprimer :</p>
 <p><a href="${lien}" style="display:inline-block;padding:12px 22px;border-radius:22px 22px 6px 22px;background:#3F4C8F;color:#FFFFFF;text-decoration:none;font-weight:600">Voir mes vidéos</a></p>
 <p style="color:#5D6280;font-size:14px">Ce lien est valable ${DUREE_LIEN_MIN} minutes. Si vous n'avez rien demandé, ignorez simplement ce message.</p>
-<p style="color:#5D6280;font-size:14px">Parlopop by whyme</p></div>`;
+<p style="color:#5D6280;font-size:14px">Parlobox by whyme</p></div>`;
   return { texte: texteBrut, html };
 }
 
@@ -81,7 +81,7 @@ export function routesAcces(r: Routeur): void {
       .bind(nouvelId(), email, await empreinte(jeton), now, expire, s ? 1 : 0).run();
     if (s) {
       const lien = `${ctx.url.origin}/retrait/#acces=${jeton}`;
-      await envoyerCourriel(ctx.env, { a: email, sujet: "Vos vidéos Parlopop", ...messageLien(s.prenom, lien) });
+      await envoyerCourriel(ctx.env, { a: email, sujet: "Vos vidéos Parlobox", ...messageLien(s.prenom, lien) });
     }
     return json({ message: MESSAGE });
   });
@@ -125,7 +125,7 @@ export function routesAcces(r: Routeur): void {
     if (!rep?.cle_source) throw introuvable("Vidéo introuvable");
     return servirVideo(ctx.request, ctx.env, rep.cle_source, {
       type: rep.cle_source.endsWith(".mp4") ? "video/mp4" : "video/webm",
-      nom: `parlopop-${rep.etape_id}.${rep.cle_source.endsWith(".mp4") ? "mp4" : "webm"}`,
+      nom: `parlobox-${rep.etape_id}.${rep.cle_source.endsWith(".mp4") ? "mp4" : "webm"}`,
       journaliser: () => journaliser(ctx.env.DB, VISITEUR, { action: "reponse.visionnage", cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id, details: { session_id: rep.session_id, par: "le visiteur" } }),
     });
   });

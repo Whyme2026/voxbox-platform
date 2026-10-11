@@ -78,7 +78,7 @@ test("Parlomix par question : dans l'ordre de passage, filtrable par cabine et p
 test("le plan alterne cartes et réponses, avec jingle entre les réponses", () => {
   const theme = themeDepuisCouleurs({ principale: "#0F6E5A" });
   const plan = planParlomix({
-    type: "personne", titre: "Camille", sousTitre: "Démo", signature: "Parlopop", format: "9:16", theme,
+    type: "personne", titre: "Camille", sousTitre: "Démo", signature: "Parlobox", format: "9:16", theme,
     clips: [
       { id: "r1", sessionId: "s1", etiquette: "Le premier mot", dureeMs: 8000, segments: [[1000, 4000]] },
       { id: "r2", sessionId: "s1", etiquette: "Le coup de cœur", detail: "Tiens ?", dureeMs: 9000, segments: [] },
@@ -90,7 +90,7 @@ test("le plan alterne cartes et réponses, avec jingle entre les réponses", () 
   assert.deepEqual(plan.sessions, ["s1"]);
   assert.equal(theme.marque, "#0F6E5A");
   assert.equal(theme.surMarque, "#FFFFFF");
-  assert.equal(theme.parole, "#F2D27A", "couleur absente : celle de Parlopop");
+  assert.equal(theme.parole, "#F2D27A", "couleur absente : celle de Parlobox");
 });
 
 test("le recadrage 9:16 suit le visage sans sortir de l'image", () => {
@@ -132,7 +132,7 @@ test("ambiance : sans couleur de marque, le Parlomix prend les couleurs de l'amb
   assert.equal(marine.marque, "#FF6B3D");
   assert.equal(marine.parole, "#FFD23F");
   assert.equal(themeDepuisCouleurs({}, null, "pop").marque, "#FF5C93");
-  assert.equal(themeDepuisCouleurs({}, null, "inconnue").marque, "#3F4C8F", "ambiance inconnue : Parlopop");
+  assert.equal(themeDepuisCouleurs({}, null, "inconnue").marque, "#3F4C8F", "ambiance inconnue : Parlobox");
   assert.equal(themeDepuisCouleurs({ principale: "#0F6E5A" }, null, "marine").marque, "#0F6E5A", "la marque reste prioritaire");
 });
 

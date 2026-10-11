@@ -1,4 +1,4 @@
-// Purge à échéance (Parlopop) : la durée de conservation promise aux visiteurs est respectée.
+// Purge à échéance (Parlobox) : la durée de conservation promise aux visiteurs est respectée.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ADMIN } from "./aide/env.ts";
