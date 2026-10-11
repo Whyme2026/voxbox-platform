@@ -31,7 +31,11 @@ async function appeler(api: string, chemin: string, init: RequestInit = {}): Pro
 export async function traiterTravail(id: string, api: string): Promise<void> {
   const dossier = await mkdtemp(join(tmpdir(), "whyme-prises-"));
   try {
-    const plan = (await (await appeler(api, `/api/montage/travaux/${id}`)).json()) as PlanMontage;
+    const reponse = await appeler(api, `/api/montage/travaux/${id}`);
+    // Une page HTML à la place du plan : la plateforme est derrière une protection (Cloudflare Access) qui ne laisse
+    // pas passer /api/montage/*.
+    if (!(reponse.headers.get("content-type") ?? "").includes("json")) throw new Error(`réponse inattendue de la plateforme (${reponse.url}) : /api/montage/* doit être ouvert dans Cloudflare Access`);
+    const plan = (await reponse.json()) as PlanMontage;
     const sources: string[] = [];
     for (const q of plan.questions) {
       const octets = new Uint8Array(await (await appeler(api, `/api/montage/prises/${id}/${q.id}`)).arrayBuffer());
