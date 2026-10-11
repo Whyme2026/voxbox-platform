@@ -1,7 +1,8 @@
 // Montage d'une interview Why me avec ffmpeg, en 9:16 (720 × 1280, H.264 + AAC, MP4 « faststart »).
-// Pour chaque question : un plan de 3 secondes qui la rappelle, comme un message reçu (bulle de conversation, avec
-// une courte signature sonore de notification), puis la réponse (blancs du début et de la fin coupés, logo why me,
-// prénom et âge en bas). Ni ouverture ni fermeture : le film commence et finit sur le candidat.
+// Ouverture de 3 secondes (« Découvrez Laurent en 52 secondes »), puis pour chaque question un plan de 3 secondes qui
+// la rappelle, comme un message reçu (bulle de conversation, avec une courte signature sonore de notification), puis
+// la réponse (blancs du début et de la fin coupés, logo why me, prénom et âge en bas). Pas de fermeture : le film
+// finit sur le candidat. Couleurs et motif viennent de la feuille de style de la campagne (plan.style).
 // Aucune dépendance Node ; ffmpeg et ffprobe doivent être installés (image Docker du service).
 
 import { execFile } from "node:child_process";
@@ -20,12 +21,30 @@ export interface PlanMontage {
   evenement: string;
   questions: { id: string; numero: number; carton: string; texte?: string; type: string; dureeMs: number | null; sonPresent: boolean }[];
   format: { largeur: number; hauteur: number };
+  /** Feuille de style (src/whyme/styles.ts) ; absente : la feuille « Bulles » par défaut. */
+  style?: StyleFilm;
 }
+
+export interface StyleFilm {
+  id: string;
+  couleurs: { accent: string; accentPale: string; fondFilm: string; discret: string; texteBulle: string };
+  motif: string | null;
+}
+
+const STYLE_DEFAUT: StyleFilm = {
+  id: "bulles",
+  couleurs: { accent: "#C6017C", accentPale: "#ECE6EA", fondFilm: "#FAF7F9", discret: "#8A7D86", texteBulle: "#FFFFFF" },
+  motif: null,
+};
+const MOTIFS = process.env.MONTAGE_MOTIFS ?? join(import.meta.dirname, "motifs");
+
+/** "#C6017C" → [198, 1, 124] ; "#C6017C" → "0xC6017C" pour ffmpeg. */
+export const rvb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const ff = (hex: string) => `0x${hex.slice(1)}`;
 
 const POLICES = process.env.MONTAGE_POLICES ?? join(import.meta.dirname, "polices");
 const GRAS = join(POLICES, "SourceSans3-Bold.ttf");
 const DEMI = join(POLICES, "SourceSans3-Semibold.ttf");
-const FUCHSIA = "0xC6017C";
 const ENCRE = "0x333333";
 const FPS = 30;
 
@@ -87,9 +106,7 @@ const SORTIE = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fm
 export const DUREE_QUESTION = 3;
 /** Instant où la bulle de la question arrive (après les points « en train d'écrire »), avec le son. */
 const ARRIVEE = 0.75;
-const FOND = [0xFA, 0xF7, 0xF9];
-const ROSE = [0xC6, 0x01, 0x7C];
-const GRIS_BULLE = [0xEC, 0xE6, 0xEA];
+export const DUREE_OUVERTURE = 3;
 
 /** Texte de la bulle : la question telle qu'elle a été posée si elle se lit en 3 secondes, sinon son titre court. */
 export function texteBulle(q: { carton: string; texte?: string }): string {
@@ -131,7 +148,8 @@ export function png(largeur: number, hauteur: number, rgba: Uint8Array): Uint8Ar
  * Bulle de conversation (rectangle aux coins arrondis + petite queue en bas à gauche), bords adoucis.
  * `points` : trois points « en train d'écrire » au centre au lieu d'un texte.
  */
-export function bulle(largeur: number, hauteur: number, couleur: number[], o: { rayon: number; queue: number; points?: number[] }): Uint8Array {
+export function bulle(largeur: number, hauteur: number, couleur: number[], o: { rayon: number; queue: number; points?: number[]; couleurPoints?: number[] }): Uint8Array {
+  const cp = o.couleurPoints ?? [0x8A, 0x7D, 0x86];
   const H = hauteur + o.queue;
   const px = new Uint8Array(largeur * H * 4);
   const r = o.rayon;
@@ -160,7 +178,7 @@ export function bulle(largeur: number, hauteur: number, couleur: number[], o: { 
           if (dd < 0.5) {
             const k = Math.min(1, 0.5 - dd);
             const i = (y * largeur + x) * 4;
-            px[i] = 0x8A * k + couleur[0]! * (1 - k); px[i + 1] = 0x7D * k + couleur[1]! * (1 - k); px[i + 2] = 0x86 * k + couleur[2]! * (1 - k); px[i + 3] = 255;
+            px[i] = cp[0]! * k + couleur[0]! * (1 - k); px[i + 1] = cp[1]! * k + couleur[1]! * (1 - k); px[i + 2] = cp[2]! * k + couleur[2]! * (1 - k); px[i + 3] = 255;
           }
         }
         const i = (y * largeur + x) * 4;
@@ -183,13 +201,42 @@ export function expressionSon(debut: number): string {
   return `${note(880, debut, 18, 0.11)}+${note(1318.5, debut + 0.11, 11, 0.1)}`;
 }
 
-async function planQuestion(dossier: string, i: number, total: number, q: { carton: string; texte?: string; numero: number }, plan: PlanMontage): Promise<string> {
+/** Durée lisible pour l'ouverture : « 52 secondes », « 1 minute 05 ». */
+export function dureeLisible(sec: number): string {
+  const s = Math.max(1, Math.round(sec));
+  if (s < 60) return `${s} seconde${s > 1 ? "s" : ""}`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r ? `${m} minute${m > 1 ? "s" : ""} ${String(r).padStart(2, "0")}` : `${m} minute${m > 1 ? "s" : ""}`;
+}
+
+/** Texte de l'écran d'ouverture du film. */
+export const texteOuverture = (prenom: string, dureeSec: number) => `Découvrez ${prenom} en ${dureeLisible(dureeSec)}`;
+
+/** Motif de la feuille de style (SVG rendu par ffmpeg) ; null si la feuille n'en a pas, ou s'il ne se rend pas. */
+async function motifPng(dossier: string, style: StyleFilm): Promise<string | null> {
+  if (!style.motif || !/^[a-z0-9-]+$/.test(style.motif)) return null;
+  const sortie = join(dossier, `motif-${style.motif}.png`);
+  try {
+    await executer("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", join(MOTIFS, `${style.motif}.svg`), "-vf", "scale=190:-1", "-frames:v", "1", sortie]);
+    return sortie;
+  } catch (e) {
+    console.warn(`Motif ${style.motif} non rendu : film sans motif`, e);
+    return null;
+  }
+}
+
+/**
+ * Un plan « message reçu » de 3 s : points « en train d'écrire », puis la bulle avec le texte et la signature sonore.
+ * Sert à l'ouverture (« Découvrez … ») et à chaque question.
+ */
+async function planBulle(dossier: string, nom: string, o: { surtitre: string; texte: string; taille: number; motif: string | null }, plan: PlanMontage): Promise<string> {
   const { largeur: L, hauteur: H } = plan.format;
+  const k = (plan.style ?? STYLE_DEFAUT).couleurs;
   const D = DUREE_QUESTION;
-  const texte = texteBulle(q);
-  let taille = 56;
-  let lignes = couperLignes(texte, 19);
-  if (lignes.length > 4) { taille = 46; lignes = couperLignes(texte, 24); }
+  let taille = o.taille;
+  let lignes = couperLignes(o.texte, Math.round(19 * 56 / taille));
+  if (lignes.length > 4) { taille = Math.round(taille * 0.82); lignes = couperLignes(o.texte, Math.round(19 * 56 / taille)); }
   const interligne = Math.round(taille * 1.22);
   const marge = 44;
   const largeurBulle = L - 2 * 56;
@@ -197,39 +244,43 @@ async function planQuestion(dossier: string, i: number, total: number, q: { cart
   const queue = 26;
   const xBulle = 56;
   const yBulle = Math.round(H * 0.47 - hauteurBulle / 2);
-  const fBulle = join(dossier, `bulle-${i}.png`);
-  await writeFile(fBulle, bulle(largeurBulle, hauteurBulle, ROSE, { rayon: 44, queue }));
+  const fBulle = join(dossier, `bulle-${nom}.png`);
+  await writeFile(fBulle, bulle(largeurBulle, hauteurBulle, rvb(k.accent), { rayon: 44, queue }));
   const largeurPoints = 150;
   const hauteurPoints = 84;
-  const fPoints = join(dossier, `points-${i}.png`);
-  await writeFile(fPoints, bulle(largeurPoints, hauteurPoints, GRIS_BULLE, { rayon: 42, queue: 18, points: [45, 75, 105] }));
+  const fPoints = join(dossier, `points-${nom}.png`);
+  await writeFile(fPoints, bulle(largeurPoints, hauteurPoints, rvb(k.accentPale), { rayon: 42, queue: 18, points: [45, 75, 105], couleurPoints: rvb(k.discret) }));
 
   // La bulle monte de 28 px en 0,25 s en apparaissant ; les points s'effacent à son arrivée.
   const glisse = `28*(1-min(max((t-${ARRIVEE})/0.25,0),1))`;
   const fondu = `min(max((t-${ARRIVEE})/0.18,0),1)`;
-  const fNum = join(dossier, `num-${i}.txt`);
-  await writeFile(fNum, `Question ${q.numero}/${total}`);
-  const textes = await Promise.all(lignes.map(async (l, k) => {
-    const f = join(dossier, `q${i}-${k}.txt`);
+  const fSur = join(dossier, `sur-${nom}.txt`);
+  await writeFile(fSur, o.surtitre);
+  const textes = await Promise.all(lignes.map(async (l, n) => {
+    const f = join(dossier, `t-${nom}-${n}.txt`);
     await writeFile(f, l);
-    const y = yBulle + marge + k * interligne;
-    return `drawtext=fontfile='${chemin(GRAS)}':textfile='${chemin(f)}':fontsize=${taille}:fontcolor=white:x=${xBulle + marge}:y='${y}+${glisse}':alpha='${fondu}'`;
+    const y = yBulle + marge + n * interligne;
+    return `drawtext=fontfile='${chemin(GRAS)}':textfile='${chemin(f)}':fontsize=${taille}:fontcolor=${ff(k.texteBulle)}:x=${xBulle + marge}:y='${y}+${glisse}':alpha='${fondu}'`;
   }));
+  // Motif (ex. piment) en haut à droite, incliné, présent tout le plan.
+  const avecMotif = o.motif !== null;
   const filtre = [
-    `color=c=0x${FOND.map((c) => c.toString(16).padStart(2, "0")).join("")}:s=${L}x${H}:r=${FPS}:d=${D}[fond]`,
+    `color=c=${ff(k.fondFilm)}:s=${L}x${H}:r=${FPS}:d=${D}[fond0]`,
+    avecMotif ? `[3:v]format=rgba,rotate=0.3:c=none:ow=rotw(0.3):oh=roth(0.3)[mot];[fond0][mot]overlay=x=W-w-24:y=70[fond]` : `[fond0]null[fond]`,
     `[1:v]format=rgba,fade=t=in:st=0.12:d=0.15:alpha=1,fade=t=out:st=${ARRIVEE - 0.12}:d=0.12:alpha=1[pts]`,
     `[2:v]format=rgba,fade=t=in:st=${ARRIVEE}:d=0.18:alpha=1[bul]`,
     `[fond][pts]overlay=x=${xBulle}:y=${yBulle}:enable='lt(t,${ARRIVEE})'[a]`,
     `[a][bul]overlay=x=${xBulle}:y='${yBulle}+${glisse}':eval=frame[b]`,
-    `[b]drawtext=fontfile='${chemin(DEMI)}':textfile='${chemin(fNum)}':fontsize=34:fontcolor=0x8A7D86:x=${xBulle + 6}:y=${yBulle - 70}:alpha='min(t/0.2,1)',`
-      + `drawtext=fontfile='${chemin(GRAS)}':text='why me':fontsize=38:fontcolor=0xC6017C:x=(w-text_w)/2:y=h-120,`
+    `[b]drawtext=fontfile='${chemin(DEMI)}':textfile='${chemin(fSur)}':fontsize=34:fontcolor=${ff(k.discret)}:x=${xBulle + 6}:y=${yBulle - 70}:alpha='min(t/0.2,1)',`
+      + `drawtext=fontfile='${chemin(GRAS)}':text='why me':fontsize=38:fontcolor=${ff(k.accent)}:x=(w-text_w)/2:y=h-120,`
       + `${textes.join(",")},fade=t=out:st=${D - 0.18}:d=0.18,format=yuv420p[v]`,
   ].join(";");
-  const sortie = join(dossier, `question-${i}.mp4`);
+  const sortie = join(dossier, `plan-${nom}.mp4`);
   await executer("ffmpeg", ["-hide_banner", "-y",
     "-f", "lavfi", "-t", String(D), "-i", `aevalsrc='${expressionSon(ARRIVEE)}|${expressionSon(ARRIVEE)}':s=48000:c=stereo`,
     "-loop", "1", "-t", String(D), "-i", fPoints,
     "-loop", "1", "-t", String(D), "-i", fBulle,
+    ...(avecMotif ? ["-loop", "1", "-t", String(D), "-i", o.motif!] : []),
     "-filter_complex", filtre, "-map", "[v]", "-map", "0:a", "-t", String(D), ...SORTIE, sortie], { maxBuffer: 1 << 24 });
   return sortie;
 }
@@ -254,7 +305,7 @@ async function reponse(dossier: string, i: number, source: string, plan: PlanMon
     // Image entière ramenée au 9:16 : on remplit puis on recadre au centre (visage centré au cadrage).
     `scale=${L}:${H}:force_original_aspect_ratio=increase`, `crop=${L}:${H}`, `fps=${FPS}`, "setsar=1",
     // Petit logo en haut à gauche, prénom (et âge) en bas, sur un bandeau blanc.
-    `drawtext=fontfile='${chemin(GRAS)}':textfile='${chemin(fLogo)}':fontsize=40:fontcolor=white:x=36:y=40:box=1:boxcolor=${FUCHSIA}@0.92:boxborderw=14`,
+    `drawtext=fontfile='${chemin(GRAS)}':textfile='${chemin(fLogo)}':fontsize=40:fontcolor=white:x=36:y=40:box=1:boxcolor=${ff((plan.style ?? STYLE_DEFAUT).couleurs.accent)}@0.92:boxborderw=14`,
     `drawtext=fontfile='${chemin(DEMI)}':textfile='${chemin(fNom)}':fontsize=44:fontcolor=${ENCRE}:x=36:y=h-150:box=1:boxcolor=white@0.94:boxborderw=18`,
     `fade=t=in:st=0:d=0.15`, `fade=t=out:st=${(duree - 0.2).toFixed(2)}:d=0.2`,
   ].join(",");
@@ -278,24 +329,28 @@ export interface ResultatMontage { mp4: Uint8Array; miniature: Uint8Array; duree
 export async function monter(plan: PlanMontage, sources: string[]): Promise<ResultatMontage> {
   const dossier = await mkdtemp(join(tmpdir(), "whyme-"));
   try {
+    const style = plan.style ?? STYLE_DEFAUT;
+    const motif = await motifPng(dossier, style);
     const morceaux: string[] = [];
     const total = plan.questions.length;
-    let dureeTotale = 0;
+    let dureeTotale = DUREE_OUVERTURE;
     for (const [i, q] of plan.questions.entries()) {
-      morceaux.push(await planQuestion(dossier, i, total, q, plan));
+      morceaux.push(await planBulle(dossier, `q${i}`, { surtitre: `Question ${q.numero}/${total}`, texte: texteBulle(q), taille: 56, motif }, plan));
       const r = await reponse(dossier, i, sources[i]!, plan);
       morceaux.push(r.fichier);
       dureeTotale += DUREE_QUESTION + r.duree;
     }
+    // Ouverture, montée en dernier : elle annonce la durée du film entier.
+    morceaux.unshift(await planBulle(dossier, "ouverture", { surtitre: plan.evenement ? `JobBox · ${plan.evenement}` : "JobBox", texte: texteOuverture(plan.prenom, dureeTotale), taille: 64, motif }, plan));
 
     const liste = join(dossier, "liste.txt");
     await writeFile(liste, morceaux.map((m) => `file '${m.replace(/'/g, "'\\''")}'`).join("\n"));
     const film = join(dossier, "montage.mp4");
     await executer("ffmpeg", ["-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", liste, "-c", "copy", "-movflags", "+faststart", film]);
 
-    // Miniature : une image de la première réponse, juste après le premier plan « question ».
+    // Miniature : une image de la première réponse, après l'ouverture et le premier plan « question ».
     const miniature = join(dossier, "miniature.jpg");
-    await executer("ffmpeg", ["-hide_banner", "-y", "-ss", String(DUREE_QUESTION + 0.8), "-i", film, "-frames:v", "1", "-vf", "scale=360:640", "-q:v", "5", miniature]);
+    await executer("ffmpeg", ["-hide_banner", "-y", "-ss", String(DUREE_OUVERTURE + DUREE_QUESTION + 0.8), "-i", film, "-frames:v", "1", "-vf", "scale=360:640", "-q:v", "5", miniature]);
 
     const verif = await ffprobe(film);
     if (!verif.audio) throw new Error("Montage sans piste son");

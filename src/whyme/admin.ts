@@ -15,6 +15,7 @@ import { empreinteTextes, genererTextes, validerConfig, type ConfigWhyme } from 
 import { campagneParId, campagnePourCandidat, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
 import { declencherMontage, etatServiceMontage, montageConfigure, planMontage } from "./montage.ts";
 import { expediteurWhyme } from "./courriels.ts";
+import { STYLES } from "./styles.ts";
 import { envoyerCourriel } from "../courriel.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -530,5 +531,11 @@ export function routesWhymeAdmin(r: Routeur): void {
       ligneJournal(ctx.env.DB, id.email, { action: "whyme.campagne.suppression", cibleType: "wm_campagne", cibleId: c.id, details: { nom: c.nom } }),
     ]);
     return json({ ok: true });
+  });
+
+  // Feuilles de style disponibles (src/whyme/styles.ts), pour l'éditeur.
+  r.get("/api/rh/styles", async (ctx) => {
+    await whyme(ctx, "gerer");
+    return json({ styles: STYLES });
   });
 }

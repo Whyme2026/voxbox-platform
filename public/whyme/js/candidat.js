@@ -11,7 +11,7 @@ import { creerVumetre, detecterVisage, diagnostic, enregistrer, mesurerImage, ou
 import { creerFileEnvoi } from "./envoi.js";
 
 /** @typedef {{ id: string, texte: string, dureeSec: number, lectureSec: number }} Question */
-/** @typedef {{ code: string, evenement: string, organisateur: string | null, accueil: { titre: string, message: string }, familles: { id: string, nom: string }[], questionEssai: { texte: string, dureeSec: number }, questions: Question[], ageAffiche: boolean, ageMinimum: number, validationAutoSec: number }} Campagne */
+/** @typedef {{ code: string, evenement: string, organisateur: string | null, accueil: { titre: string, message: string }, familles: { id: string, nom: string }[], questionEssai: { texte: string, dureeSec: number }, questions: Question[], ageAffiche: boolean, ageMinimum: number, validationAutoSec: number, tutoiement?: boolean, style?: any }} Campagne */
 
 const app = /** @type {HTMLElement} */ (document.getElementById("app"));
 const code = (location.pathname.match(/^\/i\/([a-z0-9-]+)/) ?? [])[1] ?? new URLSearchParams(location.search).get("code") ?? "";
@@ -42,6 +42,21 @@ const etat = {
 };
 
 // ------------------------------------------------------------------ outils
+
+/** Tutoiement (par défaut) ou vouvoiement, selon le réglage de la campagne. */
+const T = (/** @type {string} */ tu, /** @type {string} */ vous) => (etat.campagne?.tutoiement === false ? vous : tu);
+
+/** Feuille de style de la campagne : couleurs (variables CSS de whyme.css) et motif (data-style, motifs/). */
+function appliquerStyle(/** @type {any} */ style) {
+  if (!style?.couleurs) return;
+  const k = style.couleurs;
+  const r = document.documentElement.style;
+  r.setProperty("--fuchsia", k.accent); r.setProperty("--fuchsia-fonce", k.accentFonce); r.setProperty("--rose", k.accentPale);
+  r.setProperty("--greige", k.bulle); r.setProperty("--titre", k.titre); r.setProperty("--texte", k.texte); r.setProperty("--fond", k.fond);
+  document.documentElement.dataset.style = style.id;
+  if (style.motif) document.documentElement.dataset.motif = style.motif;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", k.accent);
+}
 
 const echapper = (/** @type {unknown} */ t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const attendre = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
@@ -112,6 +127,7 @@ async function demarrer() {
     }
   }
   etat.campagne = donnees.campagne;
+  appliquerStyle(etat.campagne.style);
   etat.entreprises = donnees.entreprises;
   etat.textes = donnees.textes;
   etat.empreinte = donnees.empreinte;
@@ -147,7 +163,7 @@ async function reprendre() {
   afficher(`<section class="ecran">${haut()}<div class="corps">
     <p class="surtitre">${echapper(etat.campagne.evenement)}</p>
     <h1>On reprend, ${echapper(etat.identite.prenom)} !</h1>
-    <p>Tes réponses déjà enregistrées sont gardées. ${restantes > 1 ? `Il te reste ${restantes} questions.` : restantes === 1 ? "Il te reste une question." : "Il ne reste qu'à terminer l'envoi."}</p>
+    <p>${T("Tes réponses déjà enregistrées sont gardées.", "Vos réponses déjà enregistrées sont gardées.")} ${restantes > 1 ? T(`Il te reste ${restantes} questions.`, `Il vous reste ${restantes} questions.`) : restantes === 1 ? T("Il te reste une question.", "Il vous reste une question.") : "Il ne reste qu'à terminer l'envoi."}</p>
     <div class="actions"><button class="bouton" data-choix="ok">Je reprends</button></div></div></section>`);
   await choix();
   await preparerFile();
@@ -161,12 +177,12 @@ async function accueil() {
   const c = etat.campagne;
   const n = c.questions.length;
   const minutes = Math.max(1, Math.round(c.questions.reduce((s, q) => s + q.dureeSec + q.lectureSec + 6, 30) / 60));
-  const probleme = diagnostic();
+  const probleme = diagnostic(c.tutoiement === false);
   afficher(`<section class="ecran">${haut()}<div class="corps">
     <p class="surtitre">JobBox · ${echapper(c.evenement)}</p>
     <h1>${echapper(c.accueil.titre).replace(/(Quelqu'un\.?)$/, '<span class="accent">$1</span>')}</h1>
     <div class="bulle">${echapper(c.accueil.message)}</div>
-    <div class="bulle">Sois toi-même : pas de piège, pas de note. Juste toi, en vidéo, pour les entreprises que tu choisis.</div>
+    <div class="bulle">${T("Sois toi-même : pas de piège, pas de note. Juste toi, en vidéo, pour les entreprises que tu choisis.", "Soyez vous-même : pas de piège, pas de note. Juste vous, en vidéo, pour les entreprises que vous choisissez.")}</div>
     <div class="chiffres"><div><strong>${n}</strong><span>questions</span></div><div><strong>${c.questions[0]?.dureeSec ?? 10} s</strong><span>par réponse</span></div><div><strong>${minutes} min</strong><span>en tout</span></div></div>
     ${probleme ? `<p class="alerte" role="alert">${echapper(probleme)}</p>` : ""}
   </div>
@@ -179,11 +195,11 @@ const nbEtapes = () => 4 + (etat.campagne.familles.length ? 1 : 0);
 
 async function etapeCv() {
   afficher(`<section class="ecran">${haut(`Étape 1 sur ${nbEtapes()}`)}<div class="corps">
-    <h2>Tu as un CV sur ton téléphone ?</h2>
-    <p>Il accompagnera ta vidéo chez les recruteurs. C'est facultatif.</p>
+    <h2>${T("Tu as un CV sur ton téléphone ?", "Vous avez un CV sur votre téléphone ?")}</h2>
+    <p>${T("Il accompagnera ta vidéo chez les recruteurs. C'est facultatif.", "Il accompagnera votre vidéo chez les recruteurs. C'est facultatif.")}</p>
     <label class="depot">
       <input type="file" id="cv" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
-      <span id="cv-texte">${etat.cv ? `<span class="nom-fichier">${echapper(etat.cv.name)}</span><br>Touche pour changer` : "<strong>Joindre mon CV</strong><br>PDF ou Word, 5 Mo au plus"}</span>
+      <span id="cv-texte">${etat.cv ? `<span class="nom-fichier">${echapper(etat.cv.name)}</span><br>${T("Touche pour changer", "Touchez pour changer")}` : "<strong>Joindre mon CV</strong><br>PDF ou Word, 5 Mo au plus"}</span>
     </label>
     <p class="erreur" id="cv-erreur" role="alert"></p>
   </div>
@@ -197,7 +213,7 @@ async function etapeCv() {
     if (!ok) { $("#cv-erreur").textContent = "Format non accepté : PDF ou Word seulement."; return; }
     if (f.size > 5 * 1024 * 1024) { $("#cv-erreur").textContent = "Ce fichier dépasse 5 Mo."; return; }
     etat.cv = f;
-    $("#cv-texte").innerHTML = `<span class="nom-fichier">${echapper(f.name)}</span><br>Touche pour changer`;
+    $("#cv-texte").innerHTML = `<span class="nom-fichier">${echapper(f.name)}</span><br>${T("Touche pour changer", "Touchez pour changer")}`;
     $("#cv-suite").hidden = false;
     $("#cv-sans").hidden = true;
   });
@@ -214,7 +230,7 @@ async function etapeIdentite() {
     <div class="champ"><label for="prenom">Prénom</label><input id="prenom" name="prenom" autocomplete="given-name" required maxlength="60" value="${echapper(i.prenom)}"></div>
     <div class="champ"><label for="nom">Nom</label><input id="nom" name="nom" autocomplete="family-name" required maxlength="80" value="${echapper(i.nom)}"></div>
     <div class="champ"><label for="email">E-mail</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required maxlength="200" value="${echapper(i.email)}">
-      <p class="vigilance">C'est là que tu recevras ta vidéo : vérifie-le bien.</p></div>
+      <p class="vigilance">${T("C'est là que tu recevras ta vidéo : vérifie-le bien.", "C'est là que vous recevrez votre vidéo : vérifiez-le bien.")}</p></div>
     <div class="champ"><label for="age">Âge</label><input id="age" name="age" type="number" inputmode="numeric" min="10" max="99" required value="${echapper(i.age)}">
       ${c.ageAffiche ? `<span class="aide">${echapper(etat.textes.informationAge ?? "")}</span>` : ""}</div>
     <p class="erreur" id="erreur" role="alert"></p>
@@ -229,10 +245,10 @@ async function etapeIdentite() {
       Object.assign(i, { prenom: v("prenom"), nom: v("nom"), email: v("email"), age: v("age") });
       const age = Number(i.age);
       let msg = "";
-      if (!i.prenom || !i.nom) msg = "Ton prénom et ton nom sont nécessaires.";
+      if (!i.prenom || !i.nom) msg = T("Ton prénom et ton nom sont nécessaires.", "Votre prénom et votre nom sont nécessaires.");
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(i.email)) msg = "Cette adresse e-mail ne semble pas complète.";
-      else if (!Number.isInteger(age) || age < 10 || age > 99) msg = "Indique ton âge.";
-      else if (age < c.ageMinimum) msg = `Cette interview est ouverte à partir de ${c.ageMinimum} ans. Rapproche-toi de l'équipe de la JobBox.`;
+      else if (!Number.isInteger(age) || age < 10 || age > 99) msg = T("Indique ton âge.", "Indiquez votre âge.");
+      else if (age < c.ageMinimum) msg = `Cette interview est ouverte à partir de ${c.ageMinimum} ans. ${T("Rapproche-toi", "Rapprochez-vous")} de l'équipe de la JobBox.`;
       $("#erreur").textContent = msg;
       if (!msg) ok();
     };
@@ -245,7 +261,7 @@ async function etapeIdentite() {
 
 async function etapeFamille() {
   afficher(`<section class="ecran">${haut(`Étape 3 sur ${nbEtapes()}`)}<div class="corps">
-    <h2>Quel métier t'attire ?</h2><p>Un seul choix.</p>
+    <h2>${T("Quel métier t'attire ?", "Quel métier vous attire ?")}</h2><p>Un seul choix.</p>
     <div class="choix" role="radiogroup">${etat.campagne.familles.map((f) => `<button class="option" role="radio" aria-checked="${etat.famille === f.id}" data-famille="${echapper(f.id)}">${echapper(f.nom)}</button>`).join("")}</div>
   </div><div class="actions"><button class="bouton" data-choix="suite" id="suite" ${etat.famille ? "" : "disabled"}>Continuer</button></div></section>`);
   app.querySelectorAll("[data-famille]").forEach((b) => b.addEventListener("click", () => {
@@ -260,7 +276,7 @@ async function etapeEntreprises() {
   const n = etat.campagne.familles.length ? 4 : 3;
   const initiales = (/** @type {string} */ nom) => nom.split(/\s+/).map((m) => m[0]).join("").slice(0, 2).toUpperCase();
   afficher(`<section class="ecran">${haut(`Étape ${n} sur ${nbEtapes()}`)}<div class="corps">
-    <h2>Chez qui veux-tu postuler ?</h2>
+    <h2>${T("Chez qui veux-tu postuler ?", "Chez qui voulez-vous postuler ?")}</h2>
     <p>Une ou plusieurs entreprises. <button class="lien-tout" id="tout">Tout sélectionner</button></p>
     <div class="grille" role="group" aria-label="Entreprises">${etat.entreprises.map((e) => `<button class="option entreprise" role="checkbox" aria-checked="${etat.choisies.has(e.id)}" data-entreprise="${echapper(e.id)}">
       ${e.logo ? `<img src="${echapper(e.logo)}" alt="">` : `<span class="initiales" aria-hidden="true">${echapper(initiales(e.nom))}</span>`}<span>${echapper(e.nom)}</span></button>`).join("")}</div>
@@ -287,8 +303,8 @@ async function etapeEntreprises() {
 async function etapeAccords() {
   const noms = etat.entreprises.filter((e) => etat.choisies.has(e.id)).map((e) => e.nom);
   afficher(`<section class="ecran">${haut(`Étape ${nbEtapes()} sur ${nbEtapes()}`)}<div class="corps">
-    <h2>Tes accords</h2>
-    <p>Ta candidature partira chez <strong>${echapper(noms.join(", "))}</strong> une fois ta vidéo montée.</p>
+    <h2>${T("Tes accords", "Vos accords")}</h2>
+    <p>${T("Ta candidature partira chez", "Votre candidature partira chez")} <strong>${echapper(noms.join(", "))}</strong> ${T("une fois ta vidéo montée.", "une fois votre vidéo montée.")}</p>
     <label class="case obligatoire"><input type="checkbox" id="c-candidature" ${etat.consentCandidature ? "checked" : ""}><span><strong>Transmettre ma candidature (obligatoire)</strong>Les entreprises choisies verront ma vidéo et mon CV pendant 12 mois.
       <details><summary>Le détail</summary>${echapper(etat.textes.candidature)}</details></span></label>
     <label class="case"><input type="checkbox" id="c-public" ${etat.consentPublic ? "checked" : ""}><span><strong>Ma page vidéo et mon QR code (facultatif)</strong>Pour partager ma vidéo sur mon CV ou LinkedIn. Je peux la supprimer quand je veux.
@@ -311,7 +327,7 @@ async function etapeAccords() {
       ok("ok");
     } catch (e) {
       const err = /** @type {any} */ (e);
-      $("#erreur").textContent = err.statut === 409 && err.code === "textes_changes" ? "Les conditions ont changé : recharge la page." : err.message || "Envoi impossible : vérifie ta connexion.";
+      $("#erreur").textContent = err.statut === 409 && err.code === "textes_changes" ? T("Les conditions ont changé : recharge la page.", "Les conditions ont changé : rechargez la page.") : err.message || T("Envoi impossible : vérifie ta connexion.", "Envoi impossible : vérifiez votre connexion.");
       bouton.disabled = false;
       bouton.textContent = "Je valide";
     }
@@ -347,7 +363,7 @@ async function preparerFile() {
     candidat: etat.id,
     jeton: () => etat.jeton,
     surRejet: (statut, message) => {
-      if (statut === 401) { oublier(); erreurBloquante("Interview reprise ailleurs", "Cette interview continue depuis le lien reçu par e-mail. Ouvre-le pour terminer."); }
+      if (statut === 401) { oublier(); erreurBloquante("Interview reprise ailleurs", T("Cette interview continue depuis le lien reçu par e-mail. Ouvre-le pour terminer.", "Cette interview continue depuis le lien reçu par e-mail. Ouvrez-le pour terminer.")); }
       else console.warn("Envoi refusé", statut, message);
     },
   });
@@ -412,10 +428,10 @@ function zoneDecompte(/** @type {string} */ boutons) {
 async function tournage() {
   // 1. Téléphone posé : le geste ouvre caméra et micro (autorisation) et garde l'écran allumé.
   afficher(`<section class="ecran">${haut()}<div class="corps">
-    <h2>Installe ton téléphone</h2>
-    <div class="bulle">Pose-le sur le support, <strong>en portrait</strong>, à hauteur de tes yeux.</div>
-    <div class="bulle">Ensuite, ne le touche plus : tout s'enchaîne tout seul. Tu n'auras à toucher l'écran que pour revoir ou refaire une réponse.</div>
-    <div class="bulle">Pas de support ? Cale-le face à toi, à environ un bras de distance.</div>
+    <h2>${T("Installe ton téléphone", "Installez votre téléphone")}</h2>
+    <div class="bulle">${T("Pose-le sur le support, <strong>en portrait</strong>, à hauteur de tes yeux.", "Posez-le sur le support, <strong>en portrait</strong>, à hauteur de vos yeux.")}</div>
+    <div class="bulle">${T("Ensuite, ne le touche plus : tout s'enchaîne tout seul. Tu n'auras à toucher l'écran que pour revoir ou refaire une réponse.", "Ensuite, ne le touchez plus : tout s'enchaîne tout seul. Vous n'aurez à toucher l'écran que pour revoir ou refaire une réponse.")}</div>
+    <div class="bulle">${T("Pas de support ? Cale-le face à toi, à environ un bras de distance.", "Pas de support ? Calez-le face à vous, à environ un bras de distance.")}</div>
     <p class="erreur" id="erreur" role="alert"></p>
   </div><div class="actions"><button class="bouton" id="pret">Mon téléphone est en place</button></div></section>`);
   await new Promise((/** @type {(v?: unknown) => void} */ ok) => {
@@ -427,7 +443,7 @@ async function tournage() {
         try { etat.verrouEcran = await /** @type {any} */ (navigator).wakeLock?.request("screen"); } catch { /* facultatif */ }
         ok();
       } catch (e) {
-        $("#erreur").textContent = "Impossible d'ouvrir la caméra et le micro. Autorise-les dans les réglages de ton navigateur, puis réessaie.";
+        $("#erreur").textContent = T("Impossible d'ouvrir la caméra et le micro. Autorise-les dans les réglages de ton navigateur, puis réessaie.", "Impossible d'ouvrir la caméra et le micro. Autorisez-les dans les réglages de votre navigateur, puis réessayez.");
         console.error(e);
       }
     });
@@ -452,12 +468,12 @@ async function tournage() {
 async function cadrage() {
   const s = /** @type {HTMLElement} */ (scene);
   $(".silhouette", s).hidden = false;
-  bandeau(`<p class="surtitre">Réglage</p><p class="question">Place ton visage dans la silhouette</p><p class="consigne">Puis dis « bonjour » à voix haute.</p>`);
+  bandeau(`<p class="surtitre">Réglage</p><p class="question">${T("Place ton visage dans la silhouette", "Placez votre visage dans la silhouette")}</p><p class="consigne">${T("Puis dis « bonjour » à voix haute.", "Puis dites « bonjour » à voix haute.")}</p>`);
   const video = /** @type {HTMLVideoElement} */ ($("video.camera", s));
   const debut = performance.now();
   let voixMs = 0, okDepuis = 0, precedent = performance.now(), forcer = false;
   const avecVisage = /** @type {any} */ (window).FaceDetector !== undefined;
-  bas(`<div class="verifs"><ul><li id="v-lumiere"><span class="etat">…</span><span>Lumière</span></li><li id="v-son"><span class="etat">…</span><span>Son : dis « bonjour »</span></li>${avecVisage ? `<li id="v-visage"><span class="etat">…</span><span>Visage dans la silhouette</span></li>` : ""}</ul></div><p class="message" id="conseil" hidden></p><button class="bouton secondaire" id="forcer" hidden>Continuer quand même</button>`);
+  bas(`<div class="verifs"><ul><li id="v-lumiere"><span class="etat">…</span><span>Lumière</span></li><li id="v-son"><span class="etat">…</span><span>${T("Son : dis « bonjour »", "Son : dites « bonjour »")}</span></li>${avecVisage ? `<li id="v-visage"><span class="etat">…</span><span>Visage dans la silhouette</span></li>` : ""}</ul></div><p class="message" id="conseil" hidden></p><button class="bouton secondaire" id="forcer" hidden>Continuer quand même</button>`);
   $("#forcer").addEventListener("click", () => { forcer = true; });
   const marquer = (/** @type {string} */ id, /** @type {boolean | null} */ ok) => {
     const li = document.getElementById(id);
@@ -478,17 +494,17 @@ async function cadrage() {
     let conseil = "";
     if (avecVisage) {
       const v = await detecterVisage(video);
-      if (v === null) { visage = false; conseil = "On ne voit pas ton visage : place-toi face au téléphone."; }
+      if (v === null) { visage = false; conseil = T("On ne voit pas ton visage : place-toi face au téléphone.", "On ne voit pas votre visage : placez-vous face au téléphone."); }
       else if (v) {
         visage = v.largeur > 0.2 && v.x > 0.28 && v.x < 0.72 && v.y > 0.2 && v.y < 0.62;
-        if (v.largeur <= 0.2) conseil = "Rapproche-toi un peu.";
-        else if (v.y >= 0.62) conseil = "Monte un peu le téléphone.";
-        else if (v.y <= 0.2) conseil = "Descends un peu le téléphone.";
-        else if (v.x <= 0.28 || v.x >= 0.72) conseil = "Centre-toi dans la silhouette.";
+        if (v.largeur <= 0.2) conseil = T("Rapproche-toi un peu.", "Rapprochez-vous un peu.");
+        else if (v.y >= 0.62) conseil = T("Monte un peu le téléphone.", "Montez un peu le téléphone.");
+        else if (v.y <= 0.2) conseil = T("Descends un peu le téléphone.", "Descendez un peu le téléphone.");
+        else if (v.x <= 0.28 || v.x >= 0.72) conseil = T("Centre-toi dans la silhouette.", "Centrez-vous dans la silhouette.");
       }
     }
-    if (!lumiere) conseil = img.moyenne <= 55 ? "C'est un peu sombre : tourne-toi vers la lumière." : "Il y a du contre-jour : évite d'avoir une fenêtre derrière toi.";
-    else if (!son && !conseil) conseil = "Dis « bonjour » à voix haute.";
+    if (!lumiere) conseil = img.moyenne <= 55 ? T("C'est un peu sombre : tourne-toi vers la lumière.", "C'est un peu sombre : tournez-vous vers la lumière.") : T("Il y a du contre-jour : évite d'avoir une fenêtre derrière toi.", "Il y a du contre-jour : évitez d'avoir une fenêtre derrière vous.");
+    else if (!son && !conseil) conseil = T("Dis « bonjour » à voix haute.", "Dites « bonjour » à voix haute.");
     marquer("v-lumiere", lumiere);
     marquer("v-son", son ? true : null);
     if (avecVisage) marquer("v-visage", visage);
@@ -531,12 +547,12 @@ async function question(/** @type {Question} */ q, /** @type {number} */ n, /** 
     await decompte(q.lectureSec, (r) => maj(anneau(r, q.lectureSec)));
     const prise = await prendre(q.dureeSec);
     const auto = etat.campagne.validationAutoSec;
-    let decision = await decider({ titre: prise.sonPresent ? "On garde ?" : "On t'a peu entendu : revois-la si tu veux", garder: "On garde", revoir: "Je veux la revoir", auto: prise.sonPresent ? auto : auto + 3 });
+    let decision = await decider({ titre: prise.sonPresent ? "On garde ?" : T("On t'a peu entendu : revois-la si tu veux", "On vous a peu entendu : revoyez-la si vous voulez"), garder: "On garde", revoir: "Je veux la revoir", auto: prise.sonPresent ? auto : auto + 3 });
     if (decision === "revoir") decision = await relire(prise.blob, "Je garde", reprise ? null : "Je refais", auto);
     if (decision === "refaire" && !reprise) {
       reprise = true;
       etat.reprisesUtilisees.add(q.id);
-      bas(`<p class="message">Vérifie ton cadrage, on recommence.</p>`);
+      bas(`<p class="message">${T("Vérifie ton cadrage, on recommence.", "Vérifiez votre cadrage, on recommence.")}</p>`);
       await attendre(2000);
       continue;
     }
@@ -547,7 +563,7 @@ async function question(/** @type {Question} */ q, /** @type {number} */ n, /** 
 
 /** Enregistre `dureeSec` secondes ; « J'ai terminé » arrête plus tôt. */
 async function prendre(/** @type {number} */ dureeSec) {
-  bas(`<span class="enregistre">On t'écoute</span><div id="minuteur">${anneau(dureeSec, dureeSec)}</div><div class="vumetre"><i id="vu"></i></div><button class="bouton discret" id="stop">J'ai terminé</button>`);
+  bas(`<span class="enregistre">${T("On t'écoute", "On vous écoute")}</span><div id="minuteur">${anneau(dureeSec, dureeSec)}</div><div class="vumetre"><i id="vu"></i></div><button class="bouton discret" id="stop">J'ai terminé</button>`);
   const rec = enregistrer({
     flux: /** @type {MediaStream} */ (etat.flux), vumetre: /** @type {any} */ (etat.vumetre), dureeSec,
     surTemps: (ecoule, niveau) => {
@@ -576,7 +592,7 @@ async function relire(/** @type {Blob} */ blob, /** @type {string} */ garder, /*
   v.src = url; v.hidden = false; v.muted = false;
   bandeau("");
   const boutons = `<button class="bouton" data-choix="garder">${echapper(garder)}</button>${refaire ? `<button class="bouton secondaire" data-choix="refaire">${echapper(refaire)}</button>` : ""}`;
-  bas(`<p class="message">Ta réponse</p>${boutons}`);
+  bas(`<p class="message">${T("Ta réponse", "Votre réponse")}</p>${boutons}`);
   const finLecture = new Promise((r) => { v.onended = r; v.onerror = r; });
   try { await v.play(); } catch { /* lecture refusée : on passe directement au choix */ }
   const arret = new AbortController();
@@ -611,8 +627,8 @@ async function garder(/** @type {Question} */ q, /** @type {{ blob: Blob, type: 
 async function fin(dejaTermine = false) {
   const prenom = etat.identite.prenom;
   if (!dejaTermine) {
-    afficher(`<section class="ecran">${haut()}<div class="corps"><h2>Envoi de tes réponses…</h2>
-      <p>Garde cette page ouverte quelques secondes.</p><div class="progression"><i id="barre"></i></div><p id="etat-envoi" role="status"></p></div></section>`);
+    afficher(`<section class="ecran">${haut()}<div class="corps"><h2>${T("Envoi de tes réponses…", "Envoi de vos réponses…")}</h2>
+      <p>${T("Garde cette page ouverte quelques secondes.", "Gardez cette page ouverte quelques secondes.")}</p><div class="progression"><i id="barre"></i></div><p id="etat-envoi" role="status"></p></div></section>`);
     const total = Math.max(1, (await etat.file?.restants()) ?? 1);
     const suivi = setInterval(async () => {
       const r = (await etat.file?.restants()) ?? 0;
@@ -641,10 +657,10 @@ async function fin(dejaTermine = false) {
   }
   afficher(`<section class="ecran">${haut()}<div class="corps">
     <h1>Merci${prenom ? ` ${echapper(prenom)}` : ""} !</h1>
-    <div class="bulle">Ta vidéo est en cours de montage.</div>
-    <div class="bulle">Tu la recevras par e-mail dans quelques minutes, avec ton QR code à ajouter à ton CV.</div>
-    <div class="bulle">Pense à regarder tes courriers indésirables.</div>
-    <p style="margin-top:20px">Tu peux reprendre ton téléphone.</p>
+    <div class="bulle">${T("Ta vidéo est en cours de montage.", "Votre vidéo est en cours de montage.")}</div>
+    <div class="bulle">${T("Tu la recevras par e-mail dans quelques minutes, avec ton QR code à ajouter à ton CV.", "Vous la recevrez par e-mail dans quelques minutes, avec votre QR code à ajouter à votre CV.")}</div>
+    <div class="bulle">${T("Pense à regarder tes courriers indésirables.", "Pensez à regarder vos courriers indésirables.")}</div>
+    <p style="margin-top:20px">${T("Tu peux reprendre ton téléphone.", "Vous pouvez reprendre votre téléphone.")}</p>
   </div></section>`);
 }
 
@@ -652,11 +668,11 @@ async function fin(dejaTermine = false) {
 const surOrientation = () => {
   const paysage = window.innerWidth > window.innerHeight * 1.1 && window.innerWidth < 1100;
   document.body.dataset.paysage = String(paysage);
-  if (scene && paysage) bandeau(`<p class="question">Tourne ton téléphone en portrait</p>`);
+  if (scene && paysage) bandeau(`<p class="question">${T("Tourne ton téléphone en portrait", "Tournez votre téléphone en portrait")}</p>`);
 };
 window.addEventListener("resize", surOrientation);
 
 demarrer().catch((e) => {
   console.error(e);
-  erreurBloquante("Oups", "Quelque chose s'est mal passé. Recharge la page : tes réponses déjà envoyées sont gardées.");
+  erreurBloquante("Oups", T("Quelque chose s'est mal passé. Recharge la page : tes réponses déjà envoyées sont gardées.", "Quelque chose s'est mal passé. Rechargez la page : vos réponses déjà envoyées sont gardées."));
 });

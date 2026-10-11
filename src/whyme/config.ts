@@ -4,6 +4,7 @@
 // wm_campagne_entreprises. Rien n'est propre à un événement dans le code.
 
 import { invalide } from "../http.ts";
+import { STYLE_DEFAUT, STYLES } from "./styles.ts";
 
 export interface QuestionWhyme {
   id: string;
@@ -34,6 +35,10 @@ export interface ConfigWhyme {
   ageMinimum: number;
   /** Secondes de l'écran « On garde ? » avant de garder la prise sans geste du candidat. */
   validationAutoSec: number;
+  /** Tutoiement (par défaut, comme l'expérience why me) ou vouvoiement du candidat : écrans, textes, e-mails. */
+  tutoiement: boolean;
+  /** Feuille de style (src/whyme/styles.ts) : téléphone, film monté, e-mails. */
+  style: string;
 }
 
 export const DUREE_MIN = 5;
@@ -115,6 +120,12 @@ export function validerConfig(brut: unknown): ConfigWhyme {
     ageAffiche: c.ageAffiche === undefined ? true : Boolean(c.ageAffiche),
     ageMinimum: entier(c.ageMinimum, "Âge minimum", 14, 30, 15),
     validationAutoSec: entier(c.validationAutoSec, "Validation automatique", 3, 15, 5),
+    tutoiement: c.tutoiement === undefined ? true : Boolean(c.tutoiement),
+    style: (() => {
+      const id = c.style === undefined || c.style === null || c.style === "" ? STYLE_DEFAUT : c.style;
+      if (typeof id !== "string" || !STYLES.some((x) => x.id === id)) throw invalide(`Feuille de style inconnue : ${String(id)}`);
+      return id;
+    })(),
   };
 }
 
@@ -130,7 +141,8 @@ export interface TextesWhyme {
 }
 
 /**
- * Textes de consentement (au tutoiement, comme toute l'expérience candidat). Générés à partir de la configuration
+ * Textes de consentement (à la première personne : c'est le candidat qui accepte ; la note sur l'âge suit le
+ * tutoiement ou le vouvoiement de la campagne). Générés à partir de la configuration
  * et des entreprises : la preuve du consentement renvoie à leur empreinte. À faire relire par un avocat ou un DPO.
  */
 export function genererTextes(config: ConfigWhyme): TextesWhyme {
@@ -145,7 +157,9 @@ export function genererTextes(config: ConfigWhyme): TextesWhyme {
       `Elle reste en ligne ${LIEN_PUBLIC_MOIS} mois, et je peux la supprimer à tout moment depuis l'e-mail que je recevrai. ` +
       `Responsable : ${WHYNOT.nom}, ${WHYNOT.contact}.`,
     informationAge: config.ageAffiche
-      ? "Ton prénom et ton âge apparaîtront sur la vidéo envoyée aux recruteurs."
+      ? config.tutoiement === false
+        ? "Votre prénom et votre âge apparaîtront sur la vidéo envoyée aux recruteurs."
+        : "Ton prénom et ton âge apparaîtront sur la vidéo envoyée aux recruteurs."
       : null,
   };
 }

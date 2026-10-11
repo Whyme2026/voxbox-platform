@@ -8,7 +8,9 @@ import { traiter } from "../src/index.ts";
 import { ADMIN, client, creerEnv } from "./aide/env.ts";
 import { ajouterMois, validerConfig } from "../src/whyme/config.ts";
 import { tachesWhyme } from "../src/whyme/taches.ts";
-import { couperLignes, bornesParole, texteBulle, bulle, expressionSon, DUREE_QUESTION } from "../montage/monter.ts";
+import { couperLignes, bornesParole, texteBulle, bulle, expressionSon, DUREE_QUESTION, DUREE_OUVERTURE, dureeLisible, texteOuverture, rvb } from "../montage/monter.ts";
+import { STYLES, styleParId } from "../src/whyme/styles.ts";
+import { courrielReprise, courrielVideoPrete } from "../src/whyme/courriels.ts";
 import { ENTETE_SIGNATURE, signer } from "../montage/signature.ts";
 
 const modele = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/whyme-campagne-demo.json"), "utf8"));
@@ -551,4 +553,60 @@ test("Why me : espace RH, création simple et fiches créées par erreur", async
   assert.equal((await api("POST", "/api/rh/recruteurs", ADMIN, { email: "raoul@exemple.fr", entreprise_id: verkor })).status, 201);
   const ents = (await api("GET", "/api/rh/entreprises", ADMIN)).corps.entreprises;
   assert.equal(ents.find((e: any) => e.id === verkor).campagnes, 1);
+});
+
+test("Why me : tutoiement ou vouvoiement, feuilles de style (téléphone, film, e-mails)", async () => {
+  // Configuration : tutoiement et « Bulles » par défaut ; une feuille inconnue est refusée.
+  const c = validerConfig(modele);
+  assert.equal(c.tutoiement, true);
+  assert.equal(c.style, "bulles");
+  assert.equal(validerConfig({ ...modele, tutoiement: false, style: "epices" }).style, "epices");
+  assert.throws(() => validerConfig({ ...modele, style: "inconnue" }), /Feuille de style inconnue/);
+  assert.equal(styleParId("absente").id, "bulles");
+  // Chaque feuille a toutes ses couleurs en #RRGGBB, et son motif existe des deux côtés (téléphone et montage).
+  for (const st of STYLES) {
+    for (const [k, v] of Object.entries(st.couleurs)) assert.match(v, /^#[0-9A-F]{6}$/i, `${st.id}.${k}`);
+    if (st.motif) {
+      const film = readFileSync(join(import.meta.dirname, `../montage/motifs/${st.motif}.svg`), "utf8");
+      assert.equal(readFileSync(join(import.meta.dirname, `../public/whyme/motifs/${st.motif}.svg`), "utf8"), film);
+    }
+  }
+  assert.deepEqual(rvb("#C8102E"), [200, 16, 46]);
+
+  // Une campagne vouvoyée, feuille « Épices » : le téléphone reçoit le registre et la feuille ; le service de montage aussi.
+  const { api, pfa, verkor, candidat, telephone, monter, db } = await preparer();
+  const cp = await api("POST", "/api/rh/campagnes", ADMIN, { nom: "Épices", code: "epices", client_id: pfa, config: { ...modele, tutoiement: false, style: "epices" }, entreprises: [verkor] });
+  assert.equal(cp.status, 201, JSON.stringify(cp.corps));
+  await api("POST", `/api/rh/campagnes/${cp.corps.campagne.id}/statut`, ADMIN, { statut: "active" });
+  const pub = (await api("GET", "/api/whyme/campagnes/epices")).corps;
+  assert.equal(pub.campagne.tutoiement, false);
+  assert.equal(pub.campagne.style.id, "epices");
+  assert.equal(pub.campagne.style.motif, "piment");
+  assert.match(pub.textes.informationAge, /^Votre prénom/);
+  // La campagne par défaut reste au tutoiement, en « Bulles ».
+  const t = await candidat();
+  await telephone("POST", `/api/whyme/candidats/${t.id}/terminer`, t.jeton);
+  const plan = await monter(t.id);
+  assert.equal(plan.style.id, "bulles");
+  const mail = db.sqlite.prepare("SELECT sujet, html FROM wm_courriels WHERE sorte = 'video_prete'").get() as any;
+  assert.equal(mail.sujet, "Ta vidéo WhyMe est prête !");
+  assert.ok(mail.html.includes("#C6017C"));
+
+  // E-mails au vouvoiement, aux couleurs de la feuille.
+  const v = courrielVideoPrete({ prenom: "Raoul", evenement: "Salon", entreprises: ["A"], aCv: false, lienVideo: null, lienSticker: null, lienGestion: "g", lienConfidentialite: "c", vous: true, accent: "#C8102E" });
+  assert.equal(v.sujet, "Votre vidéo WhyMe est prête !");
+  assert.match(v.texte, /^Bonjour Raoul,/);
+  assert.match(v.texte, /Vous gardez la main/);
+  assert.doesNotMatch(v.texte, /\b(ton|ta|tes|tu)\b/);
+  assert.ok(v.html.includes("#C8102E"));
+  const r = courrielReprise("Raoul", "Salon", "lien", { vous: true });
+  assert.equal(r.sujet, "Votre interview WhyMe vous attend");
+  assert.doesNotMatch(r.texte, /\b(ton|ta|tes|tu|reprends)\b/);
+
+  // Ouverture du film : « Découvrez Raoul en 52 secondes », durée du film entier.
+  assert.equal(DUREE_OUVERTURE, 3);
+  assert.equal(texteOuverture("Raoul", 51.6), "Découvrez Raoul en 52 secondes");
+  assert.equal(dureeLisible(1), "1 seconde");
+  assert.equal(dureeLisible(65), "1 minute 05");
+  assert.equal(dureeLisible(120), "2 minutes");
 });

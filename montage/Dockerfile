@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certi
 WORKDIR /app
 COPY monter.ts serveur.ts signature.ts ./
 COPY polices ./polices
+COPY motifs ./motifs
 ENV PORT=8080 NODE_ENV=production
 EXPOSE 8080
 CMD ["node", "--no-warnings", "serveur.ts"]

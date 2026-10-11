@@ -102,3 +102,16 @@ details.avance summary { cursor: pointer; color: var(--doux); font-weight: 600; 
 .entete-page .boutons { align-items: center; }
 /* Lecture seule (campagne ouverte ou close) : les champs se voient figés. */
 .editeur input:disabled, .editeur textarea:disabled, .editeur select:disabled { background: var(--fond); color: var(--doux); border-style: dashed; cursor: not-allowed; }
+
+/* Aperçus aux couleurs de la feuille de style (variables posées par l'éditeur). */
+.telephone { background: var(--tel-fond, #FBF8F9); position: relative; }
+.tel-corps .tel-bulle { background: var(--tel-bulle, #F6F5F3); border-radius: 4px 12px 12px 12px; padding: 7px 9px; }
+.tel-chiffres span { background: var(--tel-pale, #fff); }
+.film-question { background: var(--film-fond, #FAF7F9); }
+.film-num { color: var(--film-discret, #8A7D86); }
+.film-bulle.ouverture { font-size: 18px; }
+.film-legende { position: absolute; left: 0; right: 0; bottom: 3%; text-align: center; font-size: 10px; color: var(--doux); }
+.film-logo { bottom: 9%; }
+.motif-tel { position: absolute; top: 34px; right: 8px; width: 30px; transform: rotate(16deg); pointer-events: none; }
+.motif-film { position: absolute; top: 5%; right: 4%; width: 22%; transform: rotate(17deg); pointer-events: none; }
+.telephone:has(.motif-tel) .tel-haut { padding-right: 44px; }

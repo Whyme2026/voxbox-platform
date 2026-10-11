@@ -9,6 +9,7 @@ import { empreinteJeton } from "../auth/cabine.ts";
 import { journaliser } from "../journal.ts";
 import { servirMiniature, servirVideo } from "../media.ts";
 import { campagneParId, candidatParId, JETON, supprimerCandidat, supprimerVideo, type CandidatRow } from "./commun.ts";
+import { styleParId } from "./styles.ts";
 import { stickerPng } from "./sticker.ts";
 
 const CODE = /^[A-HJ-NP-Z2-9]{10}$/;
@@ -39,7 +40,8 @@ export function routesWhymePublic(r: Routeur): void {
   r.get("/api/whyme/videos/:code", async (ctx) => {
     const c = await videoPublique(ctx.env, ctx.params.code!);
     const camp = await campagneParId(ctx.env.DB, c.campagne_id);
-    return json({ prenom: c.prenom, evenement: camp.config.evenement, aMiniature: Boolean(c.miniature_cle) });
+    const style = styleParId(camp.config.style);
+    return json({ prenom: c.prenom, evenement: camp.config.evenement, aMiniature: Boolean(c.miniature_cle), style: { id: style.id, couleurs: style.couleurs, motif: style.motif } });
   });
 
   // Lecture en continu ; pas de téléchargement proposé (le candidat ne télécharge pas sa vidéo, décision du 11/10/2026).

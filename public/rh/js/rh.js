@@ -209,7 +209,7 @@ async function campagne(/** @type {string} */ id, /** @type {string} */ onglet) 
       cle === "interviews" ? `${lib} (${c.candidats})` : lib)));
 
   /** @type {any} */ let corps;
-  if (actif === "questionnaire") corps = ongletQuestionnaire(c, clients, toutes, recharger);
+  if (actif === "questionnaire") corps = ongletQuestionnaire(c, clients, toutes, recharger, (await api("/api/rh/styles")).styles);
   else if (actif === "interviews") corps = await ongletInterviews(c);
   else if (actif === "lien") corps = ongletLien(c);
   else corps = vueStatistiques(await api(`/api/rh/campagnes/${id}/statistiques`), "Ce que voit le client dans son espace : des statistiques, jamais un candidat.");
@@ -218,7 +218,7 @@ async function campagne(/** @type {string} */ id, /** @type {string} */ onglet) 
     bandeau, onglets, corps);
 }
 
-function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients, /** @type {any[]} */ toutes, /** @type {() => void} */ recharger) {
+function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients, /** @type {any[]} */ toutes, /** @type {() => void} */ recharger, /** @type {any[]} */ styles) {
   // Identité de la campagne : nom interne et client (modifiables à tout moment).
   const nom = /** @type {HTMLInputElement} */ (h("input", { value: c.nom, maxlength: 80 }));
   const client = /** @type {HTMLSelectElement} */ (h("select", {}, h("option", { value: "" }, "Choisir…"), ...clients.map((x) => h("option", { value: x.id, selected: x.id === c.client_id }, x.nom))));
@@ -243,6 +243,7 @@ function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients,
       window.open("/i/apercu", "_blank");
     },
     modele: async () => structuredClone(await chargerModele()),
+    styles,
   });
   return h("div", { class: "pile" }, identite, editeur);
 }

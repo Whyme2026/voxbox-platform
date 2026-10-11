@@ -10,6 +10,7 @@ import { empreinteJeton, nouveauJeton } from "../auth/cabine.ts";
 import { journaliser } from "../journal.ts";
 import { campagneParId, candidatParId, supprimerCandidat } from "./commun.ts";
 import { courrielReprise, envoyerWhyme } from "./courriels.ts";
+import { styleParId } from "./styles.ts";
 import { declencherMontage, ESSAIS_MAX, montageConfigure } from "./montage.ts";
 
 const PURGE = "purge automatique";
@@ -41,7 +42,8 @@ export async function tachesWhyme(env: Env): Promise<BilanTaches> {
     const jeton = nouveauJeton();
     const camp = await campagneParId(env.DB, c.campagne_id);
     await env.DB.prepare("UPDATE wm_candidats SET jeton_empreinte = ?, reprise_envoyee_le = ? WHERE id = ?").bind(await empreinteJeton(jeton), t, c.id).run();
-    await envoyerWhyme(env, c.email, "reprise", courrielReprise(c.prenom, camp.config.evenement, `${c.origine}/i/${c.code}#reprise=${c.id}.${jeton}`));
+    await envoyerWhyme(env, c.email, "reprise", courrielReprise(c.prenom, camp.config.evenement, `${c.origine}/i/${c.code}#reprise=${c.id}.${jeton}`,
+      { vous: camp.config.tutoiement === false, accent: styleParId(camp.config.style).couleurs.accent }));
     bilan.reprises++;
   }
 

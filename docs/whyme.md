@@ -109,3 +109,15 @@ navigateur et passe pour du silence.
 - Corrigé : après une action réussie (ajout d'entreprise, de client, de contact, de recruteur, d'un membre de
   l'équipe), la page affichait « … is not a function » : la fonction de la page était masquée par une variable du
   même nom. Les pages s'appellent désormais pageClients, pageEntreprises, etc.
+
+## Tutoiement ou vouvoiement, feuilles de style, ouverture du film (12/10/2026)
+- **Registre** (`config.tutoiement`, vrai par défaut) : tous les écrans du téléphone, la note sur l'âge, le
+  diagnostic du navigateur et les e-mails (vidéo prête, reprise) suivent. Les textes écrits dans l'éditeur (accueil,
+  questions) ne sont pas convertis : l'éditeur le rappelle.
+- **Feuilles de style** (`config.style`, `src/whyme/styles.ts`) : couleurs (variables CSS de `whyme.css` posées par
+  le téléphone et la page vidéo publique ; couleurs du film ; accent des e-mails) et motif (`montage/motifs/` et
+  `public/whyme/motifs/`, mêmes fichiers). « Bulles » par défaut ; « Épices » (rouge piment, safran, cannelle, fond
+  crème, piment rouge). Ajouter une feuille : une entrée dans `STYLES`, et son motif SVG des deux côtés.
+- **Ouverture du film** : 3 s avant le premier plan « question », même mécanique (points, bulle, signature sonore)
+  et même feuille de style : « Découvrez Laurent en 52 secondes », durée du film entier (ouverture comprise).
+  Les motifs SVG sont rendus par ffmpeg (librsvg) ; s'il ne sait pas, le film se monte sans motif.

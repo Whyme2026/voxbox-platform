@@ -36,6 +36,7 @@ export const texteBulle = (/** @type {{ texte?: string, carton?: string }} */ q)
  *   enregistrer: (config: any, entreprises: string[]) => Promise<void>,
  *   apercu: (config: any, entreprises: string[]) => Promise<void>,
  *   modele: () => Promise<any>,
+ *   styles: { id: string, nom: string, description: string, couleurs: Record<string, string>, motif: string | null }[],
  *   apresEnregistrement?: () => void,
  * }} o
  */
@@ -46,6 +47,8 @@ export function editeurCampagne(o) {
   c.questionEssai ??= { texte: "", dureeSec: 6 };
   c.familles ??= [];
   c.questions ??= [];
+  c.tutoiement ??= true;
+  c.style ??= "bulles";
   const choisies = new Set(o.choisies);
   const lecture = o.lectureSeule;
   /** @type {string[]} */ let problemes = [];
@@ -185,6 +188,25 @@ export function editeurCampagne(o) {
 
   // ---------------------------------------------------------------- téléphone (aperçu en direct)
 
+  /** Durée estimée du film (ouverture, plans « question », réponses à durée pleine) pour l'aperçu de l'ouverture. */
+  const dureeEstimee = () => 3 + c.questions.reduce((/** @type {number} */ s, /** @type {any} */ q) => s + 3 + (Number(q.dureeSec) || 10), 0);
+  const lisible = (/** @type {number} */ sec) => sec < 60 ? `${sec} secondes` : `${Math.floor(sec / 60)} minute${sec >= 120 ? "s" : ""}${sec % 60 ? ` ${String(sec % 60).padStart(2, "0")}` : ""}`;
+  const T = (/** @type {string} */ tu, /** @type {string} */ vous) => (c.tutoiement === false ? vous : tu);
+
+  /** Couleurs et motif de la feuille de style, appliqués aux deux aperçus. */
+  function habiller(/** @type {HTMLElement} */ el, /** @type {"tel" | "film"} */ quoi) {
+    const st = o.styles.find((x) => x.id === c.style) ?? o.styles[0];
+    if (!st) return;
+    const k = st.couleurs;
+    el.style.setProperty("--vox", k.accent);
+    el.style.setProperty("--tel-fond", k.fond);
+    el.style.setProperty("--tel-pale", k.accentPale);
+    el.style.setProperty("--tel-bulle", k.bulle);
+    el.style.setProperty("--film-fond", k.fondFilm);
+    el.style.setProperty("--film-discret", k.discret);
+    if (st.motif) el.append(h("img", { class: `motif-${quoi}`, src: `/whyme/motifs/${st.motif}.svg`, alt: "" }));
+  }
+
   function dessinerTelephone() {
     const marque = h("div", { class: "tel-haut" }, h("span", { class: "tel-marque" }, "why me"), h("span", {}, c.evenement || ""));
     const onglets = h("div", { class: "tel-onglets" },
@@ -193,7 +215,8 @@ export function editeurCampagne(o) {
     if (vue === "accueil") {
       telephone.replaceChildren(marque, h("div", { class: "tel-corps" },
         h("h3", {}, c.accueil.titre || "Plus qu'un CV. Quelqu'un."),
-        h("p", {}, c.accueil.message || ""),
+        h("p", { class: "tel-bulle" }, c.accueil.message || ""),
+        h("p", { class: "tel-bulle" }, T("Sois toi-même : pas de piège, pas de note. Juste toi, en vidéo, pour les entreprises que tu choisis.", "Soyez vous-même : pas de piège, pas de note. Juste vous, en vidéo, pour les entreprises que vous choisissez.")),
         c.organisateur ? h("p", { class: "tel-petit" }, `Avec ${c.organisateur}`) : null,
         h("div", { class: "tel-chiffres" }, h("span", {}, h("strong", {}, String(c.questions.length)), "questions"),
           h("span", {}, h("strong", {}, `${c.questions[0]?.dureeSec ?? 10} s`), "par réponse")),
@@ -207,13 +230,23 @@ export function editeurCampagne(o) {
         h("span", { class: "tel-chrono" }, `${q.lectureSec ?? 10}`)));
     }
     telephone.prepend(onglets);
-    // Plan « question » du film : la bulle telle qu'elle sera montée.
-    const qi = typeof vue === "number" ? vue : 0;
-    const qf = c.questions[qi];
-    film.replaceChildren(
-      h("span", { class: "film-num" }, `Question ${qi + 1}/${c.questions.length}`),
-      h("span", { class: "film-bulle" }, qf ? texteBulle(qf) || "…" : "…"),
-      h("span", { class: "film-logo" }, "why me"));
+    habiller(telephone, "tel");
+    // Film : l'ouverture (onglets Accueil et Essai) ou le plan « question » sélectionné, tels qu'ils seront montés.
+    if (typeof vue !== "number") {
+      film.replaceChildren(
+        h("span", { class: "film-num" }, `JobBox · ${c.evenement || "…"}`),
+        h("span", { class: "film-bulle ouverture" }, `Découvrez Camille en ${lisible(dureeEstimee())}`),
+        h("span", { class: "film-logo" }, "why me"),
+        h("span", { class: "film-legende" }, "Ouverture (prénom et durée réels du film)"));
+    } else {
+      const qf = c.questions[vue];
+      film.replaceChildren(
+        h("span", { class: "film-num" }, `Question ${vue + 1}/${c.questions.length}`),
+        h("span", { class: "film-bulle" }, qf ? texteBulle(qf) || "…" : "…"),
+        h("span", { class: "film-logo" }, "why me"),
+        h("span", { class: "film-legende" }, `Plan « question » ${vue + 1}`));
+    }
+    habiller(film, "film");
   }
 
   // ---------------------------------------------------------------- entreprises
@@ -256,6 +289,22 @@ export function editeurCampagne(o) {
           champ(c, "organisateur", "Organisateur (facultatif, ex. « la PFA »)", { max: 80 })),
         champ(c.accueil, "titre", "Titre de l'accueil", { max: 80 }),
         champ(c.accueil, "message", "Message d'accueil", { type: "long", max: 400 })),
+      h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Ton et feuille de style"),
+        h("div", { class: "grille deux" },
+          (() => {
+            const sel = /** @type {HTMLSelectElement} */ (h("select", { disabled: lecture },
+              h("option", { value: "tu", selected: c.tutoiement !== false }, "Tutoiement (« Installe ton téléphone »)"),
+              h("option", { value: "vous", selected: c.tutoiement === false }, "Vouvoiement (« Installez votre téléphone »)")));
+            sel.addEventListener("change", () => { c.tutoiement = sel.value === "tu"; changer(); });
+            return h("label", { class: "champ" }, "S'adresser au candidat", sel,
+              h("span", { class: "detail-verif" }, "Tous les écrans et e-mails suivent. Vos propres textes (accueil, questions) ne sont pas convertis : écrivez-les dans le même registre."));
+          })(),
+          (() => {
+            const sel = /** @type {HTMLSelectElement} */ (h("select", { disabled: lecture }, ...o.styles.map((st) => h("option", { value: st.id, selected: st.id === c.style }, st.nom))));
+            const desc = h("span", { class: "detail-verif" }, (o.styles.find((x) => x.id === c.style) ?? o.styles[0])?.description ?? "");
+            sel.addEventListener("change", () => { c.style = sel.value; desc.textContent = (o.styles.find((x) => x.id === c.style))?.description ?? ""; changer(); });
+            return h("label", { class: "champ" }, "Feuille de style", sel, desc);
+          })())),
       h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Entreprises proposées au candidat"),
         h("p", { class: "detail-verif", style: "margin:0" }, "Le candidat choisit parmi elles celles qui recevront sa candidature. Au moins une pour ouvrir la campagne."),
         o.entreprises.length ? zoneEntreprises : h("p", { class: "vide" }, h("span", {}, "Aucune entreprise : créez-les d'abord dans "), h("a", { href: "#/entreprises" }, "Entreprises et recruteurs"), ".")),

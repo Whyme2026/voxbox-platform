@@ -56,7 +56,7 @@ em.accent, .accent { color: var(--fuchsia); font-style: normal; }
 }
 .bouton:hover { background: var(--fuchsia-fonce); }
 .bouton:active { transform: translateY(1px); }
-.bouton:disabled { background: #E9B3D2; cursor: not-allowed; }
+.bouton:disabled { background: var(--fuchsia); opacity: 0.35; cursor: not-allowed; }
 .bouton.secondaire { background: #fff; color: var(--fuchsia); box-shadow: inset 0 0 0 2px var(--fuchsia); }
 .bouton.secondaire:hover { background: var(--rose); }
 .bouton.discret { background: transparent; color: var(--texte); min-height: 44px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
@@ -129,7 +129,7 @@ em.accent, .accent { color: var(--fuchsia); font-style: normal; }
 
 /* dépôt du CV */
 [tabindex="-1"]:focus { outline: none; }
-.depot { display: block; cursor: pointer; border: 2px dashed #E9B3D2; border-radius: var(--rayon); padding: 22px; text-align: center; background: #FFF9FC; }
+.depot { display: block; cursor: pointer; border: 2px dashed var(--fuchsia); border-radius: var(--rayon); padding: 22px; text-align: center; background: var(--rose); }
 .depot .nom-fichier { color: var(--titre); font-weight: 600; word-break: break-word; }
 
 /* ---------------------------------------------------------------- tournage (plein écran) */
@@ -193,3 +193,12 @@ em.accent, .accent { color: var(--fuchsia); font-style: normal; }
 
 /* Aperçu depuis l'éditeur RH : rappel permanent que rien n'est enregistré. */
 .bandeau-apercu { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 6px 12px; text-align: center; font: 600 13px/1.2 "Source Sans 3", system-ui, sans-serif; color: #fff; background: #2A2D30; pointer-events: none; }
+
+/* Feuilles de style (src/whyme/styles.ts) : les couleurs arrivent en variables CSS ; le motif s'ajoute ici. */
+[data-motif="piment"] .ecran > .haut::after,
+[data-motif="piment"] .page-video::before {
+  content: ""; width: 46px; height: 46px; flex: none; transform: rotate(16deg);
+  background: url("/whyme/motifs/piment.svg") center / contain no-repeat;
+}
+[data-motif="piment"] .page-video::before { width: 56px; height: 56px; margin-bottom: 4px; }
+[data-motif="piment"] .bulle { border-left: 3px solid var(--fuchsia); }

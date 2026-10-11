@@ -13,6 +13,14 @@ async function charger() {
     return;
   }
   const v = await res.json();
+  // Feuille de style de la campagne (couleurs et motif), comme sur le téléphone du candidat.
+  if (v.style?.couleurs) {
+    const k = v.style.couleurs, r = document.documentElement.style;
+    r.setProperty("--fuchsia", k.accent); r.setProperty("--fuchsia-fonce", k.accentFonce); r.setProperty("--rose", k.accentPale);
+    r.setProperty("--greige", k.bulle); r.setProperty("--titre", k.titre); r.setProperty("--texte", k.texte);
+    document.documentElement.dataset.style = v.style.id;
+    if (v.style.motif) document.documentElement.dataset.motif = v.style.motif;
+  }
   document.title = `${v.prenom} · why me`;
   texte.innerHTML = `<p class="surtitre" style="margin-top:20px">Plus qu'un CV. Quelqu'un.</p><h1>${echapper(v.prenom)}</h1>`;
   const lecteur = document.createElement("div");

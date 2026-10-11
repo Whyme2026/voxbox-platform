@@ -31,13 +31,15 @@ export function navigateurIntegre() {
 
 /**
  * Ce qui empêcherait l'interview sur ce téléphone, avec la solution à proposer ; null si tout va bien.
+ * @param {boolean} [vous] vouvoiement (réglage de la campagne)
  * @returns {string | null}
  */
-export function diagnostic() {
+export function diagnostic(vous = false) {
+  const ouvre = vous ? "Ouvrez" : "Ouvre";
   if (!window.isSecureContext) return "Cette page doit être ouverte en https.";
-  if (navigateurIntegre()) return "Ouvre ce lien dans Safari ou Chrome : le navigateur de cette application ne donne pas accès à la caméra. (Menu ⋯ en haut à droite, puis « Ouvrir dans le navigateur ».)";
-  if (!navigator.mediaDevices?.getUserMedia) return "Ce navigateur ne donne pas accès à la caméra. Ouvre ce lien dans Safari ou Chrome, à jour.";
-  if (!formatEnregistrement()) return "Ce navigateur ne sait pas enregistrer de vidéo. Ouvre ce lien dans Safari ou Chrome, à jour.";
+  if (navigateurIntegre()) return `${ouvre} ce lien dans Safari ou Chrome : le navigateur de cette application ne donne pas accès à la caméra. (Menu ⋯ en haut à droite, puis « Ouvrir dans le navigateur ».)`;
+  if (!navigator.mediaDevices?.getUserMedia) return `Ce navigateur ne donne pas accès à la caméra. ${ouvre} ce lien dans Safari ou Chrome, à jour.`;
+  if (!formatEnregistrement()) return `Ce navigateur ne sait pas enregistrer de vidéo. ${ouvre} ce lien dans Safari ou Chrome, à jour.`;
   return null;
 }
 
