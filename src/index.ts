@@ -19,6 +19,8 @@ import { routesWhymeRecruteur } from "./whyme/recruteur.ts";
 import { routesWhymeAdmin } from "./whyme/admin.ts";
 import { tachesWhyme } from "./whyme/taches.ts";
 import { reprendreTranscriptions } from "./analyse/transcription.ts";
+import { reprendreClassements } from "./analyse/classement.ts";
+import { routesAnalyse } from "./routes/analyse.ts";
 
 export const VERSION = "0.1.0";
 
@@ -52,6 +54,7 @@ export function construireRouteur(): Routeur {
   routesParlomix(r);
   routesRetrait(r);
   routesAcces(r);
+  routesAnalyse(r);
   routesWhymeCandidat(r);
   routesWhymeMontage(r);
   routesWhymePublic(r);
@@ -102,8 +105,11 @@ export default {
   // reprise des transcriptions de l'option Analyse de Parlopop. Indépendantes : l'échec de l'une n'arrête pas l'autre.
   async scheduled(_evenement: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(tachesWhyme(env).then((b) => console.log("Why me, tâches planifiées", b)));
-    ctx.waitUntil(reprendreTranscriptions(env).then((bilan) => {
+    // Transcriptions d'abord, classements ensuite (une réponse transcrite ici est classée au même passage).
+    ctx.waitUntil(reprendreTranscriptions(env).then(async (bilan) => {
       if (bilan.traitees) console.log("Parlopop, reprise des transcriptions", JSON.stringify(bilan));
+      const classements = await reprendreClassements(env);
+      if (classements.traitees) console.log("Parlopop, reprise des classements", JSON.stringify(classements));
     }));
   },
 };

@@ -45,6 +45,29 @@ const codeAppairage = () => codeAleatoire(6);
  * Vocabulaire d'une campagne (noms de modèles, de marques…) transmis au service de transcription pour l'aider.
  * 100 termes au plus (limite du service), 60 caractères chacun, sans doublon.
  */
+export interface Theme { id: string; libelle: string; description?: string }
+
+/**
+ * Grille de thèmes d'une campagne (option Analyse) : 15 thèmes au plus, libellé de 60 caractères, description
+ * facultative de 200 caractères pour guider le classement. L'identifiant vient du libellé s'il n'est pas fourni ;
+ * il reste stable quand on renomme un thème (les classements déjà faits y restent rattachés).
+ */
+export function grilleThemes(v: unknown): Theme[] {
+  if (!Array.isArray(v)) throw invalide("grille_themes : liste de thèmes attendue");
+  if (v.length > 15) throw invalide("grille_themes : 15 thèmes au plus");
+  const vus = new Set<string>();
+  return v.map((x, i) => {
+    if (!x || typeof x !== "object") throw invalide(`grille_themes[${i}] : objet attendu`);
+    const o = x as Record<string, unknown>;
+    const libelle = texte(o, "libelle", { requis: true, max: 60 })!;
+    const description = texte(o, "description", { max: 200 });
+    const id = typeof o.id === "string" && /^[a-z0-9-]{1,40}$/.test(o.id) ? o.id : slugifier(libelle);
+    if (vus.has(id)) throw invalide(`grille_themes : thème « ${libelle} » en double`);
+    vus.add(id);
+    return { id, libelle, ...(description ? { description } : {}) };
+  });
+}
+
 export function vocabulaire(v: unknown): string[] {
   if (!Array.isArray(v)) throw invalide("vocabulaire : liste de termes attendue");
   const termes = [...new Set(v.map((t) => {
@@ -424,7 +447,7 @@ export function routesAdmin(r: Routeur): void {
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
     const d = await lireJson(ctx.request);
     // Une campagne close garde ses dates, sa durée et ses options ; seul son nom peut encore changer.
-    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined || d.option_analyse !== undefined || d.vocabulaire !== undefined)) {
+    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined || d.option_analyse !== undefined || d.vocabulaire !== undefined || d.grille_themes !== undefined)) {
       throw conflit("Une campagne close ne se modifie plus, sauf son nom");
     }
     const nom = d.nom === undefined ? c.nom : texte(d, "nom", { requis: true, max: 120 })!;
@@ -438,6 +461,9 @@ export function routesAdmin(r: Routeur): void {
     const analyse = d.option_analyse === undefined ? c.option_analyse === 1 : d.option_analyse;
     // Le vocabulaire n'est pas une donnée personnelle et ne figure pas dans les textes : il peut changer en cours de campagne.
     const vocab = d.vocabulaire === undefined ? c.vocabulaire : JSON.stringify(vocabulaire(d.vocabulaire));
+    // La grille de thèmes non plus : la changer fait reclasser les réponses déjà transcrites.
+    const grille = d.grille_themes === undefined ? c.grille_themes : JSON.stringify(grilleThemes(d.grille_themes));
+    const changeGrille = grille !== c.grille_themes;
     const ecritures = [];
     const now = maintenant();
     const changeConservation = conservation !== c.conservation_jours;
@@ -464,9 +490,15 @@ export function routesAdmin(r: Routeur): void {
       ecritures.push(ctx.env.DB.prepare("UPDATE campagnes SET statut = 'brouillon', validee_par = NULL, validee_le = NULL WHERE id = ?").bind(c.id));
     }
     ecritures.unshift(
-      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, option_analyse = ?, vocabulaire = ?, maj_le = ? WHERE id = ?")
-        .bind(nom, debut, fin, conservation, analyse ? 1 : 0, vocab, now, c.id),
+      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, option_analyse = ?, vocabulaire = ?, grille_themes = ?, maj_le = ? WHERE id = ?")
+        .bind(nom, debut, fin, conservation, analyse ? 1 : 0, vocab, grille, now, c.id),
     );
+    if (changeGrille && analyse) {
+      ecritures.push(ctx.env.DB.prepare(
+        `UPDATE reponses SET analyse_etat = 'a_faire', analyse_essais = 0, analyse_erreur = NULL
+          WHERE transcription_etat = 'faite' AND session_id IN (SELECT id FROM sessions WHERE campagne_id = ? AND retiree_le IS NULL)`,
+      ).bind(c.id));
+    }
     ecritures.push(ligneJournal(ctx.env.DB, id, {
       action: "campagne.modification", cibleType: "campagne", cibleId: c.id, clientId: c.client_id,
       details: {
@@ -474,10 +506,11 @@ export function routesAdmin(r: Routeur): void {
         conservation_jours: changeConservation ? conservation : undefined,
         option_analyse: changeAnalyse ? analyse : undefined,
         vocabulaire: vocab !== c.vocabulaire ? (JSON.parse(vocab) as string[]).length : undefined,
+        grille_themes: changeGrille ? (JSON.parse(grille) as Theme[]).map((t) => t.libelle) : undefined,
       },
     }));
     await ctx.env.DB.batch(ecritures);
-    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation, option_analyse: analyse, vocabulaire: JSON.parse(vocab) as string[] } });
+    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation, option_analyse: analyse, vocabulaire: JSON.parse(vocab) as string[], grille_themes: JSON.parse(grille) as Theme[] } });
   });
 
   // Suppression d'une campagne : un brouillon jamais joué, ou une campagne close (ex. campagnes d'essai) avec tout ce

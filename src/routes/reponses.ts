@@ -38,7 +38,7 @@ interface EtapeLue {
  * Libellés des questions et des choix, toutes versions du parcours confondues (une session garde la version qu'elle a
  * jouée ; la plus récente donne le libellé). Avec l'habillage et l'ambiance de la version la plus récente, pour les Parlomix.
  */
-async function libellesParcours(db: D1Database, campagneId: string) {
+export async function libellesParcours(db: D1Database, campagneId: string) {
   const { results: versions } = await db.prepare("SELECT config FROM parcours_versions WHERE campagne_id = ? ORDER BY numero")
     .bind(campagneId).all<{ config: string }>();
   const questions = new Map<string, { id: string; titre: string; texte: string; fond?: string; visuel?: string }>();

@@ -209,8 +209,30 @@ transcription, Mistral Large 3 pour le classement au lot 2).
   se lit par `GET /api/espace/reponses/:id/transcription`, même périmètre que la vidéo, **chaque lecture journalisée**.
 - **Parlorama** : case « Option Analyse » et vocabulaire dans « Modifier » ; sous chaque vidéo, état (« en cours »,
   « impossible ») ou bouton « Lire la transcription » (lignes horodatées ; un clic place la vidéo à ce moment).
-- Reste à faire : la transcription dans la page du visiteur (`/retrait/`), dans la purge à échéance (quand elle
-  existera), et le lot 2 (thèmes, tonalité, direct, alertes).
+- Reste à faire : la transcription dans la page du visiteur (`/retrait/`) et dans la purge à échéance (quand elle
+  existera).
+
+## Option Analyse, lot 2 : thèmes, tonalité, direct et alertes (11/10/2026)
+- **Grille de thèmes** (`campagnes.grille_themes`, migration `0010_analyse_themes.sql`) : 15 thèmes au plus, libellé et
+  description facultative ; réglée par WhyMe avec la marque (Parlorama > Modifier, « Libellé : ce qu'il couvre »).
+  Modifiable en cours de campagne : les réponses déjà transcrites sont reclassées. Sans grille : transcription seule.
+- **Classement** (`src/analyse/classement.ts`) : juste après la transcription (même `waitUntil`), puis reprise planifiée.
+  Mistral Large 3 (`mistral-large-latest`, JSON, température 0) reçoit la question et le texte, jamais la vidéo ni la
+  voix. La consigne interdit tout jugement sur la personne et traite le texte comme une donnée. La sortie est
+  contrôlée : thèmes de la grille seulement, tonalité `positif | neutre | negatif`, extrait gardé seulement s'il est
+  recopié exactement, puis situé dans les mots horodatés (`reponse_themes.debut/fin`). En plus : `autre_sujet` (hors
+  grille) et `alerte` (insatisfaction forte et explicite) avec son motif. 3 essais au plus ; un nouvel envoi de la
+  vidéo efface le classement ; `reponse_themes` est effacée avec la réponse (retrait d'accord, suppression).
+- **La marque voit le classement dès qu'il est fait** (décision du 11/10/2026), pas de relecture préalable par WhyMe.
+- **Vues** (`src/routes/analyse.ts`, onglet « Analyse » de Parlorama, `public/admin/js/analyse.js`), droit
+  `reponses.lire`, cloisonnement par client, chaque consultation qui montre des propos journalisée :
+  - « Par question » : de quoi parlent les gens, tonalité par thème (nombres ; pourcentages à partir de 30 propos),
+    verbatims représentatifs (un par tonalité présente, sans doublon, qui ouvrent la vidéo au bon moment).
+    **Ouvert à partir de 100 visiteurs** (`SEUIL_VISITEURS`) ; en dessous, une jauge et l'avancement par question.
+  - « Recherche par thèmes » : propos d'un thème, filtrables par tonalité, question et mots. Dès la première réponse.
+  - « Aujourd'hui en direct » (heure de Paris, actualisé chaque minute) : visiteurs du jour et par heure, derniers
+    propos, sujets qui montent (mentions du jour contre la moyenne des jours précédents), alertes du jour et alertes
+    non vues (« Marquer comme vue », journalisé), état des cabines. Dès la première réponse.
 
 ## Format de captation (décision du 10/10/2026, en place)
 - **On filme en 4:3** : 1280 × 960 en paysage, 960 × 1280 (3:4) en portrait, à 2,5 Mb/s comme aujourd'hui (taille des
