@@ -7,7 +7,8 @@ Un seul Worker Cloudflare sert l'API (`/api/*`) et les pages statiques (`public/
 tablette (cabine) ─┐
 lien / QR code ────┼──► Worker voxbox ──► D1 (données, UE)
 espace WhyMe ──────┤        │          ──► R2 (vidéos, UE)
-espace client ─────┘        └────────────► traitement vidéo (semaine 3)
+espace client ─────┘        ├────────────► traitement vidéo (semaine 3)
+                             └────────────► Mistral AI (UE) : transcription, option Analyse seulement
 ```
 
 ## Authentification
@@ -183,6 +184,33 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
 - **Un nouveau thème ne touche pas à la disposition** : il passe par les jetons de couleur, les polices, l'ambiance
   (`conversation`, `pop`, `marine`…) et les visuels de l'habillage. Maquettes : canevas « Parlopop : direction
   artistique », lignes V2.
+
+## Option Analyse, lot 1 : transcription (11/10/2026)
+Décisions : note `parlopop-note-demarrage-reporting.md` du projet. L'analyse des propos est une **option vendue
+campagne par campagne** ; Mistral AI (UE) est le seul sous-traitant pour toute la chaîne (Voxtral pour la
+transcription, Mistral Large 3 pour le classement au lot 2).
+- **Réglage** (migration `0009_option_analyse.sql`) : `campagnes.option_analyse`, modifiable seulement avant
+  l'activation (comme la durée de conservation : elle figure dans les textes). L'activer ou la retirer régénère les
+  textes (`MENTION_ANALYSE`, `src/rgpd/consentement.ts`) et remet la campagne en brouillon. Un texte rédigé à la main
+  doit parler de transcription et d'analyse. `consentement_versions.analyse` dit si une version l'annonce ; une
+  campagne avec l'option ne se valide pas sans elle. `campagnes.vocabulaire` (100 termes au plus, modifiable en cours
+  de campagne) aide à reconnaître les noms de modèles.
+- **Quand transcrire** : une réponse est mise « à faire » à sa réception si la campagne a l'option **et** si la version
+  des textes acceptée par le visiteur l'annonce (pas de rétroactivité), sauf si la tablette n'a détecté aucune voix.
+  L'envoi part après la réponse à la tablette (`waitUntil`) ; une tâche planifiée toutes les 5 minutes reprend les
+  réponses à faire ou bloquées (`src/analyse/transcription.ts`). Réservation `a_faire → en_cours` : un seul envoi par
+  réponse ; 3 essais au plus ; nouvelle vérification au moment d'envoyer (accord retiré, option retirée → rien ne part).
+- **Service** (`src/analyse/mistral.ts`) : `POST https://api.mistral.ai/v1/audio/transcriptions`, modèle
+  `voxtral-mini-latest`, fichier de la cabine tel quel (pas besoin du traitement vidéo), horodatage au mot, langue
+  détectée (non imposable avec l'horodatage). Sans secret `MISTRAL_API_KEY`, rien n'est envoyé.
+- **Données** : le texte va dans `reponses.transcription`, les mots horodatés dans `transcription_segments`
+  (`[{ d, f, t }]`). Ils vivent dans la ligne de la réponse : un retrait d'accord ou la suppression de la campagne les
+  efface avec elle ; un nouvel envoi de la vidéo les remet à faire. La liste des sessions ne donne que l'état ; le texte
+  se lit par `GET /api/espace/reponses/:id/transcription`, même périmètre que la vidéo, **chaque lecture journalisée**.
+- **Parlorama** : case « Option Analyse » et vocabulaire dans « Modifier » ; sous chaque vidéo, état (« en cours »,
+  « impossible ») ou bouton « Lire la transcription » (lignes horodatées ; un clic place la vidéo à ce moment).
+- Reste à faire : la transcription dans la page du visiteur (`/retrait/`), dans la purge à échéance (quand elle
+  existera), et le lot 2 (thèmes, tonalité, direct, alertes).
 
 ## Format de captation (décision du 10/10/2026, en place)
 - **On filme en 4:3** : 1280 × 960 en paysage, 960 × 1280 (3:4) en portrait, à 2,5 Mb/s comme aujourd'hui (taille des

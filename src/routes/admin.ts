@@ -7,7 +7,7 @@ import { exiger, type Action } from "../auth/droits.ts";
 import { HttpError, conflit, interdit, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal } from "../journal.ts";
 import { validerParcours } from "../parcours/schema.ts";
-import { empreinte, genererTextes, type FicheClient } from "../rgpd/consentement.ts";
+import { empreinte, genererTextes, textesMentionnentAnalyse, type FicheClient } from "../rgpd/consentement.ts";
 import { changerStatut, chargerCampagne, detailCampagne, verifierModifiable, type Statut } from "./campagnes-commun.ts";
 import { codeAleatoire } from "../auth/cabine.ts";
 
@@ -40,6 +40,21 @@ function couleurs(v: unknown): string {
 }
 
 const codeAppairage = () => codeAleatoire(6);
+
+/**
+ * Vocabulaire d'une campagne (noms de modèles, de marques…) transmis au service de transcription pour l'aider.
+ * 100 termes au plus (limite du service), 60 caractères chacun, sans doublon.
+ */
+export function vocabulaire(v: unknown): string[] {
+  if (!Array.isArray(v)) throw invalide("vocabulaire : liste de termes attendue");
+  const termes = [...new Set(v.map((t) => {
+    if (typeof t !== "string") throw invalide("vocabulaire : chaque terme est un texte");
+    return t.trim().replace(/\s+/g, " ");
+  }).filter(Boolean))];
+  if (termes.length > 100) throw invalide("vocabulaire : 100 termes au plus");
+  if (termes.some((t) => t.length > 60)) throw invalide("vocabulaire : 60 caractères au plus par terme");
+  return termes;
+}
 
 export function routesAdmin(r: Routeur): void {
   // ---------------------------------------------------------------- clients
@@ -255,18 +270,23 @@ export function routesAdmin(r: Routeur): void {
     const d = await lireJson(ctx.request);
     const fiche = await ctx.env.DB.prepare("SELECT nom, raison_sociale, contact_rgpd FROM clients WHERE id = ?").bind(c.client_id).first<FicheClient>();
     if (!fiche) throw introuvable("Client introuvable");
-    const generes = genererTextes(fiche, c.conservation_jours);
+    const analyse = c.option_analyse === 1;
+    const generes = genererTextes(fiche, c.conservation_jours, { analyse });
     const textes = {
       texte_interne: texte(d, "texte_interne", { max: 2000 }) ?? generes.texte_interne,
       texte_diffusion: texte(d, "texte_diffusion", { max: 1000 }) ?? generes.texte_diffusion,
     };
+    // Option Analyse : les textes doivent annoncer la transcription et l'analyse, sinon rien ne pourra être transcrit.
+    if (analyse && !textesMentionnentAnalyse(textes.texte_interne)) {
+      throw invalide("Campagne avec l'option Analyse : le texte d'usage interne doit mentionner la transcription et l'analyse automatiques");
+    }
     const der = await ctx.env.DB.prepare("SELECT MAX(numero) AS n FROM consentement_versions WHERE campagne_id = ?").bind(c.id).first<{ n: number | null }>();
-    const v = { id: nouvelId(), numero: (der?.n ?? 0) + 1, ...textes, empreinte: await empreinte(textes) };
+    const v = { id: nouvelId(), numero: (der?.n ?? 0) + 1, ...textes, empreinte: await empreinte(textes), analyse };
     const now = maintenant();
     await ctx.env.DB.batch([
       ctx.env.DB.prepare(
-        "INSERT INTO consentement_versions (id, campagne_id, numero, texte_interne, texte_diffusion, empreinte, cree_par, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      ).bind(v.id, c.id, v.numero, v.texte_interne, v.texte_diffusion, v.empreinte, id.email, now),
+        "INSERT INTO consentement_versions (id, campagne_id, numero, texte_interne, texte_diffusion, empreinte, analyse, cree_par, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ).bind(v.id, c.id, v.numero, v.texte_interne, v.texte_diffusion, v.empreinte, analyse ? 1 : 0, id.email, now),
       ctx.env.DB.prepare("UPDATE campagnes SET consentement_version_id = ?, statut = 'brouillon', validee_par = NULL, validee_le = NULL, maj_le = ? WHERE id = ?")
         .bind(v.id, now, c.id),
       ligneJournal(ctx.env.DB, id, { action: "campagne.consentement", cibleType: "campagne", cibleId: c.id, clientId: c.client_id, details: { version: v.numero } }),
@@ -403,8 +423,8 @@ export function routesAdmin(r: Routeur): void {
     const id = await whyme(ctx, "campagnes.gerer");
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
     const d = await lireJson(ctx.request);
-    // Une campagne close garde ses dates et sa durée ; seul son nom peut encore changer.
-    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined)) {
+    // Une campagne close garde ses dates, sa durée et ses options ; seul son nom peut encore changer.
+    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined || d.option_analyse !== undefined || d.vocabulaire !== undefined)) {
       throw conflit("Une campagne close ne se modifie plus, sauf son nom");
     }
     const nom = d.nom === undefined ? c.nom : texte(d, "nom", { requis: true, max: 120 })!;
@@ -414,34 +434,50 @@ export function routesAdmin(r: Routeur): void {
     if (debut && fin && fin < debut) throw invalide("La fin précède le début");
     const conservation = d.conservation_jours === undefined ? c.conservation_jours : Number(d.conservation_jours);
     if (!Number.isInteger(conservation) || conservation < 1 || conservation > 1095) throw invalide("conservation_jours : entre 1 et 1095");
+    if (d.option_analyse !== undefined && typeof d.option_analyse !== "boolean") throw invalide("option_analyse : vrai ou faux");
+    const analyse = d.option_analyse === undefined ? c.option_analyse === 1 : d.option_analyse;
+    // Le vocabulaire n'est pas une donnée personnelle et ne figure pas dans les textes : il peut changer en cours de campagne.
+    const vocab = d.vocabulaire === undefined ? c.vocabulaire : JSON.stringify(vocabulaire(d.vocabulaire));
     const ecritures = [];
     const now = maintenant();
-    if (conservation !== c.conservation_jours) {
-      // La durée figure dans les textes acceptés par les visiteurs : on ne la change qu'avant l'activation,
-      // et les textes sont régénérés (nouvelle version), ce qui remet la campagne en brouillon.
-      if (c.statut === "active") throw conflit("La durée de conservation d'une campagne active ne se modifie plus : elle figure dans les textes acceptés par les visiteurs");
+    const changeConservation = conservation !== c.conservation_jours;
+    const changeAnalyse = analyse !== (c.option_analyse === 1);
+    if (changeConservation || changeAnalyse) {
+      // La durée et l'option Analyse figurent dans les textes acceptés par les visiteurs : on ne les change qu'avant
+      // l'activation, et les textes sont régénérés (nouvelle version), ce qui remet la campagne en brouillon.
+      if (c.statut === "active") {
+        throw conflit(changeAnalyse
+          ? "L'option Analyse d'une campagne active ne se modifie plus : elle figure dans les textes acceptés par les visiteurs"
+          : "La durée de conservation d'une campagne active ne se modifie plus : elle figure dans les textes acceptés par les visiteurs");
+      }
       const fiche = await ctx.env.DB.prepare("SELECT nom, raison_sociale, contact_rgpd FROM clients WHERE id = ?").bind(c.client_id).first<FicheClient>();
       if (c.consentement_version_id && fiche) {
-        const textes = genererTextes(fiche, conservation);
+        const textes = genererTextes(fiche, conservation, { analyse });
         const der = await ctx.env.DB.prepare("SELECT MAX(numero) AS n FROM consentement_versions WHERE campagne_id = ?").bind(c.id).first<{ n: number | null }>();
         const v = { id: nouvelId(), numero: (der?.n ?? 0) + 1 };
         ecritures.push(
-          ctx.env.DB.prepare("INSERT INTO consentement_versions (id, campagne_id, numero, texte_interne, texte_diffusion, empreinte, cree_par, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-            .bind(v.id, c.id, v.numero, textes.texte_interne, textes.texte_diffusion, await empreinte(textes), id.email, now),
+          ctx.env.DB.prepare("INSERT INTO consentement_versions (id, campagne_id, numero, texte_interne, texte_diffusion, empreinte, analyse, cree_par, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(v.id, c.id, v.numero, textes.texte_interne, textes.texte_diffusion, await empreinte(textes), analyse ? 1 : 0, id.email, now),
           ctx.env.DB.prepare("UPDATE campagnes SET consentement_version_id = ? WHERE id = ?").bind(v.id, c.id),
         );
       }
       ecritures.push(ctx.env.DB.prepare("UPDATE campagnes SET statut = 'brouillon', validee_par = NULL, validee_le = NULL WHERE id = ?").bind(c.id));
     }
     ecritures.unshift(
-      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, maj_le = ? WHERE id = ?").bind(nom, debut, fin, conservation, now, c.id),
+      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, option_analyse = ?, vocabulaire = ?, maj_le = ? WHERE id = ?")
+        .bind(nom, debut, fin, conservation, analyse ? 1 : 0, vocab, now, c.id),
     );
     ecritures.push(ligneJournal(ctx.env.DB, id, {
       action: "campagne.modification", cibleType: "campagne", cibleId: c.id, clientId: c.client_id,
-      details: { nom: nom !== c.nom ? nom : undefined, debut, fin, conservation_jours: conservation !== c.conservation_jours ? conservation : undefined },
+      details: {
+        nom: nom !== c.nom ? nom : undefined, debut, fin,
+        conservation_jours: changeConservation ? conservation : undefined,
+        option_analyse: changeAnalyse ? analyse : undefined,
+        vocabulaire: vocab !== c.vocabulaire ? (JSON.parse(vocab) as string[]).length : undefined,
+      },
     }));
     await ctx.env.DB.batch(ecritures);
-    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation } });
+    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation, option_analyse: analyse, vocabulaire: JSON.parse(vocab) as string[] } });
   });
 
   // Suppression d'une campagne : un brouillon jamais joué, ou une campagne close (ex. campagnes d'essai) avec tout ce

@@ -17,6 +17,10 @@ export interface LigneCampagne {
   fin: string | null;
   statut: Statut;
   conservation_jours: number;
+  /** Option Analyse (0 ou 1) : transcription puis analyse des réponses, vendue campagne par campagne. */
+  option_analyse: number;
+  /** JSON : termes propres à la campagne transmis au service de transcription. */
+  vocabulaire: string;
   parcours_version_id: string | null;
   consentement_version_id: string | null;
   validee_par: string | null;
@@ -39,13 +43,15 @@ export async function detailCampagne(db: D1Database, c: LigneCampagne) {
         .bind(c.parcours_version_id).first<{ id: string; numero: number; config: string; cree_par: string; cree_le: string }>()
     : null;
   const consentement = c.consentement_version_id
-    ? await db.prepare("SELECT id, numero, texte_interne, texte_diffusion, empreinte, cree_le FROM consentement_versions WHERE id = ?")
+    ? await db.prepare("SELECT id, numero, texte_interne, texte_diffusion, empreinte, analyse, cree_le FROM consentement_versions WHERE id = ?")
         .bind(c.consentement_version_id).first()
     : null;
   const client = await db.prepare("SELECT nom, logo_url, couleurs FROM clients WHERE id = ?").bind(c.client_id)
     .first<{ nom: string; logo_url: string | null; couleurs: string }>();
   return {
     ...c,
+    option_analyse: c.option_analyse === 1,
+    vocabulaire: JSON.parse(c.vocabulaire) as string[],
     client: client ? { nom: client.nom, logo_url: client.logo_url, couleurs: JSON.parse(client.couleurs) as unknown } : null,
     parcours: parcours ? { ...parcours, config: JSON.parse(parcours.config) as unknown } : null,
     consentement,
@@ -66,6 +72,10 @@ export async function changerStatut(db: D1Database, identite: Identite, c: Ligne
   }
   if (cible === "validee" && (!c.parcours_version_id || !c.consentement_version_id)) {
     throw conflit("Le parcours et les textes de consentement doivent être définis avant validation");
+  }
+  if (cible === "validee" && c.option_analyse === 1) {
+    const v = await db.prepare("SELECT analyse FROM consentement_versions WHERE id = ?").bind(c.consentement_version_id).first<{ analyse: number }>();
+    if (v?.analyse !== 1) throw conflit("Option Analyse : les textes de consentement doivent mentionner la transcription et l'analyse avant validation");
   }
   const now = maintenant();
   const validation = cible === "validee" ? [identite.email, now] : cible === "brouillon" ? [null, null] : [c.validee_par, c.validee_le];

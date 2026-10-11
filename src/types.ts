@@ -66,6 +66,11 @@ export interface Env {
   MONTAGE_URL?: string;
   /** Why me : secret partagé avec le service de montage (secret Cloudflare). */
   MONTAGE_CLE?: string;
+  /**
+   * Clé d'API Mistral AI (secret Cloudflare, formule payante du compte WhyMe) pour l'option Analyse.
+   * Absente : aucune réponse n'est envoyée, les transcriptions restent « à faire ».
+   */
+  MISTRAL_API_KEY?: string;
   /** Version déployée du Worker (liaison « version_metadata » de Cloudflare) : change à chaque déploiement. */
   VERSION_DEPLOIEMENT?: { id: string; tag?: string; timestamp?: string };
 }

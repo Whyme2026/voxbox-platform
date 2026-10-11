@@ -17,7 +17,11 @@ interface LigneSession {
   id: string; prenom: string; cree_le: string; consent_diffusion: number; recontact: number;
   retiree_le: string | null; parcours_version_id: string; cabine_id: string | null; cabine_nom: string | null;
 }
-interface LigneReponse { id: string; session_id: string; etape_id: string; duree_ms: number | null; son_present: number | null; statut: string; cree_le: string; miniature: number }
+interface LigneReponse {
+  id: string; session_id: string; etape_id: string; duree_ms: number | null; son_present: number | null; statut: string; cree_le: string; miniature: number;
+  /** Option Analyse : état de la transcription (le texte se lit à part, lecture journalisée). */
+  transcription_etat: string | null;
+}
 
 /** Une cellule CSV (séparateur « ; », guillemets doublés). */
 function cellule(v: unknown): string {
@@ -153,7 +157,7 @@ export function routesReponses(r: Routeur): void {
         ORDER BY s.cree_le DESC LIMIT ${limite}`,
     ).bind(c.id).all<LigneSession>();
     const { results: reponses } = await ctx.env.DB.prepare(
-      `SELECT r.id, r.session_id, r.etape_id, r.duree_ms, r.son_present, r.statut, r.cree_le, r.cle_miniature IS NOT NULL AS miniature
+      `SELECT r.id, r.session_id, r.etape_id, r.duree_ms, r.son_present, r.statut, r.cree_le, r.cle_miniature IS NOT NULL AS miniature, r.transcription_etat
          FROM reponses r JOIN sessions s ON s.id = r.session_id
         WHERE s.campagne_id = ? AND s.purgee_le IS NULL AND r.cle_source IS NOT NULL`,
     ).bind(c.id).all<LigneReponse>();
@@ -208,6 +212,40 @@ export function routesReponses(r: Routeur): void {
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });
     await ctx.env.DB.prepare("UPDATE reponses SET cle_miniature = ?, octets_miniature = ? WHERE id = ? AND cle_miniature IS NULL").bind(cle, corps.byteLength, rep.id).run();
     return json({ miniature: true }, 201);
+  });
+
+  // Transcription d'une réponse (option Analyse). Donnée personnelle au même titre que la vidéo : même périmètre,
+  // plus rien après un retrait d'accord, et chaque lecture est journalisée.
+  r.get("/api/espace/reponses/:id/transcription", async (ctx) => {
+    const id = await identifier(ctx.request, ctx.env);
+    exiger(id, "reponses.lire");
+    const rep = await ctx.env.DB.prepare(
+      `SELECT r.id, r.etape_id, r.transcription, r.transcription_segments, r.transcription_langue, r.transcription_etat,
+              s.id AS session_id, s.retiree_le, s.purgee_le, c.client_id, c.id AS campagne_id
+         FROM reponses r JOIN sessions s ON s.id = r.session_id JOIN campagnes c ON c.id = s.campagne_id
+        WHERE r.id = ?`,
+    ).bind(ctx.params.id).first<{
+      id: string; etape_id: string; transcription: string | null; transcription_segments: string | null; transcription_langue: string | null;
+      transcription_etat: string | null; session_id: string; retiree_le: string | null; purgee_le: string | null; client_id: string; campagne_id: string;
+    }>();
+    if (!rep) throw introuvable("Réponse introuvable");
+    verifierAppartenance(id, rep.client_id);
+    if (rep.retiree_le || rep.purgee_le) throw new HttpError(410, "retiree", "Cette réponse n'est plus disponible");
+    if (rep.transcription_etat !== "faite") {
+      return json({ transcription: { etat: rep.transcription_etat, texte: null, segments: [] } });
+    }
+    await journaliser(ctx.env.DB, id, {
+      action: "reponse.transcription_lecture", cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id,
+      details: { campagne_id: rep.campagne_id, session_id: rep.session_id, etape: rep.etape_id },
+    });
+    return json({
+      transcription: {
+        etat: rep.transcription_etat,
+        texte: rep.transcription ?? "",
+        langue: rep.transcription_langue,
+        segments: rep.transcription_segments ? JSON.parse(rep.transcription_segments) as unknown : [],
+      },
+    });
   });
 
   // Vidéo d'une réponse. Le visionnage est tracé dans le journal (qui, quoi, quand).
