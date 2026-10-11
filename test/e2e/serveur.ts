@@ -60,7 +60,7 @@ async function appel(methode: string, chemin: string, corps?: unknown) {
 }
 
 /** Client, campagne active avec le parcours fourni, cabine affectée. Renvoie le code d'appairage. */
-export async function preparer(parcours: unknown, client: { nom: string; couleurs?: Record<string, string> } = { nom: "Parlopop" }, nomCampagne = "Essai") {
+export async function preparer(parcours: unknown, client: { nom: string; couleurs?: Record<string, string> } = { nom: "Parlobox" }, nomCampagne = "Essai") {
   const cl = await appel("POST", "/api/admin/clients", { nom: client.nom, raison_sociale: `${client.nom} (démo)`, contact_rgpd: "rgpd@demo.test", couleurs: client.couleurs });
   const cp = await appel("POST", "/api/admin/campagnes", { client_id: cl.client.id, nom: nomCampagne, debut: "2026-10-01", fin: "2026-12-31" });
   const id = cp.campagne.id;
@@ -96,5 +96,5 @@ if (process.argv[1] && import.meta.filename === process.argv[1]) {
   const port = Number(process.argv[2] ?? 8787);
   const parcours = JSON.parse(readFileSync(join(import.meta.dirname, "../../fixtures/parcours-demo.json"), "utf8"));
   await demarrerServeur(port);
-  console.log(JSON.stringify({ url: `http://localhost:${port}/cabine/`, admin: `http://localhost:${port}/admin/`, ...(await preparer(parcours, { nom: "Parlopop" }, "Démo Parlopop (neutre)")) }));
+  console.log(JSON.stringify({ url: `http://localhost:${port}/cabine/`, admin: `http://localhost:${port}/admin/`, ...(await preparer(parcours, { nom: "Parlobox" }, "Démo Parlobox (neutre)")) }));
 }

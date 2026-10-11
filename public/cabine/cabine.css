@@ -1,4 +1,4 @@
-/* Parlopop — écran de cabine. Direction artistique « la conversation » (style neutre Parlopop).
+/* Parlobox — écran de cabine. Direction artistique « la conversation » (style neutre Parlobox).
    Une seule forme, la bulle : la marque parle à gauche (couleur --accent), le visiteur répond à droite
    (couleur --parole). Boutons, pistes, compte à rebours et décor en découlent.
    Chaque marque cliente remplace --accent, --parole, --fond et --texte par ses couleurs.
@@ -363,7 +363,7 @@ button { font: inherit; color: inherit; }
 .cabine[data-titres="large"] .ecran h1 { letter-spacing: 0; line-height: 1.15; }
 .cabine[data-titres="large"] .option { font-size: clamp(17px, 2.9vmin, 24px); line-height: 1.2; }
 .cabine[data-titres="large"] .texte-retrait strong { font-family: var(--police-texte); font-weight: 700; }
-/* Campagne habillée : pas de bulles décoratives Parlopop en fond, le fond et les visuels suffisent. */
+/* Campagne habillée : pas de bulles décoratives Parlobox en fond, le fond et les visuels suffisent. */
 .cabine[data-habille] .decor { display: none; }
 .cabine[data-majuscules] :is(.ecran h1, .bulle.grande, .sortie, .option, .titre-court, .conversation .bulle.marque:first-child) { text-transform: uppercase; }
 .cabine[data-majuscules] .titre-court { letter-spacing: .12em; }

@@ -92,7 +92,7 @@ export type Etape =
 
 /**
  * Ambiance graphique de la cabine.
- * - « conversation » (par défaut) : direction artistique neutre Parlopop, fonds clairs et bulles douces ;
+ * - « conversation » (par défaut) : direction artistique neutre Parlobox, fonds clairs et bulles douces ;
  * - « pop » : version festive (bande dessinée, contours épais, trames, couleurs vives), pour les animations ludiques ;
  * - « marine » : bord de mer et impertinence (bleu nuit, bouée orange, ciré jaune, vagues qui roulent en bas d'écran).
  * Les couleurs de la marque cliente restent prioritaires dans les deux cas.
@@ -102,7 +102,7 @@ export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop", "marine"];
 
 /**
  * Habillage d'une campagne : ce qui donne à la cabine et aux Parlomix l'allure de la marque, sans code propre
- * à une marque ni à un secteur. Tout est facultatif : sans habillage, direction artistique Parlopop
+ * à une marque ni à un secteur. Tout est facultatif : sans habillage, direction artistique Parlobox
  * (et couleurs de la fiche client). S'ajoute à l'ambiance générale (« conversation », « pop » ou « marine »).
  */
 export const POLICES = ["fredoka", "gabarito", "michroma", "inter"] as const;

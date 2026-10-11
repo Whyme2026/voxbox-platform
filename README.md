@@ -1,4 +1,4 @@
-# Parlopop — plateforme
+# Parlobox — plateforme
 
 Cabines vidéo d'avis consommateurs, en expérience ludique, en point de vente et sur salon. **by whyme.**
 
