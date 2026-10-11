@@ -39,10 +39,10 @@ test("QR : tailles et structure (versions 1 à 10)", () => {
 test("QR : relu par un vrai décodeur (adresses de retrait de plusieurs longueurs)", { skip: !decodeur && "OpenCV absent" }, () => {
   const dossier = mkdtempSync(join(tmpdir(), "qr-"));
   const textes = [
-    "https://parlopop.fr/retrait/#K7Q2MZ4XPA",
+    "https://parlobox.com/retrait/#K7Q2MZ4XPA",
     "https://voxbox-test.laurent-7ed.workers.dev/retrait/#ABCDEFGHJK",
     "Bonjour, élégant et fun : ça marche ?",
-    `https://parlopop.fr/r/${"Z".repeat(120)}`,
+    `https://parlobox.com/r/${"Z".repeat(120)}`,
   ];
   textes.forEach((t, i) => writeFileSync(join(dossier, `${i}.pgm`), pgm(genererQR(t))));
   const script = `

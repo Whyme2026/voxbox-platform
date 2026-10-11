@@ -1,4 +1,4 @@
-// Purge à échéance (Parlopop) : les textes acceptés par le visiteur promettent la suppression de ses vidéos au bout
+// Purge à échéance (Parlobox) : les textes acceptés par le visiteur promettent la suppression de ses vidéos au bout
 // de la durée de conservation de la campagne (sessions.purge_prevue_le, fixée à la création de la session).
 // À l'échéance, tout ce qui se rattache à la session est effacé (vidéos, miniatures, Parlomix où elle figure,
 // réponses, transcriptions, thèmes classés, choix) ; il ne reste qu'une trace anonyme (date, campagne, cabine) et une

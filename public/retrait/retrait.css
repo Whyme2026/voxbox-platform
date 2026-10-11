@@ -1,4 +1,4 @@
-/* Parlopop — page publique de retrait d'accord (ouverte depuis le QR code de fin de parcours, sur téléphone). */
+/* Parlobox — page publique de retrait d'accord (ouverte depuis le QR code de fin de parcours, sur téléphone). */
 @font-face { font-family: "Fredoka"; src: url("../polices/fredoka.woff") format("woff"); font-weight: 300 700; font-display: swap; }
 @font-face { font-family: "Gabarito"; src: url("../polices/gabarito.woff") format("woff"); font-weight: 400 900; font-display: swap; }
 
@@ -19,8 +19,8 @@ body { margin: 0 auto; max-width: 560px; min-height: 100dvh; display: flex; flex
 
 .entete { display: flex; align-items: center; gap: 12px; min-height: 40px; margin-bottom: 22px; }
 .logo { max-height: 36px; max-width: 160px; object-fit: contain; }
-.marque-parlopop { display: inline-flex; align-items: center; gap: 8px; font-family: var(--titres); font-weight: 600; font-size: 20px; }
-.marque-parlopop svg { width: 34px; height: 28px; }
+.marque-parlobox { display: inline-flex; align-items: center; gap: 8px; font-family: var(--titres); font-weight: 600; font-size: 20px; }
+.marque-parlobox svg { width: 34px; height: 28px; }
 
 main { flex: 1; display: flex; flex-direction: column; gap: 14px; }
 .bulle { position: relative; margin: 0; padding: .7em 1em; width: fit-content; max-width: 100%; border-radius: var(--rayon) var(--rayon) var(--rayon) 6px; background: var(--accent); color: var(--sur-accent); }

@@ -1,4 +1,4 @@
-// Point d'entrée du Worker Parlopop.
+// Point d'entrée du Worker Parlobox.
 // - /api/*  : API JSON (routes/…)
 // - le reste : fichiers statiques du dossier public/ (pages admin, espace client, cabine)
 
@@ -104,18 +104,18 @@ export default {
     return traiter(request, env, ctx);
   },
   // Tâches planifiées (toutes les 5 minutes, voir wrangler.jsonc) : montages, reprises et purges de Why me ;
-  // reprise des transcriptions de l'option Analyse de Parlopop. Indépendantes : l'échec de l'une n'arrête pas l'autre.
+  // reprise des transcriptions de l'option Analyse de Parlobox. Indépendantes : l'échec de l'une n'arrête pas l'autre.
   async scheduled(_evenement: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(tachesWhyme(env).then((b) => console.log("Why me, tâches planifiées", b)));
-    // Parlopop : purge à échéance (durée de conservation promise aux visiteurs).
-    ctx.waitUntil(purgerEchues(env).then((b) => { if (b.sessions || b.erreurs) console.log("Parlopop, purge à échéance", JSON.stringify(b)); }));
-    // Parlopop : alertes d'exploitation (cabine hors ligne, batterie, file d'envoi, micro, vidéos sans voix, analyse).
-    ctx.waitUntil(verifierExploitation(env).then((b) => { if (b.ouvertes || b.fermees) console.log("Parlopop, alertes d'exploitation", JSON.stringify(b)); }));
+    // Parlobox : purge à échéance (durée de conservation promise aux visiteurs).
+    ctx.waitUntil(purgerEchues(env).then((b) => { if (b.sessions || b.erreurs) console.log("Parlobox, purge à échéance", JSON.stringify(b)); }));
+    // Parlobox : alertes d'exploitation (cabine hors ligne, batterie, file d'envoi, micro, vidéos sans voix, analyse).
+    ctx.waitUntil(verifierExploitation(env).then((b) => { if (b.ouvertes || b.fermees) console.log("Parlobox, alertes d'exploitation", JSON.stringify(b)); }));
         // Transcriptions d'abord, classements ensuite (une réponse transcrite ici est classée au même passage).
     ctx.waitUntil(reprendreTranscriptions(env).then(async (bilan) => {
-      if (bilan.traitees) console.log("Parlopop, reprise des transcriptions", JSON.stringify(bilan));
+      if (bilan.traitees) console.log("Parlobox, reprise des transcriptions", JSON.stringify(bilan));
       const classements = await reprendreClassements(env);
-      if (classements.traitees) console.log("Parlopop, reprise des classements", JSON.stringify(classements));
+      if (classements.traitees) console.log("Parlobox, reprise des classements", JSON.stringify(classements));
     }));
   },
 };

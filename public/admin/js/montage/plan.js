@@ -45,7 +45,7 @@ const POLICES_LARGES = new Set(["michroma"]);
 
 /**
  * Thème du film : celui de la campagne (couleurs du client, puis habillage du parcours s'il y en a un),
- * sinon les couleurs de l'ambiance de la cabine (direction artistique Parlopop par défaut). L'habillage apporte aussi polices, capitales, couleur des bulles et
+ * sinon les couleurs de l'ambiance de la cabine (direction artistique Parlobox par défaut). L'habillage apporte aussi polices, capitales, couleur des bulles et
  * fonds : le Parlomix ressemble à la cabine.
  * @param {Record<string, unknown> | null | undefined} couleurs couleurs de la fiche client
  * @param {any} [habillage] habillage du parcours (parcours.habillage)
@@ -278,7 +278,7 @@ export function recadrage(largeur, hauteur, centreX = 0.5) {
 // ------------------------------------------------------------------ le jingle
 
 /**
- * Jingle Parlopop : quatre notes de marimba qui montent (sol, do, mi, sol), une petite bulle qui éclate,
+ * Jingle Parlobox : quatre notes de marimba qui montent (sol, do, mi, sol), une petite bulle qui éclate,
  * une queue de réverbération légère. Fabriqué par le code : il appartient à WhyMe, aucun droit à payer.
  * @param {number} [frequence] échantillons par seconde
  * @returns {Float32Array} son mono, crête à 0,6

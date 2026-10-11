@@ -84,7 +84,7 @@ La progression « question N sur M » suit le chemin le plus court : une suite f
 ne gonfle pas le total.
 
 ## Parcours de démonstration et direction artistique
-- `fixtures/parcours-demo.json` : parcours **neutre Parlopop**, base vendue puis personnalisée par marque.
+- `fixtures/parcours-demo.json` : parcours **neutre Parlobox**, base vendue puis personnalisée par marque.
   Accueil (la cabine « parle » en bulles), prénom (+ e-mail facultatif), mode d'emploi + accord (bouton grisé tant que
   l'accord obligatoire n'est pas donné), 5 questions (titre court, pistes, coup de pouce), fin personnalisée.
   Choix, pause avant/après, cadrage : options par campagne. `{prenom}` est remplacé dans tous les textes affichés.
@@ -182,7 +182,7 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   s'affiche dans l'image ; avant la prise, le bouton n'est qu'un contour en pointillés.
 - Portrait : la même suite empilée, image en 3:4.
 - **Un nouveau thème ne touche pas à la disposition** : il passe par les jetons de couleur, les polices, l'ambiance
-  (`conversation`, `pop`, `marine`…) et les visuels de l'habillage. Maquettes : canevas « Parlopop : direction
+  (`conversation`, `pop`, `marine`…) et les visuels de l'habillage. Maquettes : canevas « Parlobox : direction
   artistique », lignes V2.
 
 ## Purge à échéance (11/10/2026)
@@ -208,7 +208,7 @@ le tableau de bord de Parlorama, et sera signalée par e-mail à la mise en plac
 « Je m'en occupe » note qui la prend en charge. Aucune donnée personnelle.
 
 ## Option Analyse, lot 1 : transcription (11/10/2026)
-Décisions : note `parlopop-note-demarrage-reporting.md` du projet. L'analyse des propos est une **option vendue
+Décisions : note `parlobox-note-demarrage-reporting.md` du projet. L'analyse des propos est une **option vendue
 campagne par campagne** ; Mistral AI (UE) est le seul sous-traitant pour toute la chaîne (Voxtral pour la
 transcription, Mistral Large 3 pour le classement au lot 2).
 - **Réglage** (migration `0009_option_analyse.sql`) : `campagnes.option_analyse`, modifiable seulement avant

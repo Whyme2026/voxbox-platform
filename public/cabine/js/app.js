@@ -190,7 +190,7 @@ const COULEUR = /^#[0-9a-fA-F]{6}$/;
 const valide = (/** @type {unknown} */ x) => typeof x === "string" && COULEUR.test(x);
 
 /**
- * Thème : celui de Parlopop par défaut ; une marque cliente le remplace par ses couleurs
+ * Thème : celui de Parlobox par défaut ; une marque cliente le remplace par ses couleurs
  * (couleurs.principale → la marque parle, couleurs.secondaire → le visiteur répond, couleurs.fond, couleurs.texte) et son logo.
  * L'habillage de la campagne (parcours.habillage) l'emporte : couleurs, couleur des bulles de la marque, polices,
  * titres en capitales, fonds par écran et visuels.
@@ -233,7 +233,7 @@ function appliquerHabillage() {
   visuels = new Map((hab.visuels ?? []).map((/** @type {any} */ v) => [v.id, v]));
   appliquerFond(null);
 
-  // En-tête : le logo de la marque ; à défaut, son nom si la campagne est habillée ; sinon la marque Parlopop.
+  // En-tête : le logo de la marque ; à défaut, son nom si la campagne est habillée ; sinon la marque Parlobox.
   const logo = /** @type {HTMLImageElement} */ ($("logo"));
   const nom = $("nom-marque");
   logo.hidden = !client?.logo_url;

@@ -1,5 +1,5 @@
 // @ts-check
-// Parlorama, l'interface de Parlopop : WhyMe (clients, campagnes, cabines, comptes, journal) et clients (leurs campagnes, leurs réponses).
+// Parlorama, l'interface de Parlobox : WhyMe (clients, campagnes, cabines, comptes, journal) et clients (leurs campagnes, leurs réponses).
 // Une seule page, navigation par ancre (#/campagnes/…). Tout le texte venant de la base est inséré en texte, jamais en HTML.
 
 import { h } from "./dom.js";
@@ -900,7 +900,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       for (const format of formats) {
         etape.textContent = `Montage ${format}`;
         detail.textContent = `${clips.length} réponse${clips.length > 1 ? "s" : ""}, ${Math.round((avant - apres) / 1000)} s de blancs coupés`;
-        const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre, sousTitre, signature: c.client?.nom ?? "Parlopop", clips, format, theme });
+        const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre, sousTitre, signature: c.client?.nom ?? "Parlobox", clips, format, theme });
         let film = await fabriquer({ plan, videos, apercu, logo, visuels, surProgression: avancer });
         if (!(await contientDuSon(film.blob)) && film.type === "video/mp4") {
           // Leçon Geely : un MP4 peut perdre le son sans erreur. On refait le film en WebM.
@@ -937,7 +937,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
   return h("div", { class: "pile" },
     h("section", { class: "carte pile" },
       h("div", {}, h("h2", { style: "margin: 0 0 4px" }, "Créer un Parlomix"),
-        h("p", { style: "margin: 0; color: var(--doux); font-size: 14px" }, "Les blancs sont coupés, les réponses s'enchaînent avec une animation aux couleurs de la campagne et le jingle Parlopop.")),
+        h("p", { style: "margin: 0; color: var(--doux); font-size: 14px" }, "Les blancs sont coupés, les réponses s'enchaînent avec une animation aux couleurs de la campagne et le jingle Parlobox.")),
       typesPuces,
       h("div", { class: "formulaire" }, champPersonne, champQuestion, champCabine),
       h("div", { class: "options-parlomix" }, format169.element, format916.element, diffusion.element, prenoms.element),
@@ -1022,7 +1022,7 @@ async function vueParcours(/** @type {any} */ c) {
   const p = c.parcours;
   const modifiable = peut("campagnes.gerer") && estWhyme() && c.statut !== "active" && c.statut !== "close";
   /** @type {{ libelle: string, charger: () => Promise<any> }[]} */
-  const modeles = [{ libelle: "Parcours neutre Parlopop (démo)", charger: async () => (await fetch("modeles/parcours-neutre.json")).json() }];
+  const modeles = [{ libelle: "Parcours neutre Parlobox (démo)", charger: async () => (await fetch("modeles/parcours-neutre.json")).json() }];
   if (modifiable) {
     const { campagnes } = await api("/api/admin/campagnes");
     for (const autre of campagnes.filter((/** @type {any} */ x) => x.id !== c.id && x.parcours_version_id).slice(0, 12)) {
@@ -1047,7 +1047,7 @@ async function vueParcours(/** @type {any} */ c) {
       const apercu = {
         cabine: { id: "apercu", nom: "Aperçu" },
         campagne: { id: "apercu", nom: c.nom, parcours_version_id: "apercu" },
-        client: c.client ?? { nom: "Parlopop", logo_url: null, couleurs: {} },
+        client: c.client ?? { nom: "Parlobox", logo_url: null, couleurs: {} },
         parcours: config,
         consentement: {
           id: "apercu",
@@ -1056,7 +1056,7 @@ async function vueParcours(/** @type {any} */ c) {
         },
       };
       try { localStorage.setItem("voxbox.apercu", JSON.stringify(apercu)); } catch { toast("Aperçu impossible : stockage du navigateur indisponible.", "erreur"); return; }
-      window.open("/cabine/?apercu=1", "parlopop-apercu");
+      window.open("/cabine/?apercu=1", "parlobox-apercu");
     },
   }));
 }
