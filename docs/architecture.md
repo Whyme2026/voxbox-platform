@@ -284,7 +284,10 @@ Page `public/cabine/`, sans compilation ni dépendance :
   plus utilisé par l'écran de fin, gardé pour produire le QR code de l'affiche extérieure.
 La session est créée par la tablette (UUID) pour fonctionner hors ligne ; l'envoi est idempotent.
 
-## Points à vérifier (lot 0)
-- Déploiement automatique depuis GitHub (Workers Builds) et application des migrations D1 dans ce cadre.
-- Protection Access limitée aux chemins des espaces (la cabine et le retrait doivent rester publics).
-- Traitement vidéo : Cloudflare Containers (offre payante ~5 $/mois) ou petit serveur UE.
+## Déploiement et accès (réglé le 12/10/2026)
+- Workers Builds : `main` déploie le test, la branche `production` déploie `app.parlobox.com`. Les migrations D1 restent
+  manuelles, appliquées avant le code qui en dépend (`docs/exploitation.md`, « Livrer une version »).
+- Cloudflare Access protège tout l'hôte ; la cabine et le retrait passent par une application d'exception séparée
+  (ouverte en test, pas encore en production). Détail dans `docs/exploitation.md`, « Cloudflare Access ».
+- Traitement vidéo côté serveur : Cloudflare Containers, déjà utilisé par Why me (`voxbox-montage`) ; à brancher pour
+  Parlomix.

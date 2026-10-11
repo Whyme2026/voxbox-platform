@@ -48,10 +48,13 @@ Tout changement de comportement s'accompagne d'un test. Les tests d'API utilisen
 (`test/aide/d1-local.ts`) qui rejoue les migrations : ce qui passe ici passe sur D1.
 
 ## Environnements
-| Environnement | Worker | Base D1 | Stockage R2 |
-|---|---|---|---|
-| dev (local) | voxbox-dev | locale | locale |
-| test | voxbox-test | voxbox-test (UE) | voxbox-media-test (UE) |
-| production | voxbox | voxbox-prod (UE) | voxbox-media-prod (UE) |
+| Environnement | Adresse | Worker | Base D1 | Stockage R2 | Mise en ligne |
+|---|---|---|---|---|---|
+| dev (local) | localhost | voxbox-dev | locale | locale | `npm run cabine:local` |
+| test | voxbox-test.laurent-7ed.workers.dev | voxbox-test | voxbox-test (UE) | voxbox-media-test (UE) | chaque fusion dans `main` |
+| production | app.parlobox.com | voxbox | voxbox-prod (UE) | voxbox-media-prod (UE) | branche `production` uniquement |
 
-Rien ne part en production sans être passé par test.
+Rien ne part en production sans être passé par test : avancer `production` seulement sur demande explicite de
+Laurent, migrations appliquées avant. Les deux environnements sont fermés par Cloudflare Access (3 personnes) ;
+seules la cabine et la page de retrait Parlobox sont publiques, et seulement en test. Why me reste en test.
+Procédures, accès et secrets : `docs/exploitation.md`.
