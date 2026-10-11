@@ -14,7 +14,7 @@ import { lireMiniature, servirVideo } from "../media.ts";
 import { ACCES_RECRUTEURS_MOIS, LIEN_PUBLIC_MOIS, ajouterMois } from "./config.ts";
 import { campagneParId, candidatParId } from "./commun.ts";
 import { courrielVideoPrete, envoyerWhyme } from "./courriels.ts";
-import { ENTETE_SIGNATURE, signer, verifierSignature } from "../../montage/signature.ts";
+import { ENTETE_SIGNATURE, empreinteCourte, signer, verifierSignature } from "../../montage/signature.ts";
 
 export const SERVICE = "service de montage";
 export const ESSAIS_MAX = 3;
@@ -44,6 +44,21 @@ export async function declencherMontage(env: Env, id: string): Promise<boolean> 
     // Le service reprendra au prochain passage des tâches planifiées.
     console.error("Why me : montage non déclenché", id, e);
     return false;
+  }
+}
+
+/** Le service répond-il, et avec le même secret ? (comparaison d'empreintes : le secret n'est jamais montré). */
+export async function etatServiceMontage(env: Env): Promise<"absent" | "identique" | "differente" | "injoignable"> {
+  if (!montageConfigure(env)) return "absent";
+  try {
+    const sante = "/sante";
+    const res = env.MONTAGE_SERVICE ? await env.MONTAGE_SERVICE.fetch(`https://voxbox-montage${sante}`, { signal: AbortSignal.timeout(5_000) })
+      : await fetch(`${env.MONTAGE_URL!.replace(/\/$/, "")}${sante}`, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) return "injoignable";
+    const d = (await res.json()) as { empreinteCle?: string };
+    return d.empreinteCle === await empreinteCourte(env.MONTAGE_CLE!) ? "identique" : "differente";
+  } catch {
+    return "injoignable";
   }
 }
 

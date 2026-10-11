@@ -13,7 +13,7 @@ import { servirVideo } from "../media.ts";
 import { slugifier } from "../routes/admin.ts";
 import { empreinteTextes, genererTextes, validerConfig } from "./config.ts";
 import { campagneParId, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
-import { declencherMontage, montageConfigure, planMontage } from "./montage.ts";
+import { declencherMontage, etatServiceMontage, montageConfigure, planMontage } from "./montage.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOGOS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -259,6 +259,6 @@ export function routesWhymeAdmin(r: Routeur): void {
     const id = await whyme(ctx, "journal.lire");
     const res = await ctx.env.DB.prepare("SELECT id, a, sujet, texte, html, sorte, envoye, cree_le FROM wm_courriels ORDER BY cree_le DESC LIMIT 50").all();
     await journaliser(ctx.env.DB, id, { action: "whyme.courriels.lecture" });
-    return json({ courriels: res.results, brevo: Boolean(ctx.env.BREVO_CLE), montage: montageConfigure(ctx.env) });
+    return json({ courriels: res.results, brevo: Boolean(ctx.env.BREVO_CLE), montage: montageConfigure(ctx.env), montageCle: await etatServiceMontage(ctx.env) });
   });
 }

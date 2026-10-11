@@ -32,3 +32,9 @@ export async function verifierSignature(cle: string, methode: string, chemin: st
   for (let i = 0; i < attendu.length; i++) d |= attendu.charCodeAt(i) ^ mac.charCodeAt(i);
   return d === 0;
 }
+
+/** Empreinte courte du secret (12 caractères), pour vérifier que les deux côtés ont le même sans le montrer. */
+export async function empreinteCourte(cle: string): Promise<string> {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`whyme-montage-empreinte\n${cle.trim()}`));
+  return [...new Uint8Array(h)].slice(0, 6).map((b) => b.toString(16).padStart(2, "0")).join("");
+}

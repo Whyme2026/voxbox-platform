@@ -4,7 +4,7 @@
 // Déployé à part de la plateforme (Workers Builds, dossier montage/ ; offre Workers payante).
 
 import { DurableObject } from "cloudflare:workers";
-import { ENTETE_SIGNATURE, signer, verifierSignature } from "./signature.ts";
+import { ENTETE_SIGNATURE, empreinteCourte, signer, verifierSignature } from "./signature.ts";
 
 interface Env {
   MONTAGE: DurableObjectNamespace;
@@ -38,7 +38,7 @@ export class ConteneurMontage extends DurableObject<Env> {
     // /sante : état du conteneur s'il tourne, sinon la file gardée ici.
     const conteneur = this.ctx.container!;
     const etat = { service: "montage whyme", conteneur: conteneur.running ? "démarré" : "arrêté", aTransmettre: file.length,
-      derniereErreur: (await this.ctx.storage.get<string>("erreur")) ?? null };
+      derniereErreur: (await this.ctx.storage.get<string>("erreur")) ?? null, empreinteCle: await empreinteCourte(this.env.MONTAGE_CLE) };
     if (conteneur.running) {
       try {
         const r = await conteneur.getTcpPort(PORT).fetch("http://conteneur/sante");

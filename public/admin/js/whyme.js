@@ -179,12 +179,18 @@ async function recruteurs() {
 }
 
 async function courriels() {
-  const { courriels, brevo, montage } = await api("/api/admin/whyme/courriels");
+  const { courriels, brevo, montage, montageCle } = await api("/api/admin/whyme/courriels");
+  /** @type {Record<string, string>} */
+  const etatsMontage = {
+    identique: "Configuré : le service répond, avec le même secret.",
+    differente: "Le service répond, mais son secret MONTAGE_CLE diffère de celui de la plateforme : les montages sont refusés.",
+    injoignable: "Configuré, mais le service ne répond pas pour l'instant.",
+  };
   const apercu = h("iframe", { title: "Aperçu de l'e-mail", style: "width:100%;height:640px;border:1px solid #E1E3EC;border-radius:12px;background:#fff", sandbox: "allow-popups allow-popups-to-escape-sandbox" });
   page("E-mails Why me", "Gardés 7 jours. Sans clé Brevo (environnement de test), ils ne partent pas : c'est ici qu'on les lit et qu'on suit leurs liens.", "courriels",
     h("div", { class: "grille kpi" },
       h("div", { class: "carte" }, h("strong", {}, "Envoi par Brevo"), h("p", {}, brevo ? "Configuré : les e-mails partent." : "Non configuré : e-mails gardés ici.")),
-      h("div", { class: "carte" }, h("strong", {}, "Service de montage"), h("p", {}, montage ? "Configuré." : "Non configuré : les interviews terminées attendent leur montage."))),
+      h("div", { class: "carte" }, h("strong", {}, "Service de montage"), h("p", {}, montage ? (etatsMontage[montageCle] ?? "Configuré.") : "Non configuré : les interviews terminées attendent leur montage."))),
     h("div", { class: "grille deux" },
       h("section", { class: "carte" }, courriels.length ? h("table", { class: "tableau" }, h("tbody", {}, ...courriels.map((/** @type {any} */ c) => h("tr", { class: "lien-ligne", onclick: () => { /** @type {HTMLIFrameElement} */ (apercu).srcdoc = c.html.replace("<head>", "<head><base target=\"_blank\">").replace("<html lang=\"fr\"><body", "<html lang=\"fr\"><head><base target=\"_blank\"></head><body"); } },
         h("td", {}, h("strong", {}, c.sujet), h("div", { class: "sous", style: "font-size:13px" }, `${c.a} · ${date(c.cree_le)}`)), h("td", {}, h("span", { class: "pastille", "data-ton": c.envoye ? "vert" : "jaune" }, c.envoye ? "Envoyé" : "Non envoyé"))))))
