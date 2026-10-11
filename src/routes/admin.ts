@@ -10,6 +10,7 @@ import { validerParcours } from "../parcours/schema.ts";
 import { empreinte, genererTextes, textesMentionnentAnalyse, type FicheClient } from "../rgpd/consentement.ts";
 import { changerStatut, chargerCampagne, detailCampagne, verifierModifiable, type Statut } from "./campagnes-commun.ts";
 import { codeAleatoire } from "../auth/cabine.ts";
+import { listerAlertes } from "../exploitation/alertes.ts";
 
 async function whyme(ctx: Contexte, action: Action): Promise<Identite> {
   const id = await identifier(ctx.request, ctx.env);
@@ -546,6 +547,21 @@ export function routesAdmin(r: Routeur): void {
       }),
     ]);
     return json({ campagne: { id: c.id, supprimee: true, visiteurs: n, fichiers_supprimes: cles.length } });
+  });
+
+  // ---------------------------------------------------------------- alertes d'exploitation
+  r.get("/api/admin/alertes", async (ctx) => {
+    await whyme(ctx, "cabines.gerer");
+    return json({ alertes: await listerAlertes(ctx.env) });
+  });
+
+  // « Vue » : quelqu'un s'en occupe. L'alerte reste ouverte tant que le problème dure.
+  r.post("/api/admin/alertes/:id/vue", async (ctx) => {
+    const id = await whyme(ctx, "cabines.gerer");
+    const a = await ctx.env.DB.prepare("SELECT id, vue_le FROM alertes_exploitation WHERE id = ?").bind(ctx.params.id).first<{ id: string; vue_le: string | null }>();
+    if (!a) throw introuvable("Alerte introuvable");
+    if (!a.vue_le) await ctx.env.DB.prepare("UPDATE alertes_exploitation SET vue_le = ?, vue_par = ? WHERE id = ?").bind(maintenant(), id.email, a.id).run();
+    return json({ alerte: { id: a.id, vue: true } });
   });
 
   // Vérification d'un parcours sans l'enregistrer (éditeur de Parlorama).

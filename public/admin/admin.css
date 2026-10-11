@@ -301,3 +301,8 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
   .ligne-theme .jauge, .ligne-ton .barre-ton { grid-column: 1 / -1; grid-row: 2; }
   .propos { grid-template-columns: 1fr; }
 }
+
+/* Alertes d'exploitation (tableau de bord). */
+.ligne-alerte { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--trait); }
+.ligne-alerte:last-child { border-bottom: 0; }
+@media (max-width: 640px) { .ligne-alerte { grid-template-columns: 1fr; } }

@@ -224,8 +224,9 @@ async function router() {
 // ------------------------------------------------------------------ tableau de bord
 
 async function vueAccueil() {
-  const [{ campagnes }, { cabines }, { journal }] = await Promise.all([
+  const [{ campagnes }, { cabines }, { journal }, { alertes }] = await Promise.all([
     api("/api/admin/campagnes"), api("/api/admin/cabines"), peut("journal.lire") ? api("/api/admin/journal?limite=8") : Promise.resolve({ journal: [] }),
+    peut("cabines.gerer") ? api("/api/admin/alertes").catch(() => ({ alertes: [] })) : Promise.resolve({ alertes: [] }),
   ]);
   const actives = campagnes.filter((/** @type {any} */ c) => c.statut === "active");
   const visiteurs = campagnes.reduce((/** @type {number} */ n, /** @type {any} */ c) => n + Number(c.nb_sessions ?? 0), 0);
@@ -234,6 +235,7 @@ async function vueAccueil() {
 
   return h("div", {},
     enTete("Tableau de bord", null, h("span", { class: "bulle" }, `Bonjour ${prenom.charAt(0).toUpperCase()}${prenom.slice(1)} !`)),
+    blocAlertes(alertes),
     h("h2", { class: "titre-parlometre" }, "Parlomètre", h("span", {}, "ce que disent vos cabines, en chiffres")),
     h("div", { class: "grille kpi" },
       kpi(actives.length, "Campagnes actives", `${campagnes.length} au total`),
@@ -253,6 +255,23 @@ async function vueAccueil() {
           h("div", { class: "pile", style: "gap: 8px" }, ...journal.map((/** @type {any} */ j) =>
             h("div", { style: "font-size: 14px" }, h("strong", {}, ACTIONS[j.action] ?? j.action),
               h("div", { style: "color: var(--doux); font-size: 13px" }, `${j.utilisateur_email} · ${ilYa(j.quand)}`))))) : null)));
+}
+
+/** Alertes d'exploitation : ouvertes en tête (avec « Je m'en occupe »), réglées depuis moins de 24 h en dessous. */
+function blocAlertes(/** @type {any[]} */ alertes) {
+  if (!alertes.length) return null;
+  const ouvertes = alertes.filter((a) => !a.fermee_le);
+  return h("section", { class: `carte alertes-exploitation${ouvertes.length ? " alerte" : ""}`, style: "margin-bottom: 18px" },
+    h("h2", {}, ouvertes.length ? `Alertes d'exploitation (${ouvertes.length})` : "Alertes d'exploitation réglées"),
+    h("div", { class: "pile", style: "gap: 10px" }, ...alertes.map((a) => h("div", { class: "ligne-alerte" },
+      h("span", { class: "pastille", "data-ton": a.fermee_le ? "vert" : "rouge" }, a.fermee_le ? "réglée" : "en cours"),
+      h("div", { style: "min-width: 0" }, h("div", {}, a.message),
+        h("div", { class: "sous" }, a.fermee_le ? `réglée ${ilYa(a.fermee_le)}` : ilYa(a.ouverte_le).startsWith("il y a ") ? `depuis ${ilYa(a.ouverte_le).replace("il y a ", "")}` : `ouverte ${ilYa(a.ouverte_le)}`,
+          a.vue_par ? ` · pris en charge par ${a.vue_par}` : "", a.notifiee_le ? " · signalée par e-mail" : "")),
+      !a.fermee_le && !a.vue_le ? h("button", { type: "button", class: "bouton discret petit", onclick: async () => {
+        try { await api(`/api/admin/alertes/${a.id}/vue`, { methode: "POST", corps: {} }); toast("Noté : vous vous en occupez."); router(); }
+        catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); }
+      } }, "Je m'en occupe") : null))));
 }
 
 /** Taille lisible : 820 Ko, 12,4 Mo, 1,23 Go (unités de 1 000, comme le stockage et sa facturation). */

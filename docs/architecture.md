@@ -196,6 +196,17 @@ anonyme (`prenom = '(supprimé)'`, `purgee_le`) et une ligne de journal `session
 hors ligne est refusée (410). Parlorama affiche sur la campagne la prochaine suppression automatique et le nombre de
 visiteurs concernés dans les 30 jours. Why me a sa propre purge (`src/whyme/taches.ts`).
 
+## Alertes d'exploitation (11/10/2026)
+Ce qui empêche une cabine de bien recueillir les avis, détecté pendant l'événement (`src/exploitation/alertes.ts`,
+migration `0011_alertes_exploitation.sql`, tâche planifiée toutes les 5 minutes) : cabine d'une campagne active sans
+signe de vie depuis 10 min (mais vue dans les 12 h : sinon elle est rangée), batterie sous 20 % hors charge, file
+d'envoi d'au moins 10 éléments, micro inaccessible, au moins 2 des 6 dernières vidéos d'une cabine sans voix détectée
+(leçon Geely), transcriptions ou classements abandonnés en 24 h (option Analyse). Une alerte s'ouvre une fois, se
+met à jour, se ferme seule quand le problème disparaît (seuils dans `SEUILS`). À l'ouverture, un e-mail groupé part aux
+comptes WhyMe (ADMIN_EMAILS et comptes admin/opérateur actifs) dès que Brevo est configuré ; sinon l'alerte reste dans
+le tableau de bord de Parlorama, et sera signalée par e-mail à la mise en place de Brevo si elle est toujours ouverte.
+« Je m'en occupe » note qui la prend en charge. Aucune donnée personnelle.
+
 ## Option Analyse, lot 1 : transcription (11/10/2026)
 Décisions : note `parlopop-note-demarrage-reporting.md` du projet. L'analyse des propos est une **option vendue
 campagne par campagne** ; Mistral AI (UE) est le seul sous-traitant pour toute la chaîne (Voxtral pour la
