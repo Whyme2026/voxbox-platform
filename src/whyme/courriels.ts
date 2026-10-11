@@ -116,12 +116,15 @@ ${bouton(lien, "Ouvrir l'espace recruteur")}`,
   return { sujet, texte, html };
 }
 
+/** Adresse d'expédition des e-mails Why me (doit être un expéditeur vérifié du compte Brevo). */
+export const expediteurWhyme = (env: Env) => env.COURRIEL_EXPEDITEUR_WHYME ?? "hello@whyme.jobs";
+
 /** Garde l'e-mail dans wm_courriels et l'envoie par Brevo si la clé est configurée. Ne lève pas d'erreur. */
 export async function envoyerWhyme(env: Env, a: string, sorte: SorteCourriel, c: { sujet: string; texte: string; html: string }): Promise<boolean> {
   let envoye = false;
   if (env.BREVO_CLE) {
     try {
-      await envoyerCourriel(env, { a, ...c, expediteur: "WhyMe", de: env.COURRIEL_EXPEDITEUR_WHYME ?? "hello@whyme.jobs" });
+      await envoyerCourriel(env, { a, ...c, expediteur: "WhyMe", de: expediteurWhyme(env) });
       envoye = true;
     } catch (e) {
       console.error("Why me : e-mail non parti", sorte, e);

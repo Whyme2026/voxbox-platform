@@ -358,3 +358,34 @@ test("Why me : montage, typographie des cartons et repérage de la parole", () =
   // Trop peu de parole : on garde tout plutôt que de couper à l'aveugle.
   assert.deepEqual(bornesParole("silence_start: 0\nsilence_end: 9.5\n", 10), { debut: 0, fin: 10 });
 });
+
+test("Why me : renvoi d'un e-mail gardé (expéditeur corrigé chez Brevo)", async () => {
+  const sans = await preparer();
+  const t0 = await sans.candidat();
+  await sans.monter(t0.id);
+  const mail0 = sans.db.sqlite.prepare("SELECT id FROM wm_courriels WHERE sorte = 'video_prete'").get() as { id: string };
+  assert.equal((await sans.api("POST", `/api/admin/whyme/courriels/${mail0.id}/renvoyer`, ADMIN)).status, 409); // sans Brevo
+
+  const envois: string[] = [];
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    envois.push(`${String(url)} ${String(init?.body ?? "")}`);
+    return new Response("{}", { status: 201 });
+  }) as typeof fetch;
+  try {
+    const { candidat, monter, db, api } = await preparer({ BREVO_CLE: "cle-brevo-test", COURRIEL_EXPEDITEUR_WHYME: "laurent@whyme.test" });
+    const t = await candidat();
+    await monter(t.id);
+    const mail = db.sqlite.prepare("SELECT id, a FROM wm_courriels WHERE sorte = 'video_prete'").get() as { id: string; a: string };
+    const avant = envois.length;
+    assert.equal((await api("POST", `/api/admin/whyme/courriels/${mail.id}/renvoyer`, "lit@marque.test")).status, 403);
+    const r = await api("POST", `/api/admin/whyme/courriels/${mail.id}/renvoyer`, ADMIN);
+    assert.equal(r.status, 200, JSON.stringify(r.corps));
+    assert.equal(envois.length, avant + 1);
+    assert.match(envois.at(-1)!, /laurent@whyme\.test/);
+    assert.ok(envois.at(-1)!.includes(mail.a));
+    assert.equal((db.sqlite.prepare("SELECT COUNT(*) AS n FROM journal WHERE action = 'whyme.courriel.renvoi'").get() as { n: number }).n, 1);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+});

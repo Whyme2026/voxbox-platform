@@ -14,6 +14,8 @@ import { slugifier } from "../routes/admin.ts";
 import { empreinteTextes, genererTextes, validerConfig } from "./config.ts";
 import { campagneParId, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
 import { declencherMontage, etatServiceMontage, montageConfigure, planMontage } from "./montage.ts";
+import { expediteurWhyme } from "./courriels.ts";
+import { envoyerCourriel } from "../courriel.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOGOS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -259,6 +261,26 @@ export function routesWhymeAdmin(r: Routeur): void {
     const id = await whyme(ctx, "journal.lire");
     const res = await ctx.env.DB.prepare("SELECT id, a, sujet, texte, html, sorte, envoye, cree_le FROM wm_courriels ORDER BY cree_le DESC LIMIT 50").all();
     await journaliser(ctx.env.DB, id, { action: "whyme.courriels.lecture" });
-    return json({ courriels: res.results, brevo: Boolean(ctx.env.BREVO_CLE), montage: montageConfigure(ctx.env), montageCle: await etatServiceMontage(ctx.env) });
+    return json({ courriels: res.results, brevo: Boolean(ctx.env.BREVO_CLE), expediteur: expediteurWhyme(ctx.env),
+      montage: montageConfigure(ctx.env), montageCle: await etatServiceMontage(ctx.env) });
+  });
+
+  // Renvoi d'un e-mail gardé (expéditeur refusé par Brevo, e-mail perdu…) : même contenu, même destinataire.
+  r.post("/api/admin/whyme/courriels/:id/renvoyer", async (ctx) => {
+    const id = await whyme(ctx, "visiteurs.gerer");
+    if (!ctx.env.BREVO_CLE) throw conflit("Brevo n'est pas configuré : rien ne peut partir");
+    const c = await ctx.env.DB.prepare("SELECT id, a, sujet, texte, html, sorte FROM wm_courriels WHERE id = ?")
+      .bind(ctx.params.id!).first<{ id: string; a: string; sujet: string; texte: string; html: string; sorte: string }>();
+    if (!c) throw introuvable("E-mail introuvable");
+    try {
+      await envoyerCourriel(ctx.env, { a: c.a, sujet: c.sujet, texte: c.texte, html: c.html, expediteur: "WhyMe", de: expediteurWhyme(ctx.env) });
+    } catch (e) {
+      throw new HttpError(502, "brevo", `Brevo a refusé l'envoi : ${String((e as Error).message ?? e).slice(0, 300)}`);
+    }
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("UPDATE wm_courriels SET envoye = 1 WHERE id = ?").bind(c.id),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.courriel.renvoi", cibleType: "wm_courriel", cibleId: c.id, details: { sorte: c.sorte } }),
+    ]);
+    return json({ ok: true });
   });
 }
