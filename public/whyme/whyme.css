@@ -190,3 +190,6 @@ em.accent, .accent { color: var(--fuchsia); font-style: normal; }
 .page-video .lecteur { width: 100%; max-width: 420px; aspect-ratio: 9 / 16; border-radius: var(--rayon); overflow: hidden; background: #000; box-shadow: var(--ombre); }
 .page-video .lecteur video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .page-video header, .page-video .texte { width: 100%; max-width: 420px; }
+
+/* Aperçu depuis l'éditeur RH : rappel permanent que rien n'est enregistré. */
+.bandeau-apercu { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 6px 12px; text-align: center; font: 600 13px/1.2 "Source Sans 3", system-ui, sans-serif; color: #fff; background: #2A2D30; pointer-events: none; }

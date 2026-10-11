@@ -128,3 +128,13 @@ export async function supprimerCandidat(env: Env, c: CandidatRow, qui: string, m
     ligneJournal(env.DB, qui, { action: "whyme.candidat.suppression", cibleType: "wm_candidat", cibleId: c.id, details: { motif } }),
   ]);
 }
+
+/** Ce que le téléphone du candidat reçoit d'une campagne (même forme pour l'aperçu de l'éditeur). */
+export function campagnePourCandidat(code: string, cfg: ConfigWhyme) {
+  return {
+    code, evenement: cfg.evenement, organisateur: cfg.organisateur ?? null, accueil: cfg.accueil,
+    familles: cfg.familles, questionEssai: cfg.questionEssai,
+    questions: cfg.questions.map((q) => ({ id: q.id, texte: q.texte, dureeSec: q.dureeSec, lectureSec: q.lectureSec })),
+    ageAffiche: cfg.ageAffiche, ageMinimum: cfg.ageMinimum, validationAutoSec: cfg.validationAutoSec,
+  };
+}

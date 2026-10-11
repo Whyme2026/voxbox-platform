@@ -81,3 +81,17 @@ npm run e2e:whyme -- <voix.wav> <camera.y4m> <dossier-captures>   # téléphone 
 ```
 La voix de test doit ressembler à de la parole (syllabes) : un son continu est atténué par la réduction de bruit du
 navigateur et passe pour du silence.
+
+## Éditeur de campagne et vidéos (espace RH, 12/10/2026)
+- **Éditeur** (page d'une campagne, `public/rh/js/editeur-campagne.js`) : événement et accueil, question d'essai,
+  questions (3 à 5 : ajouter, déplacer, dupliquer, supprimer ; texte, titre court, lecture, durée), entreprises
+  proposées, familles de métiers, réglages (âge affiché, âge minimum, « On garde » automatique), mode expert JSON.
+  Modifiable en brouillon seulement. Vérification par le serveur (`POST /api/rh/campagnes/verifier`, mêmes règles
+  qu'à l'enregistrement). Aperçu en direct : l'écran du téléphone et la bulle du plan « question » du film (la
+  question si elle tient en 80 caractères, sinon son titre court).
+- **Essayer le parcours** : `POST /api/rh/campagnes/apercu` renvoie ce que recevrait le téléphone ; l'éditeur le
+  dépose dans le navigateur et ouvre `/i/apercu` : le vrai parcours, caméra comprise, sans aucun envoi
+  (bandeau « Aperçu · rien n'est enregistré »). Le code `apercu` est réservé.
+- **Vidéos** : onglet Vidéos (toutes campagnes, recherche, filtre) et galerie dans chaque campagne ; vignettes 9:16,
+  lecture dans une fenêtre, CV et page publique. `GET /api/rh/videos`, `/api/rh/candidats/:id/miniature|video|cv`
+  (lecture de la vidéo et du CV journalisées).

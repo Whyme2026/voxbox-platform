@@ -9,15 +9,18 @@ import { statistiquesCampagne } from "./statistiques.ts";
 import { conflit, HttpError, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { codeAleatoire } from "../auth/cabine.ts";
 import { journaliser, ligneJournal } from "../journal.ts";
-import { servirVideo } from "../media.ts";
+import { servirMiniature, servirVideo } from "../media.ts";
 import { slugifier } from "../routes/admin.ts";
-import { empreinteTextes, genererTextes, validerConfig } from "./config.ts";
-import { campagneParId, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
+import { empreinteTextes, genererTextes, validerConfig, type ConfigWhyme } from "./config.ts";
+import { campagneParId, campagnePourCandidat, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
 import { declencherMontage, etatServiceMontage, montageConfigure, planMontage } from "./montage.ts";
 import { expediteurWhyme } from "./courriels.ts";
 import { envoyerCourriel } from "../courriel.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** /i/apercu ouvre le parcours candidat sur un brouillon de l'éditeur, sans rien enregistrer. */
+export const CODES_RESERVES = new Set(["apercu"]);
+
 const LOGOS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 const whyme = (ctx: Contexte, action: ActionRh): Promise<IdentiteRh> => exigerRh(ctx.request, ctx.env, action);
@@ -164,7 +167,7 @@ export function routesWhymeAdmin(r: Routeur): void {
     const entreprises = await lireEntreprises(ctx, d.entreprises);
     const textes = genererTextes(config);
     const c = { id: nouvelId(), code: slugifier(texte(d, "code", { max: 30 }) ?? `${slugifier(config.evenement).slice(0, 20)}-${codeAleatoire(4).toLowerCase()}`) };
-    if (await ctx.env.DB.prepare("SELECT 1 FROM wm_campagnes WHERE code = ?").bind(c.code).first()) throw conflit("Ce code de campagne est déjà pris");
+    if (CODES_RESERVES.has(c.code) || await ctx.env.DB.prepare("SELECT 1 FROM wm_campagnes WHERE code = ?").bind(c.code).first()) throw conflit("Ce code de campagne est déjà pris");
     const t = maintenant();
     await ctx.env.DB.batch([
       ctx.env.DB.prepare(
@@ -402,5 +405,73 @@ export function routesWhymeAdmin(r: Routeur): void {
       ligneJournal(ctx.env.DB, id.email, { action: "rh.equipe.retrait", cibleType: "rh_equipe", cibleId: email }),
     ]);
     return json({ ok: true });
+  });
+
+  // ------------------------------------------------------------------ éditeur de campagne
+  // Vérification d'un brouillon (mêmes règles qu'à l'enregistrement), sans rien enregistrer.
+  r.post("/api/rh/campagnes/verifier", async (ctx) => {
+    await whyme(ctx, "gerer");
+    const d = await lireJson(ctx.request);
+    try {
+      validerConfig(d.config);
+      return json({ problemes: [] });
+    } catch (e) {
+      if (e instanceof HttpError && e.status === 400) return json({ problemes: [e.message] });
+      throw e;
+    }
+  });
+
+  // Aperçu : ce que verrait le téléphone du candidat avec ce brouillon (le parcours tourne sans rien envoyer).
+  r.post("/api/rh/campagnes/apercu", async (ctx) => {
+    await whyme(ctx, "gerer");
+    const d = await lireJson(ctx.request);
+    const config = validerConfig(d.config);
+    const ids = Array.isArray(d.entreprises) ? d.entreprises.filter((x: unknown) => typeof x === "string").slice(0, 40) : [];
+    const entreprises = [];
+    for (const id of ids) {
+      const e = await ctx.env.DB.prepare("SELECT id, nom, logo_cle FROM wm_entreprises WHERE id = ?").bind(id).first<{ id: string; nom: string; logo_cle: string | null }>();
+      if (e) entreprises.push({ id: e.id, nom: e.nom, logo: e.logo_cle ? `/api/whyme/entreprises/${e.id}/logo` : null });
+    }
+    return json({ campagne: campagnePourCandidat("apercu", config), entreprises, textes: genererTextes(config), empreinte: "apercu", apercu: true });
+  });
+
+  // ------------------------------------------------------------------ vidéos montées
+  r.get("/api/rh/videos", async (ctx) => {
+    await whyme(ctx, "gerer");
+    const campagne = ctx.url.searchParams.get("campagne");
+    const res = await ctx.env.DB.prepare(
+      `SELECT c.id, c.prenom, c.nom, c.age, c.famille, c.campagne_id, w.nom AS campagne, w.config, c.pret_le, c.code_public,
+              c.cv_cle IS NOT NULL AS a_cv, c.miniature_cle IS NOT NULL AS a_miniature, c.montage_duree_ms,
+              (SELECT GROUP_CONCAT(e.nom, ', ') FROM wm_candidatures ca JOIN wm_entreprises e ON e.id = ca.entreprise_id
+                 WHERE ca.candidat_id = c.id AND ca.retiree_le IS NULL) AS entreprises
+         FROM wm_candidats c JOIN wm_campagnes w ON w.id = c.campagne_id
+        WHERE c.montage_cle IS NOT NULL AND c.supprime_le IS NULL AND (?1 IS NULL OR c.campagne_id = ?1)
+        ORDER BY c.pret_le DESC LIMIT 500`,
+    ).bind(campagne).all<Record<string, any>>();
+    return json({
+      videos: res.results.map(({ config, ...v }) => {
+        const cfg = JSON.parse(config) as ConfigWhyme;
+        return { ...v, a_cv: Boolean(v.a_cv), a_miniature: Boolean(v.a_miniature), evenement: cfg.evenement,
+          famille: cfg.familles?.find((f) => f.id === v.famille)?.nom ?? null };
+      }),
+    });
+  });
+
+  r.get("/api/rh/candidats/:id/miniature", async (ctx) => {
+    await whyme(ctx, "gerer");
+    const c = await candidatParId(ctx.env.DB, ctx.params.id!);
+    return servirMiniature(ctx.env, c?.supprime_le ? null : c?.miniature_cle ?? null);
+  });
+
+  r.get("/api/rh/candidats/:id/cv", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    const c = await candidatParId(ctx.env.DB, ctx.params.id!);
+    const objet = c?.cv_cle && !c.supprime_le ? await ctx.env.MEDIA.get(c.cv_cle) : null;
+    if (!c || !objet?.body) throw introuvable("Pas de CV");
+    await journaliser(ctx.env.DB, id.email, { action: "whyme.cv.lecture", cibleType: "wm_candidat", cibleId: c.id });
+    return new Response(objet.body, { headers: {
+      "content-type": c.cv_type ?? "application/octet-stream", "cache-control": "private, no-store", "x-content-type-options": "nosniff",
+      "content-disposition": `${c.cv_type === "application/pdf" ? "inline" : "attachment"}; filename="${(c.cv_nom ?? "cv").replace(/[^\w.-]/g, "-")}"`,
+    } });
   });
 }

@@ -24,3 +24,45 @@
   .barre { position: static; height: auto; }
   .contenu { padding: 18px 16px 48px; }
 }
+
+/* Éditeur de campagne : téléphone (aperçu en direct) et plan « question » du film. */
+.grille-cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 14px; }
+.telephone { position: relative; width: 100%; max-width: 250px; aspect-ratio: 9 / 16; margin: 0 auto; border: 8px solid #1F1D1F; border-radius: 30px; background: #FBF8F9; overflow: hidden; display: flex; flex-direction: column; font-size: 13px; color: var(--encre); }
+.tel-onglets { display: flex; gap: 2px; padding: 6px 6px 0; background: #fff; flex-wrap: wrap; }
+.tel-onglets button { border: 0; border-radius: 999px; padding: 3px 8px; font: 600 11px/1.2 var(--titres); background: var(--fond); color: var(--doux); cursor: pointer; }
+.tel-onglets button[aria-pressed="true"] { background: var(--vox); color: #fff; }
+.tel-haut { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px 0; font-size: 11px; color: var(--doux); }
+.tel-marque { font-weight: 700; font-size: 16px; color: var(--vox); }
+.tel-corps { padding: 14px; display: flex; flex-direction: column; gap: 8px; overflow: auto; flex: 1; }
+.tel-corps h3 { margin: 0; font-size: 20px; line-height: 1.1; }
+.tel-corps p { margin: 0; line-height: 1.35; }
+.tel-petit { font-size: 11px; color: var(--doux); }
+.tel-chiffres { display: flex; gap: 8px; margin-top: 4px; }
+.tel-chiffres span { flex: 1; background: #fff; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; font-size: 11px; color: var(--doux); }
+.tel-chiffres strong { font-size: 16px; color: var(--encre); }
+.tel-bouton { margin-top: auto; text-align: center; padding: 9px; border-radius: 999px; background: var(--vox); color: #fff; font-weight: 700; }
+.tel-camera { position: relative; flex: 1; background: linear-gradient(180deg, #59505A, #2E2A2F); display: flex; flex-direction: column; }
+.tel-bandeau { margin: 8px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.94); }
+.tel-bandeau p { margin: 2px 0 0; font-weight: 700; font-size: 14px; line-height: 1.2; }
+.tel-etape { font-size: 10px; color: var(--doux); }
+.tel-silhouette { position: absolute; left: 22%; right: 22%; top: 32%; bottom: 6%; border: 2px dashed rgba(255, 255, 255, 0.7); border-radius: 50% 50% 18% 18% / 40% 40% 12% 12%; }
+.tel-chrono { position: absolute; right: 10px; bottom: 10px; width: 34px; height: 34px; border-radius: 50%; background: var(--vox); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.film-question { width: 100%; max-width: 250px; aspect-ratio: 9 / 16; margin: 0 auto; border-radius: 14px; background: #FAF7F9; position: relative; overflow: hidden; border: 1px solid var(--trait); }
+.film-num { position: absolute; left: 8%; top: 31%; font: 600 11px/1 var(--titres); color: #8A7D86; }
+.film-bulle { position: absolute; left: 8%; right: 8%; top: 35%; padding: 10px 12px; border-radius: 14px 14px 14px 4px; background: var(--vox); color: #fff; font: 700 15px/1.2 var(--titres); }
+.film-logo { position: absolute; left: 0; right: 0; bottom: 8%; text-align: center; font: 700 13px/1 var(--titres); color: var(--vox); }
+
+/* Vidéos montées : vignettes 9:16, lecture dans une fenêtre. */
+.galerie { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+.vignette-video { display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.vignette-video .image { position: relative; aspect-ratio: 9 / 16; border-radius: 14px; background: #2E2A2F center / cover no-repeat; overflow: hidden; }
+.vignette-video .image::after { content: ""; position: absolute; inset: 0; margin: auto; width: 46px; height: 46px; border-radius: 50%; background: rgba(198, 1, 124, 0.92) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z' fill='white'/%3E%3C/svg%3E") center / 24px no-repeat; }
+.vignette-video:hover .image, .vignette-video:focus-visible .image { outline: 3px solid var(--vox); outline-offset: 2px; }
+.vignette-video strong { font-size: 15px; }
+.vignette-video .meta { font-size: 13px; color: var(--doux); line-height: 1.3; }
+dialog.lecteur-rh { border: 0; border-radius: 18px; padding: 14px; max-width: min(420px, 94vw); width: 100%; }
+dialog.lecteur-rh::backdrop { background: rgba(20, 16, 20, 0.7); }
+dialog.lecteur-rh video { width: 100%; aspect-ratio: 9 / 16; border-radius: 12px; background: #000; display: block; }
+.lecteur-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.filtres-videos { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.filtres-videos select, .filtres-videos input { min-height: 40px; border-radius: 12px; border: 1.5px solid var(--trait); padding: 0 10px; font: inherit; }

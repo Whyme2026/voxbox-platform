@@ -467,3 +467,58 @@ test("Why me : client et sous-clients (statistiques agrégées pour le client, r
   // Et la même statistique côté équipe RH.
   assert.equal((await api("GET", `/api/rh/campagnes/${campagneId}/statistiques`, ADMIN)).corps.transmises, 2);
 });
+
+test("Why me : éditeur de campagne (vérification, aperçu sans enregistrement, code réservé)", async () => {
+  const { api, pfa, verkor, db } = await preparer();
+  // Vérification : mêmes règles qu'à l'enregistrement, rien n'est écrit.
+  const ok = await api("POST", "/api/rh/campagnes/verifier", ADMIN, { config: modele });
+  assert.deepEqual(ok.corps, { problemes: [] });
+  const ko = await api("POST", "/api/rh/campagnes/verifier", ADMIN, { config: { ...modele, questions: modele.questions.slice(0, 2) } });
+  assert.equal(ko.status, 200);
+  assert.match(ko.corps.problemes[0], /3 à 5 questions/);
+  assert.equal((await api("POST", "/api/rh/campagnes/verifier", "lit@marque.test", { config: modele })).status, 403);
+  // Aperçu : ce que verrait le téléphone, avec les entreprises cochées, sans campagne créée.
+  const avant = (db.sqlite.prepare("SELECT COUNT(*) AS n FROM wm_campagnes").get() as { n: number }).n;
+  const a = await api("POST", "/api/rh/campagnes/apercu", ADMIN, { config: { ...modele, evenement: "Salon d'essai" }, entreprises: [verkor, "inconnue"] });
+  assert.equal(a.status, 200, JSON.stringify(a.corps));
+  assert.equal(a.corps.campagne.code, "apercu");
+  assert.equal(a.corps.campagne.evenement, "Salon d'essai");
+  assert.deepEqual(a.corps.entreprises.map((e: any) => e.nom), ["Verkor"]);
+  assert.equal(a.corps.campagne.questions[0].carton, undefined); // le téléphone ne reçoit pas les titres du film
+  assert.equal((db.sqlite.prepare("SELECT COUNT(*) AS n FROM wm_campagnes").get() as { n: number }).n, avant);
+  // Le code « apercu » ne peut pas servir de vraie campagne.
+  assert.equal((await api("POST", "/api/rh/campagnes", ADMIN, { nom: "X", code: "apercu", client_id: pfa, config: modele, entreprises: [verkor] })).status, 409);
+  // Brouillon : questionnaire et entreprises modifiables depuis l'éditeur.
+  const cp = await api("POST", "/api/rh/campagnes", ADMIN, { nom: "Brouillon", client_id: pfa, config: modele, entreprises: [verkor] });
+  const nouvelle = { ...modele, questions: [...modele.questions, { id: "q-5", texte: "Et demain ?", dureeSec: 12, lectureSec: 8 }] };
+  assert.equal((await api("PATCH", `/api/rh/campagnes/${cp.corps.campagne.id}`, ADMIN, { config: nouvelle, entreprises: [verkor] })).status, 200);
+  const relue = (await api("GET", "/api/rh/campagnes", ADMIN)).corps.campagnes.find((c: any) => c.id === cp.corps.campagne.id);
+  assert.equal(relue.config.questions.length, 5);
+});
+
+test("Why me : vidéos montées dans l'espace RH (liste, miniature, lecture et CV journalisés)", async () => {
+  const { api, candidat, telephone, monter, campagneId, env, db } = await preparer();
+  const t = await candidat({ cv: true });
+  await telephone("POST", `/api/whyme/candidats/${t.id}/terminer`, t.jeton);
+  assert.equal((await api("GET", "/api/rh/videos", ADMIN)).corps.videos.length, 0);
+  await monter(t.id);
+  const { videos } = (await api("GET", `/api/rh/videos?campagne=${campagneId}`, ADMIN)).corps;
+  assert.equal(videos.length, 1);
+  assert.equal(videos[0].id, t.id);
+  assert.equal(videos[0].a_miniature, true);
+  assert.equal(videos[0].evenement, modele.evenement);
+  assert.equal((await api("GET", "/api/rh/videos?campagne=autre", ADMIN)).corps.videos.length, 0);
+  assert.equal((await api("GET", "/api/rh/videos", "lit@marque.test")).status, 403);
+  const appel = (chemin: string) => traiter(new Request(`http://localhost${chemin}`, { headers: { "x-dev-email": ADMIN } }), env);
+  const mini = await appel(`/api/rh/candidats/${t.id}/miniature`);
+  assert.equal(mini.status, 200);
+  assert.equal(mini.headers.get("content-type"), "image/jpeg");
+  const video = await appel(`/api/rh/candidats/${t.id}/video`);
+  assert.equal(video.status, 200);
+  assert.equal(video.headers.get("content-type"), "video/mp4");
+  const cv = await appel(`/api/rh/candidats/${t.id}/cv`);
+  assert.equal(cv.status, 200);
+  const actions = (db.sqlite.prepare("SELECT action FROM journal WHERE cible_id = ? ORDER BY quand").all(t.id) as { action: string }[]).map((x) => x.action);
+  assert.ok(actions.includes("whyme.video.lecture"));
+  assert.ok(actions.includes("whyme.cv.lecture"));
+});

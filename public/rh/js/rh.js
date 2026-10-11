@@ -5,6 +5,7 @@
 
 import { h } from "../../admin/js/dom.js";
 import { genererQR, cheminQR } from "../../cabine/js/qr.js";
+import { editeurCampagne } from "./editeur-campagne.js";
 
 const contenu = /** @type {HTMLElement} */ (document.getElementById("contenu"));
 const toastEl = /** @type {HTMLElement} */ (document.getElementById("toast"));
@@ -45,7 +46,7 @@ const STATUTS_CANDIDAT = /** @type {Record<string, [string, string]>} */ ({
 const pastille = (/** @type {Record<string, [string, string]>} */ table, /** @type {string} */ s) => h("span", { class: "pastille", "data-ton": table[s]?.[1] ?? "" }, table[s]?.[0] ?? s);
 
 function onglets(/** @type {string} */ actif) {
-  const liens = [["campagnes", "Campagnes"], ["clients", "Clients"], ["entreprises", "Entreprises"], ["recruteurs", "Recruteurs"], ["courriels", "E-mails"], ...(moi?.role === "admin_rh" ? [["equipe", "Équipe"]] : [])];
+  const liens = [["campagnes", "Campagnes"], ["videos", "Vidéos"], ["clients", "Clients"], ["entreprises", "Entreprises"], ["recruteurs", "Recruteurs"], ["courriels", "E-mails"], ...(moi?.role === "admin_rh" ? [["equipe", "Équipe"]] : [])];
   return h("div", { class: "onglets", role: "tablist" }, ...liens.map(([cle, lib]) =>
     h("button", { type: "button", role: "tab", "aria-selected": String(cle === actif), onclick: () => { location.hash = `#/${cle}`; } }, lib)));
 }
@@ -75,19 +76,19 @@ async function campagnes() {
     h("label", { class: "champ" }, "Client (qui commande la campagne)",
       clients.length ? h("select", { name: "client_id", required: true }, ...clients.map((/** @type {any} */ c) => h("option", { value: c.id }, c.nom)))
         : h("p", {}, "Créez d'abord le client (onglet Clients).")),
+    h("label", { class: "champ" }, "Événement (affiché au candidat)", h("input", { name: "evenement", required: true, maxlength: 80, placeholder: "Mondial de l'Auto" })),
     h("label", { class: "champ" }, "Code dans l'adresse du QR (facultatif)", h("input", { name: "code", placeholder: "mondial-2026" })),
     h("fieldset", { class: "champ" }, h("legend", {}, "Entreprises proposées (sous-clients)"),
       ...(entreprises.length ? entreprises.map((/** @type {any} */ e) => h("label", {}, h("input", { type: "checkbox", name: "entreprise", value: e.id }), ` ${e.nom}`)) : [h("p", {}, "Créez d'abord les entreprises (onglet Entreprises).")])),
-    h("label", { class: "champ" }, "Questionnaire et réglages (JSON)", h("textarea", { name: "config", rows: "18", spellcheck: "false", style: "font-family:monospace;font-size:13px" }, JSON.stringify(modele, null, 2))),
-    h("div", { class: "boutons" }, h("button", { class: "bouton action" }, "Créer la campagne"))));
+    h("p", { class: "detail-verif" }, "La campagne est créée en brouillon à partir du modèle Why me (4 questions) ; questions, accueil et réglages se règlent ensuite dans l'éditeur."),
+    h("div", { class: "boutons" }, h("button", { class: "bouton action" }, "Créer et ouvrir l'éditeur"))));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     essayer(async () => {
       const f = new FormData(form);
-      let config;
-      try { config = JSON.parse(String(f.get("config"))); } catch { throw new Error("Le JSON du questionnaire est illisible"); }
+      const config = { ...structuredClone(modele), evenement: String(f.get("evenement") ?? "").trim() || modele.evenement };
       const r = await api("/api/rh/campagnes", { methode: "POST", corps: { nom: f.get("nom"), client_id: f.get("client_id"), code: f.get("code") || undefined, config, entreprises: f.getAll("entreprise") } });
-      toast("Campagne créée");
+      toast("Campagne créée en brouillon");
       location.hash = `#/campagne/${r.campagne.id}`;
     });
   });
@@ -109,7 +110,9 @@ async function campagne(/** @type {string} */ id) {
   const { campagnes } = await api("/api/rh/campagnes");
   const c = campagnes.find((/** @type {any} */ x) => x.id === id);
   if (!c) { location.hash = "#/campagnes"; return; }
-  const [{ candidats, questions }, stats, { clients }] = await Promise.all([api(`/api/rh/campagnes/${id}/candidats`), api(`/api/rh/campagnes/${id}/statistiques`), api("/api/rh/clients")]);
+  const [{ candidats, questions }, stats, { clients }, { entreprises: toutesEntreprises }, { videos }] = await Promise.all([api(`/api/rh/campagnes/${id}/candidats`), api(`/api/rh/campagnes/${id}/statistiques`), api("/api/rh/clients"), api("/api/rh/entreprises"),
+    api(`/api/rh/videos?campagne=${encodeURIComponent(id)}`)]);
+  modele ??= await fetch("/whyme/modele-campagne.json").then((r) => r.json()).catch(() => ({}));
   const choixClient = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Client" }, h("option", { value: "" }, "— à rattacher —"),
     ...clients.map((/** @type {any} */ cl) => h("option", { value: cl.id, selected: cl.id === c.client_id }, cl.nom))));
   choixClient.addEventListener("change", () => essayer(async () => {
@@ -133,7 +136,7 @@ async function campagne(/** @type {string} */ id) {
     h("td", {}, date(x.cree_le)),
     h("td", {}, x.courriel_envoye_le ? date(x.courriel_envoye_le) : "—"),
     h("td", {}, h("div", { class: "boutons" },
-      x.a_video ? h("a", { class: "bouton discret petit", href: `/api/rh/candidats/${x.id}/video`, target: "_blank", rel: "noopener" }, "Vidéo") : null,
+      x.a_video ? h("button", { type: "button", class: "bouton discret petit", onclick: () => lire({ id: x.id, prenom: x.prenom, nom: x.nom }) }, "Voir la vidéo") : null,
       x.code_public && x.a_video ? h("a", { class: "bouton discret petit", href: `/v/${x.code_public}`, target: "_blank", rel: "noopener" }, "Page publique") : null,
       ["termine", "montage", "erreur"].includes(x.statut) ? h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/candidats/${x.id}/montage`, { methode: "POST" }); toast("Montage relancé"); await campagne(id); }) }, "Relancer le montage") : null))));
   page(c.nom, `${c.client ?? "Client à rattacher"} · ${c.config.evenement} · ${c.config.questions.length} questions · ${c.entreprises.map((/** @type {any} */ e) => e.nom).join(", ")}`, "campagnes",
@@ -141,15 +144,29 @@ async function campagne(/** @type {string} */ id) {
       h("section", { class: "carte" }, h("h2", {}, "Statut"), pastille(STATUTS_CAMPAGNE, c.statut), h("p", {}, "Le questionnaire et les entreprises ne changent plus une fois la campagne ouverte."), boutons,
         h("label", { class: "champ", style: "margin-top:14px" }, "Client", choixClient)),
       h("section", { class: "carte" }, h("h2", {}, "QR code de la JobBox"), qrSvg(adresse), h("p", {}, h("code", {}, adresse)))),
+    h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, `Vidéos montées (${videos.length})`),
+      videos.length ? galerie(videos) : h("p", { class: "vide" }, "Aucune vidéo montée pour l'instant.")),
     vueStatistiques(stats, "Ce que voit le client (statistiques seulement)"),
     h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, `Interviews (${candidats.length})`),
       candidats.length ? h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Candidat", "État", "Réponses", "Entreprises", "Fourni", "Commencée", "E-mail", ""].map((t) => h("th", {}, t)))), h("tbody", {}, ...lignes))
         : h("p", { class: "vide" }, "Aucune interview pour l'instant.")),
-    h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, "Questionnaire"),
-      h("ol", {}, ...c.config.questions.map((/** @type {any} */ q) => h("li", {}, `${q.texte} `, h("span", { class: "sous" }, `(${q.lectureSec} s de lecture, ${q.dureeSec} s de réponse)`)))),
-      h("p", {}, `Âge ${c.config.ageAffiche ? "affiché" : "non affiché"} sur la vidéo · âge minimum ${c.config.ageMinimum} ans`)));
+    h("section", { style: "margin-top:18px" }, h("h2", {}, "Questionnaire et réglages"),
+      c.statut !== "brouillon" ? h("p", { class: "detail-verif" }, "Campagne ouverte ou close : le questionnaire et les entreprises ne changent plus (les candidats ont accepté ces textes). Repassez-la en brouillon pour la modifier.") : null,
+      editeurCampagne({
+        config: c.config,
+        entreprises: toutesEntreprises,
+        choisies: c.entreprises.map((/** @type {any} */ e) => e.id),
+        lectureSeule: c.statut !== "brouillon",
+        valider: async (config) => (await api("/api/rh/campagnes/verifier", { methode: "POST", corps: { config } })).problemes,
+        enregistrer: async (config, ents) => { await api(`/api/rh/campagnes/${id}`, { methode: "PATCH", corps: { config, entreprises: ents } }); toast("Campagne enregistrée"); },
+        apercu: async (config, ents) => {
+          const d = await api("/api/rh/campagnes/apercu", { methode: "POST", corps: { config, entreprises: ents } });
+          try { localStorage.setItem("whyme-apercu", JSON.stringify(d)); } catch { throw new Error("Aperçu impossible : stockage du navigateur indisponible"); }
+          window.open("/i/apercu", "_blank");
+        },
+        modele: async () => structuredClone(modele ?? (modele = await fetch("/whyme/modele-campagne.json").then((r) => r.json()))),
+      })));
 }
-
 
 /** Statistiques agrégées d'une campagne (même vue que celle du client dans son espace). */
 function vueStatistiques(/** @type {any} */ s, /** @type {string} */ titre) {
@@ -164,6 +181,55 @@ function vueStatistiques(/** @type {any} */ s, /** @type {string} */ titre) {
     h("div", { class: "grille deux" },
       h("div", { class: "carte" }, h("h2", {}, "Candidatures par entreprise"), barres(s.parEntreprise.map((/** @type {any} */ e) => ({ nom: e.nom, n: e.candidatures })))),
       h("div", { class: "carte" }, h("h2", {}, "Candidats par famille de métiers"), barres(s.parFamille.filter((/** @type {any} */ f) => f.candidats).map((/** @type {any} */ f) => ({ nom: f.nom, n: f.candidats }))))));
+}
+
+
+// ------------------------------------------------------------------ vidéos montées
+
+const lecteur = /** @type {HTMLDialogElement} */ (h("dialog", { class: "lecteur-rh", "aria-label": "Vidéo du candidat" }));
+document.body.append(lecteur);
+lecteur.addEventListener("close", () => lecteur.replaceChildren());
+
+/** Lecture d'une vidéo montée dans une fenêtre (9:16), avec le CV s'il y en a un. */
+function lire(/** @type {{ id: string, prenom: string, nom: string, a_cv?: boolean, code_public?: string | null }} */ v) {
+  const video = h("video", { src: `/api/rh/candidats/${v.id}/video`, controls: true, playsinline: true, autoplay: true, preload: "metadata" });
+  lecteur.replaceChildren(
+    h("div", { class: "lecteur-tete" }, h("strong", {}, `${v.prenom} ${v.nom}`), h("button", { type: "button", class: "bouton discret petit", onclick: () => lecteur.close() }, "Fermer")),
+    video,
+    h("div", { class: "boutons", style: "margin-top:10px" },
+      v.a_cv ? h("a", { class: "bouton discret petit", href: `/api/rh/candidats/${v.id}/cv`, target: "_blank", rel: "noopener" }, "CV") : null,
+      v.code_public ? h("a", { class: "bouton discret petit", href: `/v/${v.code_public}`, target: "_blank", rel: "noopener" }, "Page publique") : null));
+  lecteur.showModal();
+}
+
+function galerie(/** @type {any[]} */ videos) {
+  return h("div", { class: "galerie" }, ...videos.map((v) => {
+    const image = h("span", { class: "image" });
+    if (v.a_miniature) image.style.backgroundImage = `url("/api/rh/candidats/${v.id}/miniature")`;
+    return h("button", { type: "button", class: "vignette-video", onclick: () => lire(v), "aria-label": `Voir la vidéo de ${v.prenom} ${v.nom}` },
+      image, h("strong", {}, `${v.prenom} ${v.nom}`),
+      h("span", { class: "meta" }, [v.age ? `${v.age} ans` : "", v.famille, v.a_cv ? "CV" : ""].filter(Boolean).join(" · ") || " "),
+      h("span", { class: "meta" }, v.entreprises ?? "—"),
+      h("span", { class: "meta" }, `${v.campagne} · ${date(v.pret_le)}`));
+  }));
+}
+
+async function pageVideos() {
+  const { videos } = await api("/api/rh/videos");
+  const campagnesDispo = [...new Map(videos.map((/** @type {any} */ v) => [v.campagne_id, v.campagne])).entries()];
+  const recherche = /** @type {HTMLInputElement} */ (h("input", { type: "search", placeholder: "Rechercher un nom", "aria-label": "Rechercher un nom" }));
+  const filtre = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Campagne" }, h("option", { value: "" }, "Toutes les campagnes"), ...campagnesDispo.map(([id, nom]) => h("option", { value: id }, nom))));
+  const zone = h("div", {});
+  const dessiner = () => {
+    const q = recherche.value.trim().toLowerCase();
+    const liste = videos.filter((/** @type {any} */ v) => (!filtre.value || v.campagne_id === filtre.value) && (!q || `${v.prenom} ${v.nom} ${v.entreprises ?? ""}`.toLowerCase().includes(q)));
+    zone.replaceChildren(liste.length ? galerie(liste) : h("p", { class: "vide" }, "Aucune vidéo."));
+  };
+  recherche.addEventListener("input", dessiner);
+  filtre.addEventListener("change", dessiner);
+  dessiner();
+  page("Vidéos", `${videos.length} vidéo${videos.length > 1 ? "s" : ""} montée${videos.length > 1 ? "s" : ""}, toutes campagnes. Chaque lecture est journalisée.`, "videos",
+    h("section", { class: "carte" }, h("div", { class: "filtres-videos" }, recherche, filtre), zone));
 }
 
 // ------------------------------------------------------------------ clients et contacts
@@ -283,6 +349,7 @@ async function router() {
   const [, pageCle = "campagnes", id = ""] = location.hash.replace(/^#/, "").split("/");
   try {
     if (pageCle === "campagne" && id) await campagne(id);
+    else if (pageCle === "videos") await pageVideos();
     else if (pageCle === "clients") await clients();
     else if (pageCle === "equipe") await equipe();
     else if (pageCle === "entreprises") await entreprises();

@@ -4,6 +4,8 @@
 // question d'essai → questions (« On garde » / « Je veux la revoir », une reprise par question) → fin.
 // Une fois le téléphone posé, tout s'enchaîne sans le toucher, sauf pour revoir ou refaire une réponse.
 // La vidéo montée n'est pas montrée ici : le candidat la découvre par e-mail (décision du 11/10/2026).
+// Aperçu (/i/apercu, ouvert depuis l'éditeur de l'espace RH) : le même parcours sur un brouillon, caméra comprise,
+// sans rien envoyer ni enregistrer.
 
 import { creerVumetre, detecterVisage, diagnostic, enregistrer, mesurerImage, ouvrirCamera } from "./capture.js";
 import { creerFileEnvoi } from "./envoi.js";
@@ -14,6 +16,9 @@ import { creerFileEnvoi } from "./envoi.js";
 const app = /** @type {HTMLElement} */ (document.getElementById("app"));
 const code = (location.pathname.match(/^\/i\/([a-z0-9-]+)/) ?? [])[1] ?? new URLSearchParams(location.search).get("code") ?? "";
 const CLE_LOCALE = `whyme:${code}`;
+/** Brouillon de l'éditeur RH déposé par l'onglet qui a ouvert l'aperçu (même origine). */
+const CLE_APERCU = "whyme-apercu";
+const APERCU = code === "apercu";
 
 const etat = {
   /** @type {Campagne} */ campagne: /** @type {any} */ (null),
@@ -63,6 +68,7 @@ function choix(/** @type {ParentNode} */ racine = app) {
 }
 
 async function api(/** @type {string} */ methode, /** @type {string} */ chemin, /** @type {unknown} */ corps = undefined) {
+  if (APERCU) return {}; // aperçu : rien ne part
   const res = await fetch(chemin, {
     method: methode,
     headers: { ...(corps ? { "content-type": "application/json" } : {}), ...(etat.jeton ? { "x-jeton": etat.jeton } : {}) },
@@ -78,7 +84,7 @@ function nouveauJeton() {
   return btoa(String.fromCharCode(...o)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-const memoriser = () => { try { localStorage.setItem(CLE_LOCALE, JSON.stringify({ id: etat.id, jeton: etat.jeton })); } catch { /* stockage indisponible */ } };
+const memoriser = () => { if (APERCU) return; try { localStorage.setItem(CLE_LOCALE, JSON.stringify({ id: etat.id, jeton: etat.jeton })); } catch { /* stockage indisponible */ } };
 const oublier = () => { try { localStorage.removeItem(CLE_LOCALE); } catch { /* stockage indisponible */ } };
 
 function erreurBloquante(/** @type {string} */ titre, /** @type {string} */ message) {
@@ -90,10 +96,20 @@ function erreurBloquante(/** @type {string} */ titre, /** @type {string} */ mess
 async function demarrer() {
   if (!code) return erreurBloquante("Lien incomplet", "Scanne de nouveau le QR code de la JobBox.");
   let donnees;
-  try {
-    donnees = await api("GET", `/api/whyme/campagnes/${encodeURIComponent(code)}`);
-  } catch (e) {
-    return erreurBloquante("Interview fermée", /** @type {Error} */ (e).message || "Cette interview n'est pas ouverte en ce moment.");
+  if (APERCU) {
+    try { donnees = JSON.parse(localStorage.getItem(CLE_APERCU) ?? "null"); } catch { donnees = null; }
+    if (!donnees?.campagne) return erreurBloquante("Aperçu indisponible", "Ouvre l'aperçu depuis l'éditeur de la campagne, dans l'espace RH.");
+    const bandeau = document.createElement("div");
+    bandeau.className = "bandeau-apercu";
+    bandeau.textContent = "Aperçu · rien n'est enregistré";
+    document.body.prepend(bandeau);
+    document.body.style.paddingTop = "26px";
+  } else {
+    try {
+      donnees = await api("GET", `/api/whyme/campagnes/${encodeURIComponent(code)}`);
+    } catch (e) {
+      return erreurBloquante("Interview fermée", /** @type {Error} */ (e).message || "Cette interview n'est pas ouverte en ce moment.");
+    }
   }
   etat.campagne = donnees.campagne;
   etat.entreprises = donnees.entreprises;
@@ -105,7 +121,7 @@ async function demarrer() {
   const lien = /#reprise=([0-9a-f-]{36})\.([\w-]{32,64})/.exec(location.hash);
   let session = lien ? { id: lien[1], jeton: lien[2] } : null;
   if (lien) history.replaceState(null, "", location.pathname);
-  if (!session) { try { session = JSON.parse(localStorage.getItem(CLE_LOCALE) ?? "null"); } catch { session = null; } }
+  if (!session && !APERCU) { try { session = JSON.parse(localStorage.getItem(CLE_LOCALE) ?? "null"); } catch { session = null; } }
   if (session?.id && session?.jeton) {
     etat.id = session.id; etat.jeton = session.jeton;
     try {
@@ -322,6 +338,11 @@ async function creerCandidat() {
 
 async function preparerFile() {
   if (etat.file) return;
+  if (APERCU) {
+    // Aperçu : une file qui ne garde rien.
+    etat.file = /** @type {any} */ ({ ajouter: async () => {}, restants: async () => 0, vide: async () => {} });
+    return;
+  }
   etat.file = await creerFileEnvoi({
     candidat: etat.id,
     jeton: () => etat.jeton,
@@ -609,6 +630,14 @@ async function fin(dejaTermine = false) {
       }
     }
     oublier();
+  }
+  if (APERCU) {
+    return afficher(`<section class="ecran">${haut()}<div class="corps">
+      <h1>Fin de l'aperçu</h1>
+      <div class="bulle">C'est ici que le candidat apprend que sa vidéo est en cours de montage et qu'il la recevra par e-mail.</div>
+      <div class="bulle">Rien n'a été enregistré : ni réponse, ni vidéo.</div>
+      <p style="margin-top:20px">Tu peux fermer cet onglet et revenir à l'éditeur.</p>
+    </div></section>`);
   }
   afficher(`<section class="ecran">${haut()}<div class="corps">
     <h1>Merci${prenom ? ` ${echapper(prenom)}` : ""} !</h1>

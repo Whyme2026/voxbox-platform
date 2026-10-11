@@ -7,7 +7,7 @@ import { conflit, HttpError, invalide, json, lireJson, maintenant, texte } from 
 import { empreinteJeton, nouveauJeton } from "../auth/cabine.ts";
 import { ligneJournal } from "../journal.ts";
 import { genererTextes } from "./config.ts";
-import { CANDIDAT, JETON, UUID, campagneParCode, campagneParId, candidatAuthentifie, entreprisesDeCampagne } from "./commun.ts";
+import { CANDIDAT, JETON, UUID, campagneParCode, campagneParId, candidatAuthentifie, entreprisesDeCampagne, campagnePourCandidat } from "./commun.ts";
 import { declencherMontage } from "./montage.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,16 +31,10 @@ export function routesWhymeCandidat(r: Routeur): void {
   r.get("/api/whyme/campagnes/:code", async (ctx) => {
     const c = await campagneParCode(ctx.env.DB, ctx.params.code!);
     const entreprises = await entreprisesDeCampagne(ctx.env.DB, c.id);
-    const cfg = c.config;
     return json({
-      campagne: {
-        code: c.code, evenement: cfg.evenement, organisateur: cfg.organisateur ?? null, accueil: cfg.accueil,
-        familles: cfg.familles, questionEssai: cfg.questionEssai,
-        questions: cfg.questions.map((q) => ({ id: q.id, texte: q.texte, dureeSec: q.dureeSec, lectureSec: q.lectureSec })),
-        ageAffiche: cfg.ageAffiche, ageMinimum: cfg.ageMinimum, validationAutoSec: cfg.validationAutoSec,
-      },
+      campagne: campagnePourCandidat(c.code, c.config),
       entreprises: entreprises.map((e) => ({ id: e.id, nom: e.nom, logo: e.logo_cle ? `/api/whyme/entreprises/${e.id}/logo` : null })),
-      textes: genererTextes(cfg),
+      textes: genererTextes(c.config),
       empreinte: c.textes_empreinte,
     });
   });
