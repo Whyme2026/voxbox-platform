@@ -189,7 +189,7 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
 Décisions : note `parlopop-note-demarrage-reporting.md` du projet. L'analyse des propos est une **option vendue
 campagne par campagne** ; Mistral AI (UE) est le seul sous-traitant pour toute la chaîne (Voxtral pour la
 transcription, Mistral Large 3 pour le classement au lot 2).
-- **Réglage** (migration `0008_option_analyse.sql`) : `campagnes.option_analyse`, modifiable seulement avant
+- **Réglage** (migration `0009_option_analyse.sql`) : `campagnes.option_analyse`, modifiable seulement avant
   l'activation (comme la durée de conservation : elle figure dans les textes). L'activer ou la retirer régénère les
   textes (`MENTION_ANALYSE`, `src/rgpd/consentement.ts`) et remet la campagne en brouillon. Un texte rédigé à la main
   doit parler de transcription et d'analyse. `consentement_versions.analyse` dit si une version l'annonce ; une
