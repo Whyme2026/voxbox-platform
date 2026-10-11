@@ -95,3 +95,17 @@ navigateur et passe pour du silence.
 - **Vidéos** : onglet Vidéos (toutes campagnes, recherche, filtre) et galerie dans chaque campagne ; vignettes 9:16,
   lecture dans une fenêtre, CV et page publique. `GET /api/rh/videos`, `/api/rh/candidats/:id/miniature|video|cv`
   (lecture de la vidéo et du CV journalisées).
+
+## Repasse ergonomique de l'espace RH (12/10/2026)
+- Un seul menu (barre latérale) : Campagnes, Vidéos, Clients, Entreprises et recruteurs (fusionnés), E-mails, Équipe.
+- Création de campagne en trois questions (client, avec création du client sur place ; nom ; événement) ; les
+  entreprises et le questionnaire se règlent ensuite sur la page de la campagne. Les entreprises ne sont exigées
+  qu'à l'ouverture, et ce qui manque est dit avant le clic (bandeau d'état).
+- Page d'une campagne : statut et actions à double confirmation en haut (Ouvrir, Repasser en brouillon, Clore,
+  Rouvrir, Supprimer un brouillon sans interview), onglets Questionnaire, Interviews et vidéos, Lien et QR code,
+  Statistiques du client.
+- Une adresse e-mail saisie comme nom de client ou d'entreprise est refusée (confusion avec contacts et
+  recruteurs). Clients et entreprises qui n'ont servi à rien se suppriment.
+- Corrigé : après une action réussie (ajout d'entreprise, de client, de contact, de recruteur, d'un membre de
+  l'équipe), la page affichait « … is not a function » : la fonction de la page était masquée par une variable du
+  même nom. Les pages s'appellent désormais pageClients, pageEntreprises, etc.

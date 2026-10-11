@@ -33,14 +33,22 @@ async function emailLibre(ctx: Contexte, email: string): Promise<void> {
   }
 }
 
+/** Un nom d'organisation, pas une adresse e-mail (confusion fréquente avec les contacts et les recruteurs). */
+function nomOrganisation(d: Record<string, unknown>, quoi: string): string {
+  const nom = texte(d, "nom", { requis: true, max: 80 })!;
+  if (nom.includes("@")) throw invalide(`C'est une adresse e-mail : le nom ${quoi} est attendu ici (les personnes s'ajoutent ensuite, avec leur adresse).`);
+  return nom;
+}
+
 async function lireClient(ctx: Contexte, v: unknown): Promise<string> {
   if (typeof v !== "string" || !(await ctx.env.DB.prepare("SELECT 1 FROM wm_clients WHERE id = ?").bind(v).first())) throw invalide("Client inconnu");
   return v;
 }
 
-/** Entreprises proposées : identifiants existants, sans doublon. */
+/** Entreprises proposées : identifiants existants, sans doublon. Liste vide permise (exigée seulement à l'ouverture). */
 async function lireEntreprises(ctx: Contexte, v: unknown): Promise<string[]> {
-  if (!Array.isArray(v) || !v.length) throw invalide("Au moins une entreprise");
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw invalide("Entreprises : liste attendue");
   const ids = [...new Set(v)];
   for (const e of ids) {
     if (typeof e !== "string" || !(await ctx.env.DB.prepare("SELECT 1 FROM wm_entreprises WHERE id = ?").bind(e).first())) throw invalide("Entreprise inconnue");
@@ -54,7 +62,9 @@ export function routesWhymeAdmin(r: Routeur): void {
     await whyme(ctx, "gerer");
     const e = await ctx.env.DB.prepare(
       `SELECT e.id, e.nom, e.slug, e.logo_cle IS NOT NULL AS a_logo,
-              (SELECT COUNT(*) FROM wm_recruteurs r WHERE r.entreprise_id = e.id AND r.actif = 1) AS recruteurs
+              (SELECT COUNT(*) FROM wm_recruteurs r WHERE r.entreprise_id = e.id AND r.actif = 1) AS recruteurs,
+              (SELECT COUNT(*) FROM wm_campagne_entreprises ce WHERE ce.entreprise_id = e.id) AS campagnes,
+              (SELECT COUNT(*) FROM wm_candidatures ca WHERE ca.entreprise_id = e.id) AS candidatures
          FROM wm_entreprises e ORDER BY e.nom`,
     ).all<Record<string, unknown>>();
     return json({ entreprises: e.results.map((x) => ({ ...x, logo: x.a_logo ? `/api/whyme/entreprises/${x.id}/logo` : null })) });
@@ -63,7 +73,7 @@ export function routesWhymeAdmin(r: Routeur): void {
   r.post("/api/rh/entreprises", async (ctx) => {
     const id = await whyme(ctx, "gerer");
     const d = await lireJson(ctx.request);
-    const nom = texte(d, "nom", { requis: true, max: 80 })!;
+    const nom = nomOrganisation(d, "de l'entreprise");
     const slug = slugifier(nom);
     if (await ctx.env.DB.prepare("SELECT 1 FROM wm_entreprises WHERE slug = ?").bind(slug).first()) throw conflit("Cette entreprise existe déjà");
     const e = { id: nouvelId(), nom, slug };
@@ -78,7 +88,7 @@ export function routesWhymeAdmin(r: Routeur): void {
   r.patch("/api/rh/entreprises/:id", async (ctx) => {
     const id = await whyme(ctx, "gerer");
     const d = await lireJson(ctx.request);
-    const nom = texte(d, "nom", { requis: true, max: 80 })!;
+    const nom = nomOrganisation(d, "de l'entreprise");
     const res = await ctx.env.DB.prepare("UPDATE wm_entreprises SET nom = ?, maj_le = ? WHERE id = ?").bind(nom, maintenant(), ctx.params.id!).run();
     if (!res.meta.changes) throw introuvable("Entreprise introuvable");
     await journaliser(ctx.env.DB, id.email, { action: "whyme.entreprise.modification", cibleType: "wm_entreprise", cibleId: ctx.params.id!, details: { nom } });
@@ -321,7 +331,7 @@ export function routesWhymeAdmin(r: Routeur): void {
   r.post("/api/rh/clients", async (ctx) => {
     const id = await whyme(ctx, "gerer");
     const d = await lireJson(ctx.request);
-    const nom = texte(d, "nom", { requis: true, max: 80 })!;
+    const nom = nomOrganisation(d, "du client");
     const slug = slugifier(nom);
     if (await ctx.env.DB.prepare("SELECT 1 FROM wm_clients WHERE slug = ?").bind(slug).first()) throw conflit("Ce client existe déjà");
     const c = { id: nouvelId(), nom, slug };
@@ -336,7 +346,7 @@ export function routesWhymeAdmin(r: Routeur): void {
   r.patch("/api/rh/clients/:id", async (ctx) => {
     const id = await whyme(ctx, "gerer");
     const d = await lireJson(ctx.request);
-    const nom = texte(d, "nom", { requis: true, max: 80 })!;
+    const nom = nomOrganisation(d, "du client");
     const res = await ctx.env.DB.prepare("UPDATE wm_clients SET nom = ?, maj_le = ? WHERE id = ?").bind(nom, maintenant(), ctx.params.id!).run();
     if (!res.meta.changes) throw introuvable("Client introuvable");
     await journaliser(ctx.env.DB, id.email, { action: "whyme.client.modification", cibleType: "wm_client", cibleId: ctx.params.id!, details: { nom } });
@@ -473,5 +483,52 @@ export function routesWhymeAdmin(r: Routeur): void {
       "content-type": c.cv_type ?? "application/octet-stream", "cache-control": "private, no-store", "x-content-type-options": "nosniff",
       "content-disposition": `${c.cv_type === "application/pdf" ? "inline" : "attachment"}; filename="${(c.cv_nom ?? "cv").replace(/[^\w.-]/g, "-")}"`,
     } });
+  });
+
+  // ------------------------------------------------------------------ suppressions (fiches créées par erreur)
+  // Seulement ce qui n'a encore servi à rien : une fiche liée à une campagne ou à une candidature reste.
+  r.ajouter("DELETE", "/api/rh/clients/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    const c = await ctx.env.DB.prepare("SELECT id, nom FROM wm_clients WHERE id = ?").bind(ctx.params.id!).first<{ id: string; nom: string }>();
+    if (!c) throw introuvable("Client introuvable");
+    if (await ctx.env.DB.prepare("SELECT 1 FROM wm_campagnes WHERE client_id = ?").bind(c.id).first()) throw conflit("Ce client a des campagnes : il ne peut pas être supprimé");
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("DELETE FROM wm_jetons_contact WHERE contact_id IN (SELECT id FROM wm_contacts_client WHERE client_id = ?)").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM wm_contacts_client WHERE client_id = ?").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM wm_clients WHERE id = ?").bind(c.id),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.client.suppression", cibleType: "wm_client", cibleId: c.id, details: { nom: c.nom } }),
+    ]);
+    return json({ ok: true });
+  });
+
+  r.ajouter("DELETE", "/api/rh/entreprises/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    const e = await ctx.env.DB.prepare("SELECT id, nom, logo_cle FROM wm_entreprises WHERE id = ?").bind(ctx.params.id!).first<{ id: string; nom: string; logo_cle: string | null }>();
+    if (!e) throw introuvable("Entreprise introuvable");
+    if (await ctx.env.DB.prepare("SELECT 1 FROM wm_campagne_entreprises WHERE entreprise_id = ?").bind(e.id).first()
+      || await ctx.env.DB.prepare("SELECT 1 FROM wm_candidatures WHERE entreprise_id = ?").bind(e.id).first()) {
+      throw conflit("Cette entreprise est proposée dans une campagne ou a reçu des candidatures : elle ne peut pas être supprimée");
+    }
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("DELETE FROM wm_jetons_recruteur WHERE recruteur_id IN (SELECT id FROM wm_recruteurs WHERE entreprise_id = ?)").bind(e.id),
+      ctx.env.DB.prepare("DELETE FROM wm_recruteurs WHERE entreprise_id = ?").bind(e.id),
+      ctx.env.DB.prepare("DELETE FROM wm_entreprises WHERE id = ?").bind(e.id),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.entreprise.suppression", cibleType: "wm_entreprise", cibleId: e.id, details: { nom: e.nom } }),
+    ]);
+    if (e.logo_cle) await ctx.env.MEDIA.delete(e.logo_cle);
+    return json({ ok: true });
+  });
+
+  r.ajouter("DELETE", "/api/rh/campagnes/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    const c = await campagneParId(ctx.env.DB, ctx.params.id!);
+    if (c.statut !== "brouillon") throw conflit("Seule une campagne en brouillon peut être supprimée");
+    if (await ctx.env.DB.prepare("SELECT 1 FROM wm_candidats WHERE campagne_id = ?").bind(c.id).first()) throw conflit("Cette campagne a des interviews : elle ne peut pas être supprimée");
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("DELETE FROM wm_campagne_entreprises WHERE campagne_id = ?").bind(c.id),
+      ctx.env.DB.prepare("DELETE FROM wm_campagnes WHERE id = ?").bind(c.id),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.campagne.suppression", cibleType: "wm_campagne", cibleId: c.id, details: { nom: c.nom } }),
+    ]);
+    return json({ ok: true });
   });
 }

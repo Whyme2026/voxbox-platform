@@ -1,7 +1,10 @@
 // @ts-check
-// Espace RH Why me (/rh/) : clients (organisateurs) et leurs contacts, campagnes et leurs statistiques, entreprises
-// recruteuses (sous-clients), recruteurs, suivi des interviews, e-mails, équipe RH. Réservé à l'équipe RH, séparée
-// des comptes Parlopop. Tout le texte venant de la base est inséré en texte.
+// Espace RH Why me (/rh/), réservé à l'équipe RH (séparée des comptes Parlobox). Organisation :
+// - Campagnes : liste, création guidée (client, nom, événement), puis la page de la campagne avec ses onglets
+//   Questionnaire (éditeur), Interviews et vidéos, Lien et QR code, Statistiques du client ;
+// - Vidéos : toutes les vidéos montées ; Clients : organisations qui commandent, et leurs contacts ;
+// - Entreprises : sous-clients et leurs recruteurs ; E-mails ; Équipe.
+// Tout le texte venant de la base est inséré en texte (h()).
 
 import { h } from "../../admin/js/dom.js";
 import { genererQR, cheminQR } from "../../cabine/js/qr.js";
@@ -19,170 +22,287 @@ function enTetesDev() {
 }
 
 async function api(/** @type {string} */ chemin, /** @type {{ methode?: string, corps?: unknown, brut?: Blob, type?: string }} */ o = {}) {
-  const res = await fetch(chemin, {
-    method: o.methode ?? "GET",
-    headers: { ...enTetesDev(), ...(o.corps !== undefined ? { "content-type": "application/json" } : {}), ...(o.type ? { "content-type": o.type } : {}) },
-    body: o.brut ?? (o.corps !== undefined ? JSON.stringify(o.corps) : undefined),
-    credentials: "same-origin",
-  });
+  let res;
+  try {
+    res = await fetch(chemin, {
+      method: o.methode ?? "GET",
+      headers: { ...enTetesDev(), ...(o.corps !== undefined ? { "content-type": "application/json" } : {}), ...(o.type ? { "content-type": o.type } : {}) },
+      body: o.brut ?? (o.corps !== undefined ? JSON.stringify(o.corps) : undefined),
+      credentials: "same-origin",
+    });
+  } catch {
+    throw new Error("Connexion impossible : vérifiez le réseau, puis réessayez.");
+  }
   const d = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(d.message ?? `Erreur ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) throw new Error(d.message ?? "Accès refusé : rechargez la page pour vous reconnecter.");
+    throw new Error(d.message ?? `Le serveur a répondu ${res.status}.`);
+  }
   return d;
 }
 
-function toast(/** @type {string} */ m, ton = "") {
+function toast(/** @type {string} */ m, ton = "ok") {
   toastEl.textContent = m; toastEl.dataset.ton = ton; toastEl.hidden = false;
   clearTimeout(Number(toastEl.dataset.minuterie));
-  toastEl.dataset.minuterie = String(setTimeout(() => { toastEl.hidden = true; }, 3500));
+  toastEl.dataset.minuterie = String(setTimeout(() => { toastEl.hidden = true; }, ton === "erreur" ? 6000 : 3500));
 }
+/** Lance une action ; en cas d'échec, montre le message du serveur (et rien d'autre). */
 const essayer = (/** @type {() => Promise<unknown>} */ f) => f().catch((e) => toast(/** @type {Error} */ (e).message, "erreur"));
 const FORMAT = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 const date = (/** @type {string | null} */ iso) => (iso ? FORMAT.format(new Date(iso)) : "—");
+const pluriel = (/** @type {number} */ n, /** @type {string} */ mot, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`;
 
-const STATUTS_CAMPAGNE = /** @type {Record<string, [string, string]>} */ ({ brouillon: ["Brouillon", ""], active: ["Ouverte", "vert"], close: ["Close", ""] });
+const STATUTS_CAMPAGNE = /** @type {Record<string, [string, string]>} */ ({ brouillon: ["Brouillon", "jaune"], active: ["Ouverte aux candidats", "vert"], close: ["Close", ""] });
 const STATUTS_CANDIDAT = /** @type {Record<string, [string, string]>} */ ({
   en_cours: ["En cours", "jaune"], termine: ["Montage en attente", "jaune"], montage: ["Montage en cours", "vox"], pret: ["Transmise", "vert"], erreur: ["Échec du montage", "rouge"],
 });
 const pastille = (/** @type {Record<string, [string, string]>} */ table, /** @type {string} */ s) => h("span", { class: "pastille", "data-ton": table[s]?.[1] ?? "" }, table[s]?.[0] ?? s);
 
-function onglets(/** @type {string} */ actif) {
-  const liens = [["campagnes", "Campagnes"], ["videos", "Vidéos"], ["clients", "Clients"], ["entreprises", "Entreprises"], ["recruteurs", "Recruteurs"], ["courriels", "E-mails"], ...(moi?.role === "admin_rh" ? [["equipe", "Équipe"]] : [])];
-  return h("div", { class: "onglets", role: "tablist" }, ...liens.map(([cle, lib]) =>
-    h("button", { type: "button", role: "tab", "aria-selected": String(cle === actif), onclick: () => { location.hash = `#/${cle}`; } }, lib)));
+/** Bouton à double confirmation (sans boîte de dialogue du navigateur), comme dans Parlorama. */
+function boutonConfirme(/** @type {string} */ libelle, /** @type {string} */ confirmation, /** @type {() => Promise<void>} */ action, classe = "bouton discret") {
+  const b = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: classe }, libelle));
+  let arme = false;
+  b.addEventListener("click", async () => {
+    if (!arme) {
+      arme = true; b.textContent = confirmation;
+      setTimeout(() => { arme = false; b.textContent = libelle; }, 4000);
+      return;
+    }
+    b.disabled = true;
+    try { await action(); } catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); b.disabled = false; b.textContent = libelle; arme = false; }
+  });
+  return b;
 }
 
-function page(/** @type {string} */ titre, /** @type {string} */ sous, /** @type {string} */ actif, /** @type {any[]} */ ...corps) {
+const champ = (/** @type {string} */ libelle, /** @type {HTMLElement} */ entree, /** @type {string | null} */ aide = null) =>
+  h("label", { class: "champ" }, libelle, entree, aide ? h("span", { class: "aide-champ" }, aide) : null);
+
+function page(/** @type {{ titre: string, sous?: string, fil?: [string, string] | null, droite?: any }} */ o, /** @type {any[]} */ ...corps) {
   contenu.replaceChildren(
-    h("div", { class: "entete-page" }, h("div", {}, h("div", { class: "fil" }, "why me · Espace RH"), h("h1", {}, titre), h("p", { class: "sous" }, sous))),
-    onglets(actif), ...corps);
+    h("div", { class: "entete-page" },
+      h("div", {}, o.fil ? h("div", { class: "fil" }, h("a", { href: o.fil[1] }, o.fil[0]), " ›") : null, h("h1", {}, o.titre), o.sous ? h("p", { class: "sous" }, o.sous) : null),
+      o.droite ?? null),
+    ...corps);
 }
 
-// ------------------------------------------------------------------ campagnes
-
-let modele = /** @type {any} */ (null);
 /** @type {{ email: string, role: string } | null} */
 let moi = null;
+let modele = /** @type {any} */ (null);
+const chargerModele = async () => (modele ??= await fetch("/whyme/modele-campagne.json").then((r) => r.json()));
 
-async function campagnes() {
-  const [{ campagnes }, { entreprises }, { clients }] = await Promise.all([api("/api/rh/campagnes"), api("/api/rh/entreprises"), api("/api/rh/clients")]);
-  modele ??= await fetch("/whyme/modele-campagne.json").then((r) => r.json()).catch(() => ({}));
-  const liste = h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Campagne", "Client", "Événement", "Code du QR", "Entreprises", "Interviews", "Statut"].map((t) => h("th", {}, t)))),
-    h("tbody", {}, ...campagnes.map((/** @type {any} */ c) => h("tr", { class: "lien-ligne", onclick: () => { location.hash = `#/campagne/${c.id}`; } },
-      h("td", {}, h("strong", {}, c.nom)), h("td", {}, c.client ?? h("em", {}, "à rattacher")), h("td", {}, c.config.evenement), h("td", {}, h("code", {}, `/i/${c.code}`)),
-      h("td", {}, c.entreprises.map((/** @type {any} */ e) => e.nom).join(", ")), h("td", { class: "nombre" }, `${c.prets} / ${c.candidats}`),
-      h("td", {}, pastille(STATUTS_CAMPAGNE, c.statut))))));
-  const form = /** @type {HTMLFormElement} */ (h("form", { class: "grille" },
-    h("label", { class: "champ" }, "Nom interne", h("input", { name: "nom", required: true, placeholder: "Mondial de l'Auto 2026 · PFA" })),
-    h("label", { class: "champ" }, "Client (qui commande la campagne)",
-      clients.length ? h("select", { name: "client_id", required: true }, ...clients.map((/** @type {any} */ c) => h("option", { value: c.id }, c.nom)))
-        : h("p", {}, "Créez d'abord le client (onglet Clients).")),
-    h("label", { class: "champ" }, "Événement (affiché au candidat)", h("input", { name: "evenement", required: true, maxlength: 80, placeholder: "Mondial de l'Auto" })),
-    h("label", { class: "champ" }, "Code dans l'adresse du QR (facultatif)", h("input", { name: "code", placeholder: "mondial-2026" })),
-    h("fieldset", { class: "champ" }, h("legend", {}, "Entreprises proposées (sous-clients)"),
-      ...(entreprises.length ? entreprises.map((/** @type {any} */ e) => h("label", {}, h("input", { type: "checkbox", name: "entreprise", value: e.id }), ` ${e.nom}`)) : [h("p", {}, "Créez d'abord les entreprises (onglet Entreprises).")])),
-    h("p", { class: "detail-verif" }, "La campagne est créée en brouillon à partir du modèle Why me (4 questions) ; questions, accueil et réglages se règlent ensuite dans l'éditeur."),
-    h("div", { class: "boutons" }, h("button", { class: "bouton action" }, "Créer et ouvrir l'éditeur"))));
+// ------------------------------------------------------------------ campagnes : liste et création
+
+async function pageCampagnes() {
+  const [{ campagnes }, { clients }] = await Promise.all([api("/api/rh/campagnes"), api("/api/rh/clients")]);
+  const creation = formulaireCreation(clients);
+  creation.hidden = campagnes.length > 0;
+  const bouton = h("button", { type: "button", class: "bouton action", onclick: () => { creation.hidden = !creation.hidden; if (!creation.hidden) /** @type {HTMLElement | null} */ (creation.querySelector("select, input"))?.focus(); } }, "Nouvelle campagne");
+  const liste = campagnes.length
+    ? h("div", { class: "defile" }, h("table", { class: "tableau" },
+      h("thead", {}, h("tr", {}, ...["Campagne", "Client", "Statut", "Interviews", "Vidéos prêtes", "Lien candidat"].map((t) => h("th", {}, t)))),
+      h("tbody", {}, ...campagnes.map((/** @type {any} */ c) => h("tr", { class: "lien-ligne", onclick: () => { location.hash = `#/campagne/${c.id}`; } },
+        h("td", {}, h("a", { href: `#/campagne/${c.id}` }, h("strong", {}, c.nom)), h("div", { class: "sous-ligne" }, c.config.evenement)),
+        h("td", {}, c.client ?? h("span", { class: "pastille", "data-ton": "rouge" }, "À rattacher")),
+        h("td", {}, pastille(STATUTS_CAMPAGNE, c.statut)),
+        h("td", { class: "nombre" }, String(c.candidats)),
+        h("td", { class: "nombre" }, String(c.prets)),
+        h("td", {}, h("code", {}, `/i/${c.code}`)))))))
+    : h("p", { class: "vide" }, "Aucune campagne pour l'instant : créez la première ci-dessus.");
+  page({ titre: "Campagnes", sous: "Une campagne, c'est un événement (salon, forum, école…) commandé par un client : ses entreprises recruteuses, son questionnaire, son QR code.", droite: bouton },
+    creation, h("section", { class: "carte" }, liste));
+}
+
+/** Création en trois questions ; tout le reste (entreprises, questions) se règle sur la page de la campagne. */
+function formulaireCreation(/** @type {any[]} */ clients) {
+  const choixClient = /** @type {HTMLSelectElement} */ (h("select", { name: "client_id", "aria-label": "Client" },
+    h("option", { value: "" }, clients.length ? "Choisir le client…" : "Aucun client : créez-le à droite"),
+    ...clients.map((c) => h("option", { value: c.id }, c.nom))));
+  const nouveauClient = /** @type {HTMLInputElement} */ (h("input", { placeholder: "ex. PFA, VivaTech, Lycée Jean-Jaurès", maxlength: 80, "aria-label": "Nouveau client" }));
+  const ajoutClient = h("button", { type: "button", class: "bouton discret petit", onclick: () => essayer(async () => {
+    const nom = nouveauClient.value.trim();
+    if (!nom) throw new Error("Saisissez le nom de l'organisation cliente.");
+    if (nom.includes("@")) throw new Error("C'est une adresse e-mail : saisissez le nom de l'organisation (les personnes s'ajoutent dans l'onglet Clients).");
+    const r = await api("/api/rh/clients", { methode: "POST", corps: { nom } });
+    choixClient.append(h("option", { value: r.client.id }, r.client.nom));
+    choixClient.value = r.client.id;
+    nouveauClient.value = "";
+    toast(`Client « ${r.client.nom} » créé`);
+  }) }, "Créer ce client");
+  const nom = /** @type {HTMLInputElement} */ (h("input", { name: "nom", maxlength: 80, placeholder: "ex. Mondial de l'Auto 2026" }));
+  const evenement = /** @type {HTMLInputElement} */ (h("input", { name: "evenement", maxlength: 80, placeholder: "ex. Mondial de l'Auto" }));
+  let evenementTouche = false;
+  evenement.addEventListener("input", () => { evenementTouche = true; });
+  nom.addEventListener("input", () => { if (!evenementTouche) evenement.value = nom.value.replace(/\s+20\d\d$/, "").trim(); });
+  const code = /** @type {HTMLInputElement} */ (h("input", { name: "code", maxlength: 30, placeholder: "laissé vide : choisi automatiquement" }));
+  const erreur = h("p", { class: "erreur-form", role: "alert", hidden: true });
+  const form = /** @type {HTMLFormElement} */ (h("form", { class: "carte creation" },
+    h("h2", {}, "Nouvelle campagne"),
+    h("ol", { class: "etapes-creation" },
+      h("li", {}, h("strong", {}, "Pour quel client ?"), h("span", { class: "aide-champ" }, "L'organisation qui commande la campagne. Elle verra les statistiques, jamais les candidats."),
+        h("div", { class: "ligne-client" }, choixClient, h("span", { class: "ou" }, "ou"), nouveauClient, ajoutClient)),
+      h("li", {}, h("strong", {}, "Comment l'appeler ?"),
+        h("div", { class: "grille deux" },
+          champ("Nom de la campagne (pour vous)", nom),
+          champ("Événement (vu par le candidat)", evenement, "Affiché sur son téléphone : « JobBox · Mondial de l'Auto »."))),
+      h("li", {}, h("strong", {}, "Et ensuite ?"), h("span", { class: "aide-champ" }, "La campagne est créée en brouillon, avec le questionnaire Why me de base (4 questions). Sur sa page, vous cochez les entreprises, ajustez les questions, l'essayez, puis l'ouvrez aux candidats."))),
+    h("details", { class: "avance" }, h("summary", {}, "Option : adresse du QR code"), champ("Code dans l'adresse /i/…", code, "Minuscules, chiffres et tirets. Il ne change plus une fois la campagne ouverte.")),
+    erreur,
+    h("div", { class: "boutons" }, h("button", { class: "bouton action" }, "Créer la campagne"))));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    erreur.hidden = true;
     essayer(async () => {
-      const f = new FormData(form);
-      const config = { ...structuredClone(modele), evenement: String(f.get("evenement") ?? "").trim() || modele.evenement };
-      const r = await api("/api/rh/campagnes", { methode: "POST", corps: { nom: f.get("nom"), client_id: f.get("client_id"), code: f.get("code") || undefined, config, entreprises: f.getAll("entreprise") } });
-      toast("Campagne créée en brouillon");
-      location.hash = `#/campagne/${r.campagne.id}`;
+      const manque = [!choixClient.value ? "choisissez ou créez le client" : "", !nom.value.trim() ? "donnez un nom à la campagne" : "", !evenement.value.trim() ? "indiquez l'événement" : ""].filter(Boolean);
+      if (manque.length) { erreur.textContent = `Pour créer la campagne : ${manque.join(", ")}.`; erreur.hidden = false; return; }
+      // Le modèle sert de base ; l'organisateur affiché au candidat est le client choisi (modifiable dans l'éditeur).
+      const client = choixClient.selectedOptions[0]?.textContent ?? "";
+      const config = { ...structuredClone(await chargerModele()), evenement: evenement.value.trim(), organisateur: client || undefined };
+      const r = await api("/api/rh/campagnes", { methode: "POST", corps: { nom: nom.value.trim(), client_id: choixClient.value, code: code.value.trim() || undefined, config, entreprises: [] } });
+      toast("Campagne créée en brouillon : cochez ses entreprises et vérifiez le questionnaire");
+      location.hash = `#/campagne/${r.campagne.id}/questionnaire`;
     });
   });
-  page("Campagnes", "Interviews vidéo des candidats sur leur propre téléphone (JobBox ou lien), pour un client et ses entreprises recruteuses.", "campagnes",
-    h("section", { class: "carte" }, h("h2", {}, "Campagnes"), campagnes.length ? liste : h("p", { class: "vide" }, "Aucune campagne pour l'instant.")),
-    h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, "Nouvelle campagne"), form));
+  return form;
 }
+
+// ------------------------------------------------------------------ une campagne
 
 function qrSvg(/** @type {string} */ adresse) {
   const { d, cote } = cheminQR(genererQR(adresse));
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", `0 0 ${cote} ${cote}`); svg.setAttribute("width", "180"); svg.setAttribute("height", "180");
+  svg.setAttribute("viewBox", `0 0 ${cote} ${cote}`); svg.setAttribute("width", "200"); svg.setAttribute("height", "200");
   svg.setAttribute("role", "img"); svg.setAttribute("aria-label", `QR code vers ${adresse}`);
   svg.innerHTML = `<rect width="${cote}" height="${cote}" fill="#fff"/><path d="${d}" fill="#2A2D30"/>`;
   return svg;
 }
 
-async function campagne(/** @type {string} */ id) {
-  const { campagnes } = await api("/api/rh/campagnes");
+const ONGLETS_CAMPAGNE = [["questionnaire", "Questionnaire"], ["interviews", "Interviews et vidéos"], ["lien", "Lien et QR code"], ["statistiques", "Statistiques du client"]];
+
+async function campagne(/** @type {string} */ id, /** @type {string} */ onglet) {
+  const [{ campagnes }, { clients }, { entreprises: toutes }] = await Promise.all([api("/api/rh/campagnes"), api("/api/rh/clients"), api("/api/rh/entreprises")]);
   const c = campagnes.find((/** @type {any} */ x) => x.id === id);
-  if (!c) { location.hash = "#/campagnes"; return; }
-  const [{ candidats, questions }, stats, { clients }, { entreprises: toutesEntreprises }, { videos }] = await Promise.all([api(`/api/rh/campagnes/${id}/candidats`), api(`/api/rh/campagnes/${id}/statistiques`), api("/api/rh/clients"), api("/api/rh/entreprises"),
-    api(`/api/rh/videos?campagne=${encodeURIComponent(id)}`)]);
-  modele ??= await fetch("/whyme/modele-campagne.json").then((r) => r.json()).catch(() => ({}));
-  const choixClient = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Client" }, h("option", { value: "" }, "— à rattacher —"),
-    ...clients.map((/** @type {any} */ cl) => h("option", { value: cl.id, selected: cl.id === c.client_id }, cl.nom))));
-  choixClient.addEventListener("change", () => essayer(async () => {
-    if (!choixClient.value) return;
-    await api(`/api/rh/campagnes/${id}`, { methode: "PATCH", corps: { client_id: choixClient.value } });
-    toast("Client modifié"); await campagne(id);
-  }));
-  const adresse = `${location.origin}/i/${c.code}`;
-  const statut = (/** @type {string} */ s) => essayer(async () => { await api(`/api/rh/campagnes/${id}/statut`, { methode: "POST", corps: { statut: s } }); toast("Statut modifié"); await campagne(id); });
-  const boutons = h("div", { class: "boutons" },
-    c.statut !== "active" ? h("button", { class: "bouton action", onclick: () => statut("active") }, "Ouvrir la campagne") : null,
-    c.statut === "active" ? h("button", { class: "bouton discret", onclick: () => statut("close") }, "Clore") : null,
-    c.statut === "active" ? h("button", { class: "bouton discret", onclick: () => statut("brouillon") }, "Repasser en brouillon") : null,
-    h("a", { class: "bouton discret", href: adresse, target: "_blank", rel: "noopener" }, "Ouvrir le parcours candidat"));
+  if (!c) { toast("Cette campagne n'existe plus", "erreur"); location.hash = "#/campagnes"; return; }
+  const actif = ONGLETS_CAMPAGNE.some(([k]) => k === onglet) ? onglet : c.statut === "brouillon" ? "questionnaire" : "interviews";
+  const recharger = () => { router(); };
+  const statut = (/** @type {string} */ s, /** @type {string} */ message) => async () => {
+    await api(`/api/rh/campagnes/${id}/statut`, { methode: "POST", corps: { statut: s } }); toast(message); recharger();
+  };
+
+  // Ce qu'il faut avant d'ouvrir : dit clairement, au lieu d'une erreur au clic.
+  const manques = [!c.client_id ? "rattacher un client" : "", !c.entreprises.length ? "cocher au moins une entreprise (onglet Questionnaire)" : ""].filter(Boolean);
+  const actions = h("div", { class: "boutons" }, pastille(STATUTS_CAMPAGNE, c.statut),
+    c.statut === "brouillon" && !manques.length ? boutonConfirme("Ouvrir aux candidats", "Confirmer l'ouverture", statut("active", "Campagne ouverte : le QR code fonctionne"), "bouton action") : null,
+    c.statut === "brouillon" && c.candidats === 0 ? boutonConfirme("Supprimer", "Confirmer la suppression", async () => { await api(`/api/rh/campagnes/${id}`, { methode: "DELETE" }); toast("Campagne supprimée"); location.hash = "#/campagnes"; }, "bouton danger") : null,
+    c.statut === "active" ? boutonConfirme("Repasser en brouillon", "Confirmer (le QR code s'arrête)", statut("brouillon", "Campagne repassée en brouillon : le QR code ne fonctionne plus")) : null,
+    c.statut === "active" ? boutonConfirme("Clore", "Confirmer la clôture", statut("close", "Campagne close"), "bouton danger") : null,
+    c.statut === "close" ? boutonConfirme("Rouvrir", "Confirmer la réouverture", statut("active", "Campagne rouverte")) : null);
+
+  const bandeau = c.statut === "brouillon"
+    ? h("div", { class: `bandeau-etat${manques.length ? " a-faire" : " pret"}` },
+      manques.length ? `Brouillon : le QR code ne fonctionne pas encore. Pour ouvrir la campagne, il reste à ${manques.join(" et à ")}.`
+        : "Brouillon prêt : essayez le parcours depuis l'onglet Questionnaire, puis « Ouvrir aux candidats ».")
+    : c.statut === "active" ? h("div", { class: "bandeau-etat pret" }, "Ouverte : les candidats peuvent scanner le QR code. Le questionnaire et les entreprises sont figés (repassez en brouillon pour les modifier).")
+      : h("div", { class: "bandeau-etat" }, "Close : le QR code ne fonctionne plus. Les vidéos restent accessibles aux recruteurs pendant 12 mois.");
+
+  const onglets = h("div", { class: "onglets", role: "tablist" }, ...ONGLETS_CAMPAGNE.map(([cle, lib]) =>
+    h("button", { type: "button", role: "tab", "aria-selected": String(cle === actif), onclick: () => { location.hash = `#/campagne/${id}/${cle}`; } },
+      cle === "interviews" ? `${lib} (${c.candidats})` : lib)));
+
+  /** @type {any} */ let corps;
+  if (actif === "questionnaire") corps = ongletQuestionnaire(c, clients, toutes, recharger);
+  else if (actif === "interviews") corps = await ongletInterviews(c);
+  else if (actif === "lien") corps = ongletLien(c);
+  else corps = vueStatistiques(await api(`/api/rh/campagnes/${id}/statistiques`), "Ce que voit le client dans son espace : des statistiques, jamais un candidat.");
+
+  page({ titre: c.nom, sous: [c.client ?? "client à rattacher", c.config.evenement, pluriel(c.entreprises.length, "entreprise")].join(" · "), fil: ["Campagnes", "#/campagnes"], droite: actions },
+    bandeau, onglets, corps);
+}
+
+function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients, /** @type {any[]} */ toutes, /** @type {() => void} */ recharger) {
+  // Identité de la campagne : nom interne et client (modifiables à tout moment).
+  const nom = /** @type {HTMLInputElement} */ (h("input", { value: c.nom, maxlength: 80 }));
+  const client = /** @type {HTMLSelectElement} */ (h("select", {}, h("option", { value: "" }, "Choisir…"), ...clients.map((x) => h("option", { value: x.id, selected: x.id === c.client_id }, x.nom))));
+  const identite = h("section", { class: "carte formulaire-ligne" },
+    champ("Nom de la campagne (pour vous)", nom), champ("Client", client),
+    h("button", { type: "button", class: "bouton discret", onclick: () => essayer(async () => {
+      if (!nom.value.trim()) throw new Error("Le nom de la campagne ne peut pas être vide.");
+      await api(`/api/rh/campagnes/${c.id}`, { methode: "PATCH", corps: { nom: nom.value.trim(), ...(client.value ? { client_id: client.value } : {}) } });
+      toast("Nom et client enregistrés"); recharger();
+    }) }, "Enregistrer"));
+  const editeur = editeurCampagne({
+    config: c.config,
+    entreprises: toutes,
+    choisies: c.entreprises.map((/** @type {any} */ e) => e.id),
+    lectureSeule: c.statut !== "brouillon",
+    valider: async (config) => (await api("/api/rh/campagnes/verifier", { methode: "POST", corps: { config } })).problemes,
+    enregistrer: async (config, ents) => { await api(`/api/rh/campagnes/${c.id}`, { methode: "PATCH", corps: { config, entreprises: ents } }); toast("Questionnaire enregistré"); },
+    apresEnregistrement: recharger,
+    apercu: async (config, ents) => {
+      const d = await api("/api/rh/campagnes/apercu", { methode: "POST", corps: { config, entreprises: ents } });
+      try { localStorage.setItem("whyme-apercu", JSON.stringify(d)); } catch { throw new Error("Aperçu impossible : le stockage du navigateur est indisponible (navigation privée ?)."); }
+      window.open("/i/apercu", "_blank");
+    },
+    modele: async () => structuredClone(await chargerModele()),
+  });
+  return h("div", { class: "pile" }, identite, editeur);
+}
+
+async function ongletInterviews(/** @type {any} */ c) {
+  const [{ candidats, questions }, { videos }] = await Promise.all([api(`/api/rh/campagnes/${c.id}/candidats`), api(`/api/rh/videos?campagne=${encodeURIComponent(c.id)}`)]);
   const lignes = candidats.map((/** @type {any} */ x) => h("tr", {},
     h("td", {}, x.supprime_le ? h("em", {}, "données supprimées") : `${x.prenom} ${x.nom}`),
-    h("td", {}, pastille(STATUTS_CANDIDAT, x.statut), x.erreur ? h("div", { class: "sous", style: "font-size:13px" }, x.erreur) : null),
+    h("td", {}, pastille(STATUTS_CANDIDAT, x.statut), x.erreur ? h("div", { class: "sous-ligne" }, x.erreur) : null),
     h("td", { class: "nombre" }, x.statut === "pret" ? "—" : `${x.prises} / ${questions}`),
     h("td", {}, x.entreprises ?? "—"),
     h("td", {}, [x.a_cv ? "CV" : "", x.consent_public ? "page publique" : ""].filter(Boolean).join(" · ") || "—"),
     h("td", {}, date(x.cree_le)),
     h("td", {}, x.courriel_envoye_le ? date(x.courriel_envoye_le) : "—"),
     h("td", {}, h("div", { class: "boutons" },
-      x.a_video ? h("button", { type: "button", class: "bouton discret petit", onclick: () => lire({ id: x.id, prenom: x.prenom, nom: x.nom }) }, "Voir la vidéo") : null,
-      x.code_public && x.a_video ? h("a", { class: "bouton discret petit", href: `/v/${x.code_public}`, target: "_blank", rel: "noopener" }, "Page publique") : null,
-      ["termine", "montage", "erreur"].includes(x.statut) ? h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/candidats/${x.id}/montage`, { methode: "POST" }); toast("Montage relancé"); await campagne(id); }) }, "Relancer le montage") : null))));
-  page(c.nom, `${c.client ?? "Client à rattacher"} · ${c.config.evenement} · ${c.config.questions.length} questions · ${c.entreprises.map((/** @type {any} */ e) => e.nom).join(", ")}`, "campagnes",
-    h("div", { class: "grille deux" },
-      h("section", { class: "carte" }, h("h2", {}, "Statut"), pastille(STATUTS_CAMPAGNE, c.statut), h("p", {}, "Le questionnaire et les entreprises ne changent plus une fois la campagne ouverte."), boutons,
-        h("label", { class: "champ", style: "margin-top:14px" }, "Client", choixClient)),
-      h("section", { class: "carte" }, h("h2", {}, "QR code de la JobBox"), qrSvg(adresse), h("p", {}, h("code", {}, adresse)))),
-    h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, `Vidéos montées (${videos.length})`),
-      videos.length ? galerie(videos) : h("p", { class: "vide" }, "Aucune vidéo montée pour l'instant.")),
-    vueStatistiques(stats, "Ce que voit le client (statistiques seulement)"),
-    h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, `Interviews (${candidats.length})`),
-      candidats.length ? h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Candidat", "État", "Réponses", "Entreprises", "Fourni", "Commencée", "E-mail", ""].map((t) => h("th", {}, t)))), h("tbody", {}, ...lignes))
-        : h("p", { class: "vide" }, "Aucune interview pour l'instant.")),
-    h("section", { style: "margin-top:18px" }, h("h2", {}, "Questionnaire et réglages"),
-      c.statut !== "brouillon" ? h("p", { class: "detail-verif" }, "Campagne ouverte ou close : le questionnaire et les entreprises ne changent plus (les candidats ont accepté ces textes). Repassez-la en brouillon pour la modifier.") : null,
-      editeurCampagne({
-        config: c.config,
-        entreprises: toutesEntreprises,
-        choisies: c.entreprises.map((/** @type {any} */ e) => e.id),
-        lectureSeule: c.statut !== "brouillon",
-        valider: async (config) => (await api("/api/rh/campagnes/verifier", { methode: "POST", corps: { config } })).problemes,
-        enregistrer: async (config, ents) => { await api(`/api/rh/campagnes/${id}`, { methode: "PATCH", corps: { config, entreprises: ents } }); toast("Campagne enregistrée"); },
-        apercu: async (config, ents) => {
-          const d = await api("/api/rh/campagnes/apercu", { methode: "POST", corps: { config, entreprises: ents } });
-          try { localStorage.setItem("whyme-apercu", JSON.stringify(d)); } catch { throw new Error("Aperçu impossible : stockage du navigateur indisponible"); }
-          window.open("/i/apercu", "_blank");
-        },
-        modele: async () => structuredClone(modele ?? (modele = await fetch("/whyme/modele-campagne.json").then((r) => r.json()))),
-      })));
+      x.a_video ? h("button", { type: "button", class: "bouton discret petit", onclick: () => lire(x) }, "Voir") : null,
+      ["termine", "montage", "erreur"].includes(x.statut) ? h("button", { type: "button", class: "bouton discret petit", onclick: () => essayer(async () => {
+        const r = await api(`/api/rh/candidats/${x.id}/montage`, { methode: "POST" });
+        toast(r.demande ? "Montage relancé : la vidéo arrive dans quelques minutes" : "Montage demandé : le service le reprendra dès qu'il répond");
+        router();
+      }) }, "Relancer le montage") : null))));
+  return h("div", { class: "pile" },
+    h("section", { class: "carte" }, h("h2", {}, `Vidéos montées (${videos.length})`),
+      videos.length ? galerie(videos) : h("p", { class: "vide" }, c.statut === "brouillon" ? "Aucune vidéo : la campagne n'est pas encore ouverte." : "Aucune vidéo montée pour l'instant.")),
+    h("section", { class: "carte" }, h("h2", {}, `Toutes les interviews (${candidats.length})`),
+      h("p", { class: "aide-champ" }, "Y compris celles en cours ou en montage. « Transmise » : la vidéo est prête et les entreprises choisies par le candidat la voient."),
+      candidats.length ? h("div", { class: "defile" }, h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Candidat", "État", "Réponses", "Entreprises choisies", "Fourni", "Commencée", "E-mail envoyé", ""].map((t) => h("th", {}, t)))), h("tbody", {}, ...lignes)))
+        : h("p", { class: "vide" }, "Aucune interview pour l'instant.")));
+}
+
+function ongletLien(/** @type {any} */ c) {
+  const adresse = `${location.origin}/i/${c.code}`;
+  return h("div", { class: "grille deux" },
+    h("section", { class: "carte" }, h("h2", {}, "QR code de la JobBox"), qrSvg(adresse),
+      h("p", {}, h("code", {}, adresse)),
+      h("div", { class: "boutons" },
+        h("button", { type: "button", class: "bouton discret petit", onclick: () => essayer(async () => { await navigator.clipboard.writeText(adresse); toast("Adresse copiée"); }) }, "Copier l'adresse"),
+        c.statut === "active" ? h("a", { class: "bouton discret petit", href: adresse, target: "_blank", rel: "noopener" }, "Ouvrir comme un candidat") : null)),
+    h("section", { class: "carte" }, h("h2", {}, "À savoir"),
+      h("ul", { class: "liste-aide" },
+        h("li", {}, "Un seul QR code pour toutes les cabines de la campagne ; il marche aussi envoyé par lien (digital)."),
+        h("li", {}, c.statut === "active" ? "La campagne est ouverte : le QR code fonctionne." : "Le QR code ne fonctionne que lorsque la campagne est ouverte."),
+        h("li", {}, "Le candidat utilise son téléphone et son réseau ; sa vidéo montée lui arrive par e-mail."))));
 }
 
 /** Statistiques agrégées d'une campagne (même vue que celle du client dans son espace). */
 function vueStatistiques(/** @type {any} */ s, /** @type {string} */ titre) {
   const barres = (/** @type {{ nom: string, n: number }[]} */ lignes) => {
+    if (!lignes.length) return h("p", { class: "vide" }, "Rien pour l'instant.");
     const max = Math.max(1, ...lignes.map((l) => l.n));
     return h("div", { class: "barres" }, ...lignes.map((l) => h("div", { class: "ligne" }, h("span", {}, l.nom),
       h("span", { class: "jauge" }, h("span", { style: `width:${Math.round((l.n / max) * 100)}%` })), h("span", { class: "n" }, String(l.n)))));
   };
   const kpi = (/** @type {number} */ v, /** @type {string} */ l) => h("div", { class: "carte" }, h("span", { class: "valeur" }, String(v)), h("span", { class: "libelle" }, l));
-  return h("section", { style: "margin-top:18px" }, h("h2", {}, titre),
+  return h("section", { class: "pile" }, h("p", { class: "aide-champ" }, titre),
     h("div", { class: "grille kpi" }, kpi(s.commencees, "interviews commencées"), kpi(s.terminees, "terminées"), kpi(s.transmises, "vidéos transmises"), kpi(s.candidatures, "candidatures")),
     h("div", { class: "grille deux" },
       h("div", { class: "carte" }, h("h2", {}, "Candidatures par entreprise"), barres(s.parEntreprise.map((/** @type {any} */ e) => ({ nom: e.nom, n: e.candidatures })))),
       h("div", { class: "carte" }, h("h2", {}, "Candidats par famille de métiers"), barres(s.parFamille.filter((/** @type {any} */ f) => f.candidats).map((/** @type {any} */ f) => ({ nom: f.nom, n: f.candidats }))))));
 }
-
 
 // ------------------------------------------------------------------ vidéos montées
 
@@ -190,8 +310,8 @@ const lecteur = /** @type {HTMLDialogElement} */ (h("dialog", { class: "lecteur-
 document.body.append(lecteur);
 lecteur.addEventListener("close", () => lecteur.replaceChildren());
 
-/** Lecture d'une vidéo montée dans une fenêtre (9:16), avec le CV s'il y en a un. */
-function lire(/** @type {{ id: string, prenom: string, nom: string, a_cv?: boolean, code_public?: string | null }} */ v) {
+/** Lecture d'une vidéo montée dans une fenêtre (9:16), avec le CV et la page publique s'il y en a. */
+function lire(/** @type {{ id: string, prenom: string, nom: string, a_cv?: boolean | number, code_public?: string | null }} */ v) {
   const video = h("video", { src: `/api/rh/candidats/${v.id}/video`, controls: true, playsinline: true, autoplay: true, preload: "metadata" });
   lecteur.replaceChildren(
     h("div", { class: "lecteur-tete" }, h("strong", {}, `${v.prenom} ${v.nom}`), h("button", { type: "button", class: "bouton discret petit", onclick: () => lecteur.close() }, "Fermer")),
@@ -217,108 +337,96 @@ function galerie(/** @type {any[]} */ videos) {
 async function pageVideos() {
   const { videos } = await api("/api/rh/videos");
   const campagnesDispo = [...new Map(videos.map((/** @type {any} */ v) => [v.campagne_id, v.campagne])).entries()];
-  const recherche = /** @type {HTMLInputElement} */ (h("input", { type: "search", placeholder: "Rechercher un nom", "aria-label": "Rechercher un nom" }));
+  const recherche = /** @type {HTMLInputElement} */ (h("input", { type: "search", placeholder: "Nom, entreprise…", "aria-label": "Rechercher" }));
   const filtre = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Campagne" }, h("option", { value: "" }, "Toutes les campagnes"), ...campagnesDispo.map(([id, nom]) => h("option", { value: id }, nom))));
   const zone = h("div", {});
   const dessiner = () => {
     const q = recherche.value.trim().toLowerCase();
     const liste = videos.filter((/** @type {any} */ v) => (!filtre.value || v.campagne_id === filtre.value) && (!q || `${v.prenom} ${v.nom} ${v.entreprises ?? ""}`.toLowerCase().includes(q)));
-    zone.replaceChildren(liste.length ? galerie(liste) : h("p", { class: "vide" }, "Aucune vidéo."));
+    zone.replaceChildren(liste.length ? galerie(liste) : h("p", { class: "vide" }, videos.length ? "Aucune vidéo ne correspond." : "Aucune vidéo montée pour l'instant."));
   };
   recherche.addEventListener("input", dessiner);
   filtre.addEventListener("change", dessiner);
   dessiner();
-  page("Vidéos", `${videos.length} vidéo${videos.length > 1 ? "s" : ""} montée${videos.length > 1 ? "s" : ""}, toutes campagnes. Chaque lecture est journalisée.`, "videos",
+  page({ titre: "Vidéos", sous: `${pluriel(videos.length, "vidéo montée", "vidéos montées")}, toutes campagnes. Chaque lecture est journalisée.` },
     h("section", { class: "carte" }, h("div", { class: "filtres-videos" }, recherche, filtre), zone));
 }
 
 // ------------------------------------------------------------------ clients et contacts
 
-async function clients() {
+async function pageClients() {
   const { clients } = await api("/api/rh/clients");
-  const champ = "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid var(--trait)";
-  const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" }, h("input", { name: "nom", required: true, placeholder: "Nom du client (ex. PFA)", style: champ }), h("button", { class: "bouton action" }, "Ajouter le client")));
-  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api("/api/rh/clients", { methode: "POST", corps: { nom: new FormData(form).get("nom") } }); toast("Client ajouté"); await clients(); }); });
+  const nom = /** @type {HTMLInputElement} */ (h("input", { required: true, maxlength: 80, placeholder: "ex. PFA, VivaTech, Lycée Jean-Jaurès" }));
+  const form = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire-ligne" }, champ("Nom de l'organisation cliente", nom), h("button", { class: "bouton action" }, "Ajouter le client")));
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    essayer(async () => {
+      if (nom.value.includes("@")) throw new Error("C'est une adresse e-mail : saisissez le nom de l'organisation. La personne s'ajoute ensuite comme contact, dans la fiche du client.");
+      await api("/api/rh/clients", { methode: "POST", corps: { nom: nom.value.trim() } }); toast("Client ajouté"); await pageClients();
+    });
+  });
   const fiche = (/** @type {any} */ c) => {
-    const ajout = /** @type {HTMLFormElement} */ (h("form", { class: "boutons", style: "margin-top:10px" },
-      h("input", { name: "email", type: "email", required: true, placeholder: "contact@client.fr", style: champ }), h("button", { class: "bouton discret" }, "Ajouter un contact")));
-    ajout.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api(`/api/rh/clients/${c.id}/contacts`, { methode: "POST", corps: { email: new FormData(ajout).get("email") } }); toast("Contact ajouté"); await clients(); }); });
-    return h("section", { class: "carte" }, h("h2", {}, c.nom), h("p", { class: "sous" }, `${c.campagnes} campagne${c.campagnes > 1 ? "s" : ""}`),
+    const email = /** @type {HTMLInputElement} */ (h("input", { type: "email", required: true, placeholder: "prenom.nom@client.fr" }));
+    const ajout = /** @type {HTMLFormElement} */ (h("form", { class: "formulaire-ligne" }, champ("Ajouter un contact (une personne de ce client)", email), h("button", { class: "bouton discret" }, "Ajouter")));
+    ajout.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api(`/api/rh/clients/${c.id}/contacts`, { methode: "POST", corps: { email: email.value.trim() } }); toast("Contact ajouté : il peut se connecter sur /recruteur/"); await pageClients(); }); });
+    return h("section", { class: "carte pile" },
+      h("div", { class: "tete-fiche" }, h("div", {}, h("h2", {}, c.nom), h("span", { class: "sous-ligne" }, c.campagnes ? pluriel(c.campagnes, "campagne") : "Aucune campagne")),
+        c.campagnes ? null : boutonConfirme("Supprimer", "Confirmer la suppression", async () => { await api(`/api/rh/clients/${c.id}`, { methode: "DELETE" }); toast("Client supprimé"); await pageClients(); }, "bouton danger petit")),
       c.contacts.length ? h("table", { class: "tableau" }, h("tbody", {}, ...c.contacts.map((/** @type {any} */ k) => h("tr", {}, h("td", {}, k.email),
         h("td", {}, h("span", { class: "pastille", "data-ton": k.actif ? "vert" : "" }, k.actif ? "Actif" : "Désactivé")),
-        h("td", {}, h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/contacts/${k.id}`, { methode: "PATCH", corps: { actif: !k.actif } }); await clients(); }) }, k.actif ? "Désactiver" : "Réactiver"))))))
-        : h("p", { class: "vide" }, "Aucun contact : personne chez ce client ne voit encore ses statistiques."),
+        h("td", { class: "nombre" }, h("button", { type: "button", class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/contacts/${k.id}`, { methode: "PATCH", corps: { actif: !k.actif } }); toast(k.actif ? "Contact désactivé" : "Contact réactivé"); await pageClients(); }) }, k.actif ? "Désactiver" : "Réactiver"))))))
+        : h("p", { class: "aide-champ" }, "Aucun contact : personne chez ce client ne voit encore ses statistiques."),
       ajout);
   };
-  page("Clients", "Le client commande la campagne (ex. la PFA au Mondial de l'Auto) ; WhyMe y opère pour ses entreprises recruteuses. Ses contacts voient les statistiques de ses campagnes, jamais un candidat.", "clients",
-    h("section", { class: "carte" }, form),
-    h("div", { class: "grille", style: "margin-top:18px" }, ...(clients.length ? clients.map(fiche) : [h("p", { class: "vide" }, "Aucun client.")])),
-    h("p", {}, "Les contacts se connectent sur ", h("a", { href: "/recruteur/", target: "_blank" }, `${location.origin}/recruteur/`), " avec un lien reçu par e-mail."));
+  page({ titre: "Clients", sous: "Le client est l'organisation qui commande la campagne (ex. la PFA au Mondial de l'Auto). Ses contacts se connectent sur /recruteur/ et n'y voient que les statistiques de ses campagnes, jamais un candidat." },
+    form, h("div", { class: "grille deux", style: "margin-top:18px" }, ...(clients.length ? clients.map(fiche) : [h("p", { class: "vide" }, "Aucun client.")])));
 }
 
-// ------------------------------------------------------------------ équipe RH
+// ------------------------------------------------------------------ entreprises et leurs recruteurs
 
-async function equipe() {
-  const { equipe, dOffice } = await api("/api/rh/equipe");
-  const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" },
-    h("input", { name: "email", type: "email", required: true, placeholder: "prenom@whyme.jobs", style: "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid var(--trait)" }),
-    h("select", { name: "role", style: "min-height:42px;border-radius:12px;padding:0 10px" }, h("option", { value: "operateur_rh" }, "Opérateur"), h("option", { value: "admin_rh" }, "Administrateur")),
-    h("button", { class: "bouton action" }, "Ajouter")));
-  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { const f = new FormData(form); await api("/api/rh/equipe", { methode: "POST", corps: { email: f.get("email"), role: f.get("role") } }); toast("Accès ajouté"); await equipe(); }); });
-  page("Équipe RH", "Comptes WhyMe qui gèrent Why me. Indépendants de Parlorama : un compte Parlopop n'ouvre pas cet espace.", "equipe",
-    h("section", { class: "carte" }, form,
-      h("table", { class: "tableau", style: "margin-top:12px" }, h("thead", {}, h("tr", {}, ...["E-mail", "Rôle", "État", ""].map((t) => h("th", {}, t)))),
-        h("tbody", {},
-          ...dOffice.map((/** @type {string} */ e) => h("tr", {}, h("td", {}, e), h("td", {}, "Administrateur"), h("td", {}, h("span", { class: "pastille", "data-ton": "vert" }, "D'office (RH_ADMIN_EMAILS)")), h("td", {}))),
-          ...equipe.map((/** @type {any} */ m) => h("tr", {}, h("td", {}, m.email), h("td", {}, m.role === "admin_rh" ? "Administrateur" : "Opérateur"),
-            h("td", {}, h("span", { class: "pastille", "data-ton": m.actif ? "vert" : "" }, m.actif ? "Actif" : "Retiré")),
-            h("td", {}, m.actif && m.email !== moi?.email ? h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api("/api/rh/equipe/retirer", { methode: "POST", corps: { email: m.email } }); await equipe(); }) }, "Retirer l'accès") : null)))))));
-}
-
-// ------------------------------------------------------------------ entreprises et recruteurs
-
-async function entreprises() {
-  const { entreprises } = await api("/api/rh/entreprises");
-  const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" }, h("input", { name: "nom", required: true, placeholder: "Nom de l'entreprise", style: "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid #E1E3EC" }), h("button", { class: "bouton action" }, "Ajouter")));
-  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api("/api/rh/entreprises", { methode: "POST", corps: { nom: new FormData(form).get("nom") } }); await entreprises(); }); });
-  const ligne = (/** @type {any} */ e) => {
+async function pageEntreprises() {
+  const [{ entreprises }, { recruteurs }] = await Promise.all([api("/api/rh/entreprises"), api("/api/rh/recruteurs")]);
+  const nom = /** @type {HTMLInputElement} */ (h("input", { required: true, maxlength: 80, placeholder: "ex. Verkor, Valeo, Renault" }));
+  const form = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire-ligne" }, champ("Nom de l'entreprise recruteuse", nom), h("button", { class: "bouton action" }, "Ajouter l'entreprise")));
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    essayer(async () => {
+      if (nom.value.includes("@")) throw new Error("C'est une adresse e-mail : saisissez le nom de l'entreprise. Le recruteur s'ajoute ensuite dans la fiche de l'entreprise.");
+      await api("/api/rh/entreprises", { methode: "POST", corps: { nom: nom.value.trim() } }); toast("Entreprise ajoutée"); await pageEntreprises();
+    });
+  });
+  const fiche = (/** @type {any} */ e) => {
     const fichier = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: "image/png,image/jpeg,image/webp", hidden: true }));
     fichier.addEventListener("change", () => essayer(async () => {
       const f = fichier.files?.[0];
       if (!f) return;
       await api(`/api/rh/entreprises/${e.id}/logo`, { methode: "PUT", brut: f, type: f.type });
-      toast("Logo enregistré"); await entreprises();
+      toast("Logo enregistré"); await pageEntreprises();
     }));
-    return h("tr", {}, h("td", {}, e.logo ? h("img", { src: `${e.logo}?v=${Date.now()}`, alt: "", style: "max-height:32px;max-width:120px" }) : "—"),
-      h("td", {}, h("strong", {}, e.nom)), h("td", { class: "nombre" }, String(e.recruteurs)),
-      h("td", {}, fichier, h("button", { class: "bouton discret petit", onclick: () => fichier.click() }, e.logo ? "Changer le logo" : "Ajouter un logo")));
+    const email = /** @type {HTMLInputElement} */ (h("input", { type: "email", required: true, placeholder: "prenom.nom@entreprise.fr" }));
+    const ajout = /** @type {HTMLFormElement} */ (h("form", { class: "formulaire-ligne" }, champ("Ajouter un recruteur", email), h("button", { class: "bouton discret" }, "Ajouter")));
+    ajout.addEventListener("submit", (ev) => { ev.preventDefault(); essayer(async () => { await api("/api/rh/recruteurs", { methode: "POST", corps: { email: email.value.trim(), entreprise_id: e.id } }); toast("Recruteur ajouté : il se connecte sur /recruteur/"); await pageEntreprises(); }); });
+    const siens = recruteurs.filter((/** @type {any} */ r) => r.entreprise_id === e.id);
+    const utilisee = e.campagnes > 0 || e.candidatures > 0;
+    return h("section", { class: "carte pile" },
+      h("div", { class: "tete-fiche" },
+        h("div", { class: "nom-logo" }, e.logo ? h("img", { src: `${e.logo}?v=${Date.now()}`, alt: "" }) : h("span", { class: "sans-logo" }, "logo"),
+          h("div", {}, h("h2", {}, e.nom), h("span", { class: "sous-ligne" }, [e.campagnes ? pluriel(e.campagnes, "campagne") : "aucune campagne", e.candidatures ? pluriel(e.candidatures, "candidature") : ""].filter(Boolean).join(" · ")))),
+        h("div", { class: "boutons" }, fichier, h("button", { type: "button", class: "bouton discret petit", onclick: () => fichier.click() }, e.logo ? "Changer le logo" : "Ajouter un logo"),
+          utilisee ? null : boutonConfirme("Supprimer", "Confirmer la suppression", async () => { await api(`/api/rh/entreprises/${e.id}`, { methode: "DELETE" }); toast("Entreprise supprimée"); await pageEntreprises(); }, "bouton danger petit"))),
+      siens.length ? h("table", { class: "tableau" }, h("tbody", {}, ...siens.map((/** @type {any} */ r) => h("tr", {}, h("td", {}, r.email),
+        h("td", {}, h("span", { class: "pastille", "data-ton": r.actif ? "vert" : "" }, r.actif ? "Actif" : "Désactivé")),
+        h("td", { class: "nombre" }, h("button", { type: "button", class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/recruteurs/${r.id}`, { methode: "PATCH", corps: { actif: !r.actif } }); toast(r.actif ? "Recruteur désactivé" : "Recruteur réactivé"); await pageEntreprises(); }) }, r.actif ? "Désactiver" : "Réactiver"))))))
+        : h("p", { class: "aide-champ" }, "Aucun recruteur : personne dans cette entreprise ne voit encore les candidatures."),
+      ajout);
   };
-  page("Entreprises recruteuses", "Les sous-clients : une fiche par entreprise, commune à toutes les campagnes et à tous les clients. Ses recruteurs voient dans un seul espace les candidats de toutes les campagnes où elle participe. Logo PNG, JPEG ou WebP (1 Mo au plus).", "entreprises",
-    h("section", { class: "carte" }, form,
-      entreprises.length ? h("table", { class: "tableau", style: "margin-top:12px" }, h("thead", {}, h("tr", {}, ...["Logo", "Entreprise", "Recruteurs", ""].map((t) => h("th", {}, t)))), h("tbody", {}, ...entreprises.map(ligne)))
-        : h("p", { class: "vide" }, "Aucune entreprise.")));
+  page({ titre: "Entreprises", sous: "Les entreprises recruteuses (sous-clients) : une fiche par entreprise, commune à toutes les campagnes. Ses recruteurs se connectent sur /recruteur/ et voient les candidats qui l'ont choisie, dans toutes les campagnes. Logo PNG, JPEG ou WebP, 1 Mo au plus." },
+    form, h("div", { class: "grille deux", style: "margin-top:18px" }, ...(entreprises.length ? entreprises.map(fiche) : [h("p", { class: "vide" }, "Aucune entreprise.")])));
 }
 
-async function recruteurs() {
-  const [{ recruteurs }, { entreprises }] = await Promise.all([api("/api/rh/recruteurs"), api("/api/rh/entreprises")]);
-  const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" },
-    h("input", { name: "email", type: "email", required: true, placeholder: "recruteur@entreprise.fr", style: "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid #E1E3EC" }),
-    h("select", { name: "entreprise_id", required: true, style: "min-height:42px;border-radius:12px;padding:0 10px" }, ...entreprises.map((/** @type {any} */ e) => h("option", { value: e.id }, e.nom))),
-    h("button", { class: "bouton action" }, "Ajouter")));
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    essayer(async () => { const f = new FormData(form); await api("/api/rh/recruteurs", { methode: "POST", corps: { email: f.get("email"), entreprise_id: f.get("entreprise_id") } }); toast("Recruteur ajouté"); await recruteurs(); });
-  });
-  page("Recruteurs", "Ils se connectent sur /recruteur/ avec un lien reçu par e-mail, et ne voient que les candidatures de leur entreprise.", "recruteurs",
-    h("section", { class: "carte" }, form,
-      h("table", { class: "tableau", style: "margin-top:12px" }, h("thead", {}, h("tr", {}, ...["E-mail", "Entreprise", "Créé", "État", ""].map((t) => h("th", {}, t)))),
-        h("tbody", {}, ...recruteurs.map((/** @type {any} */ r) => h("tr", {}, h("td", {}, r.email), h("td", {}, r.entreprise), h("td", {}, date(r.cree_le)),
-          h("td", {}, h("span", { class: "pastille", "data-ton": r.actif ? "vert" : "" }, r.actif ? "Actif" : "Désactivé")),
-          h("td", {}, h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/recruteurs/${r.id}`, { methode: "PATCH", corps: { actif: !r.actif } }); await recruteurs(); }) }, r.actif ? "Désactiver" : "Réactiver"))))))),
-    h("p", {}, "Adresse de l'espace recruteur : ", h("a", { href: "/recruteur/", target: "_blank" }, `${location.origin}/recruteur/`)));
-}
+// ------------------------------------------------------------------ e-mails
 
-async function courriels() {
+async function pageCourriels() {
   const { courriels, brevo, expediteur, montage, montageCle } = await api("/api/rh/courriels");
   /** @type {Record<string, string>} */
   const etatsMontage = {
@@ -326,38 +434,61 @@ async function courriels() {
     differente: "Le service répond, mais son secret MONTAGE_CLE diffère de celui de la plateforme : les montages sont refusés.",
     injoignable: "Configuré, mais le service ne répond pas pour l'instant.",
   };
-  const apercu = h("iframe", { title: "Aperçu de l'e-mail", style: "width:100%;height:640px;border:1px solid #E1E3EC;border-radius:12px;background:#fff", sandbox: "allow-popups allow-popups-to-escape-sandbox" });
-  page("E-mails", "Gardés 7 jours. Sans clé Brevo (environnement de test), ils ne partent pas : c'est ici qu'on les lit et qu'on suit leurs liens.", "courriels",
-    h("div", { class: "grille kpi" },
-      h("div", { class: "carte" }, h("strong", {}, "Envoi par Brevo"), h("p", {}, brevo ? `Configuré : les e-mails partent de ${expediteur}, qui doit être un expéditeur vérifié du compte Brevo.` : "Non configuré : e-mails gardés ici.")),
-      h("div", { class: "carte" }, h("strong", {}, "Service de montage"), h("p", {}, montage ? (etatsMontage[montageCle] ?? "Configuré.") : "Non configuré : les interviews terminées attendent leur montage."))),
+  const apercu = h("iframe", { title: "Aperçu de l'e-mail", class: "apercu-courriel", sandbox: "allow-popups allow-popups-to-escape-sandbox" });
+  page({ titre: "E-mails", sous: "Les e-mails envoyés aux candidats, recruteurs et contacts, gardés 7 jours. Touchez-en un pour le lire." },
     h("div", { class: "grille deux" },
+      h("div", { class: "carte" }, h("strong", {}, "Envoi par Brevo"), h("p", {}, brevo ? `Configuré : les e-mails partent de ${expediteur}.` : "Non configuré : les e-mails restent ici, sans partir.")),
+      h("div", { class: "carte" }, h("strong", {}, "Service de montage"), h("p", {}, montage ? (etatsMontage[montageCle] ?? "Configuré.") : "Non configuré : les interviews terminées attendent leur montage."))),
+    h("div", { class: "grille deux", style: "margin-top:18px" },
       h("section", { class: "carte" }, courriels.length ? h("table", { class: "tableau" }, h("tbody", {}, ...courriels.map((/** @type {any} */ c) => h("tr", { class: "lien-ligne", onclick: () => { /** @type {HTMLIFrameElement} */ (apercu).srcdoc = c.html.replace("<head>", "<head><base target=\"_blank\">").replace("<html lang=\"fr\"><body", "<html lang=\"fr\"><head><base target=\"_blank\"></head><body"); } },
-        h("td", {}, h("strong", {}, c.sujet), h("div", { class: "sous", style: "font-size:13px" }, `${c.a} · ${date(c.cree_le)}`)), h("td", {}, h("span", { class: "pastille", "data-ton": c.envoye ? "vert" : "jaune" }, c.envoye ? "Transmis à Brevo" : "Non envoyé")),
-        h("td", {}, brevo ? h("button", { class: "secondaire", type: "button", onclick: async (/** @type {Event} */ e) => {
+        h("td", {}, h("strong", {}, c.sujet), h("div", { class: "sous-ligne" }, `${c.a} · ${date(c.cree_le)}`)),
+        h("td", {}, h("span", { class: "pastille", "data-ton": c.envoye ? "vert" : "jaune" }, c.envoye ? "Transmis à Brevo" : "Non envoyé")),
+        h("td", { class: "nombre" }, brevo ? h("button", { class: "bouton discret petit", type: "button", onclick: (/** @type {Event} */ e) => {
           e.stopPropagation();
-          try { await api(`/api/rh/courriels/${c.id}/renvoyer`, { methode: "POST" }); toast(`Renvoyé à ${c.a}.`, "ok"); }
-          catch (err) { toast(String(/** @type {Error} */ (err).message ?? err), "erreur"); }
+          essayer(async () => { await api(`/api/rh/courriels/${c.id}/renvoyer`, { methode: "POST" }); toast(`Renvoyé à ${c.a}`); });
         } }, "Renvoyer") : "")))))
         : h("p", { class: "vide" }, "Aucun e-mail.")),
-      h("section", { class: "carte" }, h("p", { class: "sous" }, "Touchez un e-mail pour l'afficher ; ses liens s'ouvrent dans un nouvel onglet."), apercu)));
+      h("section", { class: "carte" }, apercu)));
+}
+
+// ------------------------------------------------------------------ équipe RH
+
+async function pageEquipe() {
+  const { equipe, dOffice } = await api("/api/rh/equipe");
+  const email = /** @type {HTMLInputElement} */ (h("input", { type: "email", required: true, placeholder: "prenom@whyme.jobs" }));
+  const role = /** @type {HTMLSelectElement} */ (h("select", {}, h("option", { value: "operateur_rh" }, "Opérateur (gère les campagnes)"), h("option", { value: "admin_rh" }, "Administrateur (gère aussi l'équipe)")));
+  const form = /** @type {HTMLFormElement} */ (h("form", { class: "carte formulaire-ligne" }, champ("Adresse", email), champ("Rôle", role), h("button", { class: "bouton action" }, "Donner l'accès")));
+  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api("/api/rh/equipe", { methode: "POST", corps: { email: email.value.trim(), role: role.value } }); toast("Accès ajouté"); await pageEquipe(); }); });
+  page({ titre: "Équipe RH", sous: "Les comptes WhyMe qui gèrent Why me. Indépendants de Parlorama : un compte Parlobox n'ouvre pas cet espace, et inversement. La personne doit aussi pouvoir passer Cloudflare Access." },
+    form,
+    h("section", { class: "carte", style: "margin-top:18px" },
+      h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Adresse", "Rôle", "État", ""].map((t) => h("th", {}, t)))),
+        h("tbody", {},
+          ...dOffice.map((/** @type {string} */ e) => h("tr", {}, h("td", {}, e), h("td", {}, "Administrateur"), h("td", {}, h("span", { class: "pastille", "data-ton": "vert" }, "D'office")), h("td", {}))),
+          ...equipe.map((/** @type {any} */ m) => h("tr", {}, h("td", {}, m.email), h("td", {}, m.role === "admin_rh" ? "Administrateur" : "Opérateur"),
+            h("td", {}, h("span", { class: "pastille", "data-ton": m.actif ? "vert" : "" }, m.actif ? "Actif" : "Retiré")),
+            h("td", { class: "nombre" }, m.actif && m.email !== moi?.email ? boutonConfirme("Retirer l'accès", "Confirmer", async () => { await api("/api/rh/equipe/retirer", { methode: "POST", corps: { email: m.email } }); toast("Accès retiré"); await pageEquipe(); }, "bouton discret petit") : null)))))));
 }
 
 // ------------------------------------------------------------------ navigation
 
 async function router() {
-  const [, pageCle = "campagnes", id = ""] = location.hash.replace(/^#/, "").split("/");
+  const [, cle = "campagnes", id = "", onglet = ""] = location.hash.replace(/^#/, "").split("/");
+  const rubrique = cle === "campagne" ? "campagnes" : cle === "recruteurs" ? "entreprises" : cle;
+  document.querySelectorAll(".menu a").forEach((a) => {
+    if (a.getAttribute("href") === `#/${rubrique}`) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
   try {
-    if (pageCle === "campagne" && id) await campagne(id);
-    else if (pageCle === "videos") await pageVideos();
-    else if (pageCle === "clients") await clients();
-    else if (pageCle === "equipe") await equipe();
-    else if (pageCle === "entreprises") await entreprises();
-    else if (pageCle === "recruteurs") await recruteurs();
-    else if (pageCle === "courriels") await courriels();
-    else await campagnes();
+    if (cle === "campagne" && id) await campagne(id, onglet);
+    else if (cle === "videos") await pageVideos();
+    else if (cle === "clients") await pageClients();
+    else if (cle === "equipe" && moi?.role === "admin_rh") await pageEquipe();
+    else if (cle === "entreprises" || cle === "recruteurs") await pageEntreprises();
+    else if (cle === "courriels") await pageCourriels();
+    else await pageCampagnes();
   } catch (e) {
-    contenu.replaceChildren(h("p", { class: "vide" }, /** @type {Error} */ (e).message));
+    contenu.replaceChildren(h("div", { class: "carte" }, h("h2", {}, "Cette page n'a pas pu s'afficher"), h("p", {}, /** @type {Error} */ (e).message),
+      h("button", { type: "button", class: "bouton discret", onclick: () => router() }, "Réessayer")));
   }
 }
 window.addEventListener("hashchange", router);
@@ -365,4 +496,5 @@ api("/api/rh/moi").then((m) => {
   moi = m;
   /** @type {HTMLElement} */ (document.getElementById("qui")).replaceChildren(h("strong", {}, m.email), m.role === "admin_rh" ? "Administrateur RH" : "Opérateur RH");
   /** @type {HTMLElement} */ (document.getElementById("menu-equipe")).hidden = m.role !== "admin_rh";
-}).catch((e) => { contenu.replaceChildren(h("p", { class: "vide" }, /** @type {Error} */ (e).message)); }).finally(router);
+  router();
+}).catch((e) => { contenu.replaceChildren(h("div", { class: "carte" }, h("h2", {}, "Accès à l'espace RH"), h("p", {}, /** @type {Error} */ (e).message))); });

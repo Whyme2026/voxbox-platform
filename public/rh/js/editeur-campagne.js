@@ -36,6 +36,7 @@ export const texteBulle = (/** @type {{ texte?: string, carton?: string }} */ q)
  *   enregistrer: (config: any, entreprises: string[]) => Promise<void>,
  *   apercu: (config: any, entreprises: string[]) => Promise<void>,
  *   modele: () => Promise<any>,
+ *   apresEnregistrement?: () => void,
  * }} o
  */
 export function editeurCampagne(o) {
@@ -56,7 +57,7 @@ export function editeurCampagne(o) {
 
   const verification = h("div", { class: "verification" });
   const etat = h("span", { class: "etat-editeur" }, lecture ? "Lecture seule : repassez la campagne en brouillon pour la modifier." : "");
-  const boutonEnregistrer = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton action", disabled: true, hidden: lecture }, "Enregistrer"));
+  const boutonEnregistrer = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton action", disabled: true, hidden: lecture }, "Enregistrer le questionnaire"));
   const telephone = h("div", { class: "telephone", "aria-label": "Aperçu sur le téléphone du candidat" });
   const film = h("div", { class: "film-question", "aria-label": "Plan « question » dans le film" });
   const zoneQuestions = h("ol", { class: "editeur-etapes" });
@@ -70,11 +71,11 @@ export function editeurCampagne(o) {
   });
 
   const verifier = () => {
+    if (lecture) { verification.replaceChildren(h("span", { class: "detail-verif" }, "Lecture seule.")); return; }
     clearTimeout(minuterie);
     verification.replaceChildren(h("span", { class: "detail-verif" }, "Vérification…"));
     minuterie = window.setTimeout(async () => {
       try { problemes = await o.valider(config()); } catch { problemes = ["Vérification impossible pour l'instant (connexion)."]; }
-      if (!choisies.size) problemes = [...problemes, "Cochez au moins une entreprise."];
       dessinerVerification();
     }, 350);
   };
@@ -82,10 +83,12 @@ export function editeurCampagne(o) {
 
   function dessinerVerification() {
     boutonEnregistrer.disabled = lecture || problemes.length > 0 || !modifie;
+    // Les entreprises ne bloquent pas l'enregistrement : elles ne sont exigées qu'à l'ouverture de la campagne.
+    const sansEntreprise = choisies.size ? null : h("p", { class: "detail-verif", style: "margin:4px 0 0" }, "Aucune entreprise cochée : il en faudra au moins une pour ouvrir la campagne.");
     verification.replaceChildren(problemes.length
       ? h("div", { class: "pile", style: "gap:6px" }, h("strong", { class: "verif-ko" }, `${problemes.length} point${problemes.length > 1 ? "s" : ""} à corriger`),
         h("ul", { class: "erreurs" }, ...problemes.map((p) => h("li", {}, p))))
-      : h("strong", { class: "verif-ok" }, "Campagne valide"));
+      : h("strong", { class: "verif-ok" }, "Questionnaire valide"), ...(sansEntreprise ? [sansEntreprise] : []));
   }
 
   /** Champ texte, texte long ou nombre lié à obj[cle]. */
@@ -239,7 +242,7 @@ export function editeurCampagne(o) {
 
   boutonEnregistrer.addEventListener("click", async () => {
     boutonEnregistrer.disabled = true;
-    try { await o.enregistrer(config(), [...choisies]); modifie = false; etat.textContent = "Enregistré"; }
+    try { await o.enregistrer(config(), [...choisies]); modifie = false; etat.textContent = "Enregistré"; o.apresEnregistrement?.(); }
     catch (e) { problemes = [/** @type {Error} */ (e).message]; dessinerVerification(); }
   });
 
@@ -253,6 +256,9 @@ export function editeurCampagne(o) {
           champ(c, "organisateur", "Organisateur (facultatif, ex. « la PFA »)", { max: 80 })),
         champ(c.accueil, "titre", "Titre de l'accueil", { max: 80 }),
         champ(c.accueil, "message", "Message d'accueil", { type: "long", max: 400 })),
+      h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Entreprises proposées au candidat"),
+        h("p", { class: "detail-verif", style: "margin:0" }, "Le candidat choisit parmi elles celles qui recevront sa candidature. Au moins une pour ouvrir la campagne."),
+        o.entreprises.length ? zoneEntreprises : h("p", { class: "vide" }, h("span", {}, "Aucune entreprise : créez-les d'abord dans "), h("a", { href: "#/entreprises" }, "Entreprises et recruteurs"), ".")),
       h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Question d'essai"),
         h("p", { class: "detail-verif", style: "margin:0" }, "Pour se lancer et vérifier le son : jamais enregistrée ni envoyée."),
         h("div", { class: "grille deux" },
@@ -262,8 +268,6 @@ export function editeurCampagne(o) {
         h("div", { style: "display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap" },
           h("h2", { style: "margin:0" }, `Questions (${c.questions.length})`), h("span", { class: "detail-verif" }, "De 3 à 5. Une reprise possible par question.")),
         zoneQuestions, ajoutQuestion),
-      h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Entreprises proposées"),
-        o.entreprises.length ? zoneEntreprises : h("p", { class: "vide" }, "Créez d'abord les entreprises (onglet Entreprises).")),
       h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Familles de métiers"),
         h("p", { class: "detail-verif", style: "margin:0" }, "Le candidat en choisit une ; les recruteurs filtrent dessus. Aucune : l'étape est sautée."), zoneFamilles),
       h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Réglages"),

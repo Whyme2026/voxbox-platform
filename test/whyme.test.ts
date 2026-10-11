@@ -522,3 +522,33 @@ test("Why me : vidéos montées dans l'espace RH (liste, miniature, lecture et C
   assert.ok(actions.includes("whyme.video.lecture"));
   assert.ok(actions.includes("whyme.cv.lecture"));
 });
+
+test("Why me : espace RH, création simple et fiches créées par erreur", async () => {
+  const { api, pfa, verkor, campagneId } = await preparer();
+  // Une adresse e-mail n'est pas un nom d'organisation (confusion avec les contacts et les recruteurs).
+  const mail = await api("POST", "/api/rh/clients", ADMIN, { nom: "laurent@exemple.fr" });
+  assert.equal(mail.status, 400);
+  assert.match(mail.corps.message, /adresse e-mail/);
+  assert.equal((await api("POST", "/api/rh/entreprises", ADMIN, { nom: "rh@exemple.fr" })).status, 400);
+  // Création sans entreprise : permise ; l'ouverture, elle, en exige une.
+  const cp = await api("POST", "/api/rh/campagnes", ADMIN, { nom: "Forum", client_id: pfa, config: modele, entreprises: [] });
+  assert.equal(cp.status, 201, JSON.stringify(cp.corps));
+  const ouvrir = await api("POST", `/api/rh/campagnes/${cp.corps.campagne.id}/statut`, ADMIN, { statut: "active" });
+  assert.equal(ouvrir.status, 409);
+  assert.match(ouvrir.corps.message, /entreprise/);
+  // Suppressions : seulement ce qui n'a servi à rien.
+  assert.equal((await api("DELETE", `/api/rh/campagnes/${campagneId}`, ADMIN)).status, 409); // ouverte
+  assert.equal((await api("DELETE", `/api/rh/campagnes/${cp.corps.campagne.id}`, ADMIN)).status, 200);
+  assert.equal((await api("DELETE", `/api/rh/clients/${pfa}`, ADMIN)).status, 409); // a des campagnes
+  assert.equal((await api("DELETE", `/api/rh/entreprises/${verkor}`, ADMIN)).status, 409); // proposée dans une campagne
+  const vide = (await api("POST", "/api/rh/clients", ADMIN, { nom: "Raoul Ducros" })).corps.client.id;
+  await api("POST", `/api/rh/clients/${vide}/contacts`, ADMIN, { email: "raoul@exemple.fr" });
+  assert.equal((await api("DELETE", `/api/rh/clients/${vide}`, ADMIN)).status, 200);
+  const seule = (await api("POST", "/api/rh/entreprises", ADMIN, { nom: "Essai" })).corps.entreprise.id;
+  await api("POST", "/api/rh/recruteurs", ADMIN, { email: "rh@essai.fr", entreprise_id: seule });
+  assert.equal((await api("DELETE", `/api/rh/entreprises/${seule}`, ADMIN)).status, 200);
+  // L'adresse du contact supprimé redevient libre.
+  assert.equal((await api("POST", "/api/rh/recruteurs", ADMIN, { email: "raoul@exemple.fr", entreprise_id: verkor })).status, 201);
+  const ents = (await api("GET", "/api/rh/entreprises", ADMIN)).corps.entreprises;
+  assert.equal(ents.find((e: any) => e.id === verkor).campagnes, 1);
+});
