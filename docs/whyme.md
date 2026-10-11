@@ -31,8 +31,10 @@ questions : lecture, enregistrement, puis « On garde » / « Je veux la revoir 
 
 ## Montage (`src/whyme/montage.ts` + service `montage/`)
 Interview terminée → la plateforme appelle `POST /monter` du service (liaison interne `MONTAGE_SERVICE`, ou `MONTAGE_URL` hors Cloudflare) → le service lit le plan
-(`/api/montage/travaux/:id`) et les prises, monte avec ffmpeg (ouverture why me + prénom, pour chaque question un
-carton fuchsia puis la réponse sans ses blancs, logo et « prénom, âge » à l'image, fermeture), renvoie miniature puis
+(`/api/montage/travaux/:id`) et les prises, monte avec ffmpeg (pour chaque question, un plan de 3 s
+qui la rappelle comme un message reçu : points « en train d'écrire », puis bulle fuchsia avec la question (ou son
+titre court si elle dépasse 80 caractères) et une signature sonore discrète de deux notes montantes ; puis la
+réponse sans ses blancs, logo et « prénom, âge » à l'image ; ni ouverture ni fermeture), renvoie miniature puis
 film → finalisation : rushes effacés, candidatures transmises, e-mail. Secret partagé `MONTAGE_CLE`, qui ne circule
 jamais : chaque requête est signée (HMAC horodaté, 5 min, en-tête `x-montage-signature`, `montage/signature.ts`),
 car les journaux Cloudflare enregistrent les en-têtes ; le service n'appelle que les plateformes listées dans `MONTAGE_API_AUTORISEES`.

@@ -8,7 +8,7 @@ import { traiter } from "../src/index.ts";
 import { ADMIN, client, creerEnv } from "./aide/env.ts";
 import { ajouterMois, validerConfig } from "../src/whyme/config.ts";
 import { tachesWhyme } from "../src/whyme/taches.ts";
-import { couperLignes, bornesParole } from "../montage/monter.ts";
+import { couperLignes, bornesParole, texteBulle, bulle, expressionSon, DUREE_QUESTION } from "../montage/monter.ts";
 import { ENTETE_SIGNATURE, signer } from "../montage/signature.ts";
 
 const modele = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/whyme-campagne-demo.json"), "utf8"));
@@ -388,4 +388,22 @@ test("Why me : renvoi d'un e-mail gardé (expéditeur corrigé chez Brevo)", asy
   } finally {
     globalThis.fetch = fetchOriginal;
   }
+});
+
+test("Why me : plan « question » du montage (bulle, texte, signature sonore)", () => {
+  assert.equal(DUREE_QUESTION, 3);
+  // La question telle que posée si elle se lit en 3 secondes, sinon son titre court.
+  assert.equal(texteBulle({ carton: "Pourquoi toi ?", texte: "Un dernier mot : ton talent ?" }), "Un dernier mot : ton talent ?");
+  assert.equal(texteBulle({ carton: "Pourquoi toi ?", texte: "x".repeat(81) }), "Pourquoi toi ?");
+  assert.equal(texteBulle({ carton: "Toi" }), "Toi");
+  // Bulle : un PNG valide, de la hauteur de la bulle plus sa queue.
+  const p = bulle(200, 100, [198, 1, 124], { rayon: 30, queue: 20 });
+  assert.deepEqual([...p.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  const v = new DataView(p.buffer, p.byteOffset);
+  assert.equal(v.getUint32(16), 200);
+  assert.equal(v.getUint32(20), 120);
+  // Son : deux notes montantes (880 puis 1318,5 Hz), la seconde un peu après la première.
+  const e = expressionSon(0.75);
+  assert.match(e, /880\*\(t-0\.75\)/);
+  assert.match(e, /1318\.5\*\(t-0\.86\)/);
 });

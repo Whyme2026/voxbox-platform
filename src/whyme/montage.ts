@@ -78,7 +78,7 @@ export async function planMontage(env: Env, id: string) {
   const questions = camp.config.questions.map((q, i) => {
     const p = prises.get(q.id);
     if (!p) throw new HttpError(409, "prise_manquante", `Réponse manquante : ${q.id}`);
-    return { id: q.id, numero: i + 1, carton: q.carton ?? q.texte, type: p.type, dureeMs: p.duree_ms, sonPresent: Boolean(p.son_present) };
+    return { id: q.id, numero: i + 1, carton: q.carton ?? q.texte, texte: q.texte, type: p.type, dureeMs: p.duree_ms, sonPresent: Boolean(p.son_present) };
   });
   return {
     id: c.id,
