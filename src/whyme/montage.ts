@@ -3,7 +3,7 @@
 // juridiction UE, ou petit serveur en Europe). La plateforme lui signale une interview terminée ; le service
 // vient chercher le plan et les prises, monte le film 9:16, le renvoie, et la plateforme finalise :
 // rushes effacés, candidatures transmises, e-mail au candidat.
-// Toutes les routes /api/montage/* exigent le secret partagé (en-tête x-montage-cle).
+// Toutes les routes /api/montage/* exigent une requête signée avec le secret partagé (montage/signature.ts).
 
 import type { Routeur, Contexte } from "../routeur.ts";
 import type { Env } from "../types.ts";
@@ -12,8 +12,9 @@ import { codeAleatoire, empreinteJeton, nouveauJeton } from "../auth/cabine.ts";
 import { ligneJournal, journaliser } from "../journal.ts";
 import { lireMiniature, servirVideo } from "../media.ts";
 import { ACCES_RECRUTEURS_MOIS, LIEN_PUBLIC_MOIS, ajouterMois } from "./config.ts";
-import { campagneParId, candidatParId, egalConstant } from "./commun.ts";
+import { campagneParId, candidatParId } from "./commun.ts";
 import { courrielVideoPrete, envoyerWhyme } from "./courriels.ts";
+import { ENTETE_SIGNATURE, signer, verifierSignature } from "../../montage/signature.ts";
 
 export const SERVICE = "service de montage";
 export const ESSAIS_MAX = 3;
@@ -32,7 +33,7 @@ export async function declencherMontage(env: Env, id: string): Promise<boolean> 
     const url = env.MONTAGE_SERVICE ? "https://voxbox-montage/monter" : `${env.MONTAGE_URL!.replace(/\/$/, "")}/monter`;
     const init: RequestInit = {
       method: "POST",
-      headers: { "content-type": "application/json", "x-montage-cle": env.MONTAGE_CLE! },
+      headers: { "content-type": "application/json", [ENTETE_SIGNATURE]: await signer(env.MONTAGE_CLE!, "POST", "/monter") },
       body: JSON.stringify({ id, api: c.origine }),
       signal: AbortSignal.timeout(15_000),
     };
@@ -46,9 +47,10 @@ export async function declencherMontage(env: Env, id: string): Promise<boolean> 
   }
 }
 
-function exigerService(ctx: Contexte): void {
-  const cle = ctx.request.headers.get("x-montage-cle") ?? "";
-  if (!ctx.env.MONTAGE_CLE || !egalConstant(cle, ctx.env.MONTAGE_CLE)) throw new HttpError(401, "non_authentifie", "Service de montage non reconnu");
+async function exigerService(ctx: Contexte): Promise<void> {
+  const ok = ctx.env.MONTAGE_CLE && await verifierSignature(ctx.env.MONTAGE_CLE, ctx.request.method, new URL(ctx.request.url).pathname,
+    ctx.request.headers.get(ENTETE_SIGNATURE));
+  if (!ok) throw new HttpError(401, "non_authentifie", "Service de montage non reconnu");
 }
 
 /** Ce que le service doit monter : questions dans l'ordre, prises, prénom et âge à incruster. */
@@ -119,12 +121,12 @@ export async function finaliser(env: Env, id: string): Promise<void> {
 
 export function routesWhymeMontage(r: Routeur): void {
   r.get("/api/montage/travaux/:id", async (ctx) => {
-    exigerService(ctx);
+    await exigerService(ctx);
     return json(await planMontage(ctx.env, ctx.params.id!));
   });
 
   r.get("/api/montage/prises/:id/:question", async (ctx) => {
-    exigerService(ctx);
+    await exigerService(ctx);
     const p = await ctx.env.DB.prepare("SELECT cle, type FROM wm_prises WHERE candidat_id = ? AND question_id = ?")
       .bind(ctx.params.id!, ctx.params.question!).first<{ cle: string; type: string }>();
     if (!p) throw introuvable("Prise introuvable");
@@ -132,7 +134,7 @@ export function routesWhymeMontage(r: Routeur): void {
   });
 
   r.ajouter("PUT", "/api/montage/miniature/:id", async (ctx) => {
-    exigerService(ctx);
+    await exigerService(ctx);
     const c = await candidatParId(ctx.env.DB, ctx.params.id!);
     if (!c || c.supprime_le) throw introuvable("Interview introuvable");
     const corps = await lireMiniature(ctx.request);
@@ -143,7 +145,7 @@ export function routesWhymeMontage(r: Routeur): void {
   });
 
   r.ajouter("PUT", "/api/montage/resultat/:id", async (ctx) => {
-    exigerService(ctx);
+    await exigerService(ctx);
     const c = await candidatParId(ctx.env.DB, ctx.params.id!);
     if (!c || c.supprime_le) throw introuvable("Interview introuvable");
     if ((ctx.request.headers.get("content-type") ?? "").split(";")[0]!.trim() !== "video/mp4") throw new HttpError(415, "format", "MP4 attendu");
@@ -159,7 +161,7 @@ export function routesWhymeMontage(r: Routeur): void {
   });
 
   r.post("/api/montage/echec/:id", async (ctx) => {
-    exigerService(ctx);
+    await exigerService(ctx);
     const d = await lireJson(ctx.request);
     const message = texte(d, "message", { max: 500 }) ?? "Échec du montage";
     await ctx.env.DB.prepare("UPDATE wm_candidats SET statut = 'erreur', erreur = ? WHERE id = ? AND statut <> 'pret'").bind(message, ctx.params.id!).run();

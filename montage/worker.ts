@@ -4,6 +4,7 @@
 // Déployé à part de la plateforme (Workers Builds, dossier montage/ ; offre Workers payante).
 
 import { DurableObject } from "cloudflare:workers";
+import { ENTETE_SIGNATURE, signer, verifierSignature } from "./signature.ts";
 
 interface Env {
   MONTAGE: DurableObjectNamespace;
@@ -77,7 +78,7 @@ export class ConteneurMontage extends DurableObject<Env> {
       for (const t of file) {
         const r = await port.fetch(new Request("http://conteneur/monter", {
           method: "POST",
-          headers: { "content-type": "application/json", "x-montage-cle": this.env.MONTAGE_CLE },
+          headers: { "content-type": "application/json", [ENTETE_SIGNATURE]: await signer(this.env.MONTAGE_CLE, "POST", "/monter") },
           body: JSON.stringify(t),
         }));
         if (r.status !== 202) { reste.push(t); derniere = `conteneur : ${r.status} ${await r.text()}`; }
@@ -101,13 +102,6 @@ async function empreinteCle(cle: string): Promise<string> {
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function egal(a: string, b: string): boolean {
-  if (a.length !== b.length || !a.length) return false;
-  let d = 0;
-  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return d === 0;
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // Sans secret (variable MONTAGE_CLE absente), le service refuse tout : jamais de montage ouvert à tous.
@@ -115,7 +109,7 @@ export default {
     const url = new URL(request.url);
     const monter = request.method === "POST" && url.pathname === "/monter";
     if (!monter && !(request.method === "GET" && url.pathname === "/sante")) return new Response("Introuvable", { status: 404 });
-    if (monter && !egal(request.headers.get("x-montage-cle") ?? "", env.MONTAGE_CLE)) return Response.json({ erreur: "non_authentifie" }, { status: 401 });
+    if (monter && !(await verifierSignature(env.MONTAGE_CLE, "POST", "/monter", request.headers.get(ENTETE_SIGNATURE)))) return Response.json({ erreur: "non_authentifie" }, { status: 401 });
     // Une seule instance : les montages sont traités l'un après l'autre (un peu plus de 10 s par interview).
     const instance = env.MONTAGE.get(env.MONTAGE.idFromName("montage"));
     return instance.fetch(request);

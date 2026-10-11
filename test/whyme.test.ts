@@ -9,6 +9,7 @@ import { ADMIN, client, creerEnv } from "./aide/env.ts";
 import { ajouterMois, validerConfig } from "../src/whyme/config.ts";
 import { tachesWhyme } from "../src/whyme/taches.ts";
 import { couperLignes, bornesParole } from "../montage/monter.ts";
+import { ENTETE_SIGNATURE, signer } from "../montage/signature.ts";
 
 const modele = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/whyme-campagne-demo.json"), "utf8"));
 const CLE = "secret-de-montage-pour-les-tests-0123456789";
@@ -39,7 +40,7 @@ async function preparer(surcharges: Record<string, unknown> = {}) {
   const service = async (methode: string, chemin: string, corps?: Uint8Array | object, type?: string, entetes: Record<string, string> = {}) => {
     const res = await traiter(new Request(`http://localhost${chemin}`, {
       method: methode,
-      headers: { "x-montage-cle": CLE, ...(type ? { "content-type": type } : {}), ...entetes },
+      headers: { [ENTETE_SIGNATURE]: await signer(CLE, methode, chemin.split("?")[0]!), ...(type ? { "content-type": type } : {}), ...entetes },
       body: corps === undefined ? undefined : corps instanceof Uint8Array ? (corps as unknown as BodyInit) : JSON.stringify(corps),
     }), env);
     return res;
@@ -165,7 +166,10 @@ test("Why me : montage livré → rushes effacés, candidature transmise, e-mail
   const { id, jeton } = await candidat({ cv: true });
   assert.equal((await telephone("POST", `/api/whyme/candidats/${id}/terminer`, jeton)).status, 200);
   // Le service est authentifié par son secret.
-  assert.equal((await traiter(new Request(`http://localhost/api/montage/travaux/${id}`, { headers: { "x-montage-cle": "mauvais" } }), env)).status, 401);
+  assert.equal((await traiter(new Request(`http://localhost/api/montage/travaux/${id}`, { headers: { [ENTETE_SIGNATURE]: await signer("un-autre-secret-de-plus-de-32-caracteres", "GET", `/api/montage/travaux/${id}`) } }), env)).status, 401);
+  // Signature valable pour un autre chemin, ou trop ancienne : refusée.
+  assert.equal((await traiter(new Request(`http://localhost/api/montage/travaux/${id}`, { headers: { [ENTETE_SIGNATURE]: await signer(CLE, "GET", "/api/montage/prises/x/y") } }), env)).status, 401);
+  assert.equal((await traiter(new Request(`http://localhost/api/montage/travaux/${id}`, { headers: { [ENTETE_SIGNATURE]: await signer(CLE, "GET", `/api/montage/travaux/${id}`, Date.now() - 6 * 60_000) } }), env)).status, 401);
   const plan = await monter(id);
   assert.equal(plan.prenom, "Camille");
   assert.equal(plan.age, 22);

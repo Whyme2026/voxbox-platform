@@ -1,6 +1,6 @@
 // Service de montage Why me : petit serveur HTTP sans dépendance, qui tourne dans un conteneur Cloudflare en
 // juridiction UE (montage/worker.ts) ou sur un serveur en Europe.
-//   POST /monter { id, api }   (en-tête x-montage-cle) → 202, le montage part en file
+//   POST /monter { id, api }   (requête signée, voir signature.ts) → 202, le montage part en file
 //   GET  /sante                 → état du service
 // Pour chaque interview : plan et prises lus sur la plateforme (/api/montage/*), montage ffmpeg, miniature puis
 // film renvoyés à la plateforme. En cas d'échec, la plateforme est prévenue (/api/montage/echec).
@@ -12,6 +12,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { monter, type PlanMontage } from "./monter.ts";
+import { ENTETE_SIGNATURE, signer, verifierSignature } from "./signature.ts";
 
 // Un secret absent peut arriver comme le texte « undefined » : il compte comme absent (refus au démarrage).
 const CLE = process.env.MONTAGE_CLE && process.env.MONTAGE_CLE !== "undefined" ? process.env.MONTAGE_CLE : "";
@@ -20,15 +21,9 @@ const file: { id: string; api: string }[] = [];
 let enCours: string | null = null;
 let faits = 0;
 
-function egal(a: string, b: string): boolean {
-  if (a.length !== b.length || !a.length) return false;
-  let d = 0;
-  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return d === 0;
-}
-
 async function appeler(api: string, chemin: string, init: RequestInit = {}): Promise<Response> {
-  const res = await fetch(`${api}${chemin}`, { ...init, headers: { ...(init.headers as Record<string, string> ?? {}), "x-montage-cle": CLE } });
+  const signature = await signer(CLE, init.method ?? "GET", chemin);
+  const res = await fetch(`${api}${chemin}`, { ...init, headers: { ...(init.headers as Record<string, string> ?? {}), [ENTETE_SIGNATURE]: signature } });
   if (!res.ok) throw new Error(`${init.method ?? "GET"} ${chemin} : ${res.status} ${await res.text().catch(() => "")}`);
   return res;
 }
@@ -76,7 +71,7 @@ export function demarrerService(port: number) {
     const repondre = (status: number, corps: unknown) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(corps)); };
     if (req.method === "GET" && (req.url === "/sante" || req.url === "/health")) return repondre(200, { service: "montage whyme", enCours, attente: file.length, faits });
     if (req.method !== "POST" || req.url !== "/monter") return repondre(404, { erreur: "introuvable" });
-    if (!egal(String(req.headers["x-montage-cle"] ?? ""), CLE)) return repondre(401, { erreur: "non_authentifie" });
+    if (!(await verifierSignature(CLE, "POST", "/monter", String(req.headers[ENTETE_SIGNATURE] ?? "")))) return repondre(401, { erreur: "non_authentifie" });
     let corps = "";
     for await (const m of req) corps += m;
     let d: { id?: unknown; api?: unknown };

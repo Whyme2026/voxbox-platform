@@ -33,8 +33,9 @@ questions : lecture, enregistrement, puis « On garde » / « Je veux la revoir 
 Interview terminée → la plateforme appelle `POST /monter` du service (liaison interne `MONTAGE_SERVICE`, ou `MONTAGE_URL` hors Cloudflare) → le service lit le plan
 (`/api/montage/travaux/:id`) et les prises, monte avec ffmpeg (ouverture why me + prénom, pour chaque question un
 carton fuchsia puis la réponse sans ses blancs, logo et « prénom, âge » à l'image, fermeture), renvoie miniature puis
-film → finalisation : rushes effacés, candidatures transmises, e-mail. Secret partagé `MONTAGE_CLE` (en-tête
-`x-montage-cle`) ; le service n'appelle que les plateformes listées dans `MONTAGE_API_AUTORISEES`.
+film → finalisation : rushes effacés, candidatures transmises, e-mail. Secret partagé `MONTAGE_CLE`, qui ne circule
+jamais : chaque requête est signée (HMAC horodaté, 5 min, en-tête `x-montage-signature`, `montage/signature.ts`),
+car les journaux Cloudflare enregistrent les en-têtes ; le service n'appelle que les plateformes listées dans `MONTAGE_API_AUTORISEES`.
 Conteneur : `montage/Dockerfile`, Worker `montage/worker.ts`, `montage/wrangler.jsonc` (juridiction UE).
 
 ## E-mails (`src/whyme/courriels.ts`)
