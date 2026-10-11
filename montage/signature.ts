@@ -9,7 +9,8 @@ export const ENTETE_SIGNATURE = "x-montage-signature";
 const VALIDITE_MS = 5 * 60_000;
 
 async function hmac(cle: string, message: string): Promise<string> {
-  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(cle), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  // Espaces et retours à la ligne autour du secret ignorés : un copier-coller dans le tableau de bord en ajoute souvent.
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(cle.trim()), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const s = await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(message));
   return [...new Uint8Array(s)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
