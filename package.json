@@ -17,7 +17,9 @@
     "deploy:prod": "wrangler deploy --env production",
     "dev": "wrangler dev --env dev",
     "e2e": "node --no-warnings test/e2e/parcours.e2e.ts",
-    "cabine:local": "node --no-warnings test/e2e/serveur.ts 8787"
+    "cabine:local": "node --no-warnings test/e2e/serveur.ts 8787",
+    "e2e:whyme": "node --no-warnings test/e2e/whyme.e2e.ts",
+    "montage:local": "node --no-warnings montage/serveur.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

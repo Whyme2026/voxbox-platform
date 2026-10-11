@@ -6,7 +6,7 @@
 import type { Env } from "./types.ts";
 import { HttpError } from "./http.ts";
 
-export interface Courriel { a: string; sujet: string; texte: string; html: string }
+export interface Courriel { a: string; sujet: string; texte: string; html: string; /** Nom d'expéditeur affiché (Parlopop par défaut). */ expediteur?: string; /** Adresse d'expédition (domaine vérifié chez Brevo). */ de?: string }
 
 /** Messages « envoyés » en développement, pour les tests. */
 export const boiteEssai: Courriel[] = [];
@@ -19,7 +19,7 @@ export async function envoyerCourriel(env: Env, c: Courriel): Promise<void> {
       method: "POST",
       headers: { "api-key": env.BREVO_CLE, "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify({
-        sender: { name: "Parlopop by whyme", email: env.COURRIEL_EXPEDITEUR ?? "parlopop@whyme.jobs" },
+        sender: { name: c.expediteur ?? "Parlopop by whyme", email: c.de ?? env.COURRIEL_EXPEDITEUR ?? "parlopop@whyme.jobs" },
         to: [{ email: c.a }],
         subject: c.sujet,
         textContent: c.texte,

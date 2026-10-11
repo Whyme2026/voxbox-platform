@@ -12,6 +12,12 @@ import { routesReponses } from "./routes/reponses.ts";
 import { routesParlomix } from "./routes/parlomix.ts";
 import { routesRetrait } from "./routes/retrait.ts";
 import { routesAcces } from "./routes/acces.ts";
+import { routesWhymeCandidat } from "./whyme/candidat.ts";
+import { routesWhymeMontage } from "./whyme/montage.ts";
+import { routesWhymePublic } from "./whyme/public.ts";
+import { routesWhymeRecruteur } from "./whyme/recruteur.ts";
+import { routesWhymeAdmin } from "./whyme/admin.ts";
+import { tachesWhyme } from "./whyme/taches.ts";
 
 export const VERSION = "0.1.0";
 
@@ -45,6 +51,11 @@ export function construireRouteur(): Routeur {
   routesParlomix(r);
   routesRetrait(r);
   routesAcces(r);
+  routesWhymeCandidat(r);
+  routesWhymeMontage(r);
+  routesWhymePublic(r);
+  routesWhymeRecruteur(r);
+  routesWhymeAdmin(r);
   return r;
 }
 
@@ -53,6 +64,9 @@ const routeur = construireRouteur();
 export async function traiter(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/")) {
+    // Why me : /i/<code> (QR code de la campagne) et /v/<code> (page vidéo du candidat) sont des pages fixes.
+    const page = /^\/i\/[a-z0-9-]{1,40}\/?$/.test(url.pathname) ? "/whyme/candidat/" : /^\/v\/[A-Z0-9]{10}\/?$/.test(url.pathname) ? "/whyme/video/" : null;
+    if (page && env.ASSETS) return env.ASSETS.fetch(new Request(new URL(page, url), request));
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("Introuvable", { status: 404 });
   }
@@ -82,5 +96,9 @@ async function repondre(request: Request, env: Env, url: URL): Promise<Response>
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     return traiter(request, env);
+  },
+  // Déclencheur planifié (toutes les 5 minutes) : montages, reprises et purges de Why me.
+  async scheduled(_evenement: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(tachesWhyme(env).then((b) => console.log("Why me, tâches planifiées", b)));
   },
 };

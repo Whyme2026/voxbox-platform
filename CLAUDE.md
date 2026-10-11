@@ -4,6 +4,9 @@ Plateforme de cabines vidéo d'avis consommateurs, **by whyme** (ex-« Vox Boxes
 Vocabulaire : **Parlopop** = la marque, la cabine et l'expérience ; **Parlorama** = l'interface de gestion et de consultation (`/admin/`) ;
 **Parlomètre** = mesure et indicateurs ; **Parlomix** = le clip monté (à venir). Maintenue par Claude, avec un développeur freelance en filet.
 Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploitation.md` en cas d'incident.
+**Why me** (11/10/2026) : second produit sur la même plateforme, l'interview vidéo RH du candidat sur son propre
+téléphone (JobBox ou lien). Code dans `src/whyme/`, `public/whyme/`, `public/recruteur/`, `montage/` ; lire `docs/whyme.md`.
+Ses règles propres : aucune IA ni note, rushes effacés après montage, recruteurs 12 mois, tout en 9:16.
 
 ## Règles du produit (non négociables)
 - On analyse ce que les gens disent, **jamais les personnes** (aucune notation, aucun profilage d'individu).
@@ -35,6 +38,7 @@ Tout changement de la cabine se vérifie aussi de bout en bout, dans un vrai Chr
 npm run e2e -- <audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|geely]   # parcours complet + présence du son dans chaque vidéo
 npm run cabine:local                            # serveur local avec une campagne de démo (code d'appairage affiché, /admin/)
 E2E_ADMIN=1 npm run e2e -- …                     # ajoute la visite de l'espace de gestion (captures admin-*.png)
+npm run e2e:whyme -- <voix.wav> <camera.y4m> <captures>   # Why me : téléphone simulé, vrai montage ffmpeg
 ```
 Tout changement de comportement s'accompagne d'un test. Les tests d'API utilisent une base SQLite locale
 (`test/aide/d1-local.ts`) qui rejoue les migrations : ce qui passe ici passe sur D1.

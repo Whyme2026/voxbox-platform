@@ -1,0 +1,28 @@
+{
+  "evenement": "Mondial de l'Auto",
+  "organisateur": "la PFA",
+  "accueil": {
+    "titre": "Plus qu'un CV. Quelqu'un.",
+    "message": "Bienvenue dans la JobBox ! Ta personnalité ne se résume pas à une liste de compétences : montre-la aux entreprises en moins de deux minutes."
+  },
+  "familles": [
+    { "id": "rechercher", "nom": "Rechercher & Concevoir" },
+    { "id": "preparer", "nom": "Préparer & Organiser" },
+    { "id": "produire", "nom": "Produire & Réaliser" },
+    { "id": "installer", "nom": "Installer & Maintenir" },
+    { "id": "developper", "nom": "Développer & Programmer" },
+    { "id": "commercialiser", "nom": "Acheter & Commercialiser" },
+    { "id": "recycler", "nom": "Réemployer & Recycler" },
+    { "id": "gerer", "nom": "Gérer & Administrer" }
+  ],
+  "questionEssai": { "texte": "Pour t'échauffer : dis bonjour et ton prénom", "dureeSec": 6 },
+  "questions": [
+    { "id": "q-toi", "texte": "Ton prénom et ce que tu aimes (matières, loisirs, passions…)", "carton": "Toi, en deux mots", "dureeSec": 10, "lectureSec": 10 },
+    { "id": "q-autres", "texte": "Ce que tu préfères chez les autres (qualités, défauts…) ?", "carton": "Ce que tu aimes chez les autres", "dureeSec": 10, "lectureSec": 10 },
+    { "id": "q-decouverte", "texte": "Quelle est ta dernière découverte ? (appli, livre, sport, film…)", "carton": "Ta dernière découverte", "dureeSec": 10, "lectureSec": 10 },
+    { "id": "q-mot", "texte": "Un dernier mot : ton talent, ce qui doit donner envie de te rencontrer ?", "carton": "Pourquoi toi ?", "dureeSec": 10, "lectureSec": 10 }
+  ],
+  "ageAffiche": true,
+  "ageMinimum": 15,
+  "validationAutoSec": 5
+}

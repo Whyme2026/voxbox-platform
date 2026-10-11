@@ -10,12 +10,14 @@
   "assets": {
     "directory": "public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/i/*", "/v/*"]
   },
   "observability": { "enabled": true },
   // Les variables sensibles ou propres à un environnement (ADMIN_EMAILS, ACCESS_TEAM_DOMAIN, ACCESS_AUD)
   // sont saisies dans le tableau de bord Cloudflare et conservées à chaque déploiement.
   "keep_vars": true,
+  // Why me : relance des montages, e-mails de reprise et purges (src/whyme/taches.ts).
+  "triggers": { "crons": ["*/5 * * * *"] },
 
   "env": {
     "dev": {

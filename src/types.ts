@@ -60,6 +60,12 @@ export interface Env {
   BREVO_CLE?: string;
   /** Adresse d'expédition des e-mails (domaine vérifié chez Brevo). */
   COURRIEL_EXPEDITEUR?: string;
+  /** Why me : adresse d'expédition des e-mails aux candidats et recruteurs (domaine vérifié chez Brevo). */
+  COURRIEL_EXPEDITEUR_WHYME?: string;
+  /** Why me : adresse du service de montage (conteneur ffmpeg en UE) ; absente : montages en attente. */
+  MONTAGE_URL?: string;
+  /** Why me : secret partagé avec le service de montage (secret Cloudflare). */
+  MONTAGE_CLE?: string;
   /** Version déployée du Worker (liaison « version_metadata » de Cloudflare) : change à chaque déploiement. */
   VERSION_DEPLOIEMENT?: { id: string; tag?: string; timestamp?: string };
 }
