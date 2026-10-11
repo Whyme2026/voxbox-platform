@@ -52,8 +52,18 @@
     },
     "production": {
       "name": "voxbox",
-      "workers_dev": true,
-      "vars": { "ENVIRONNEMENT": "production", "AUTH_MODE": "access" },
+      // Une seule adresse : app.parlobox.com (zone parlobox.com gérée par Cloudflare, domaine enregistré chez
+      // Squarespace). Pas d'adresse workers.dev : elle échapperait à l'application Access de app.parlobox.com.
+      // Déployée par Workers Builds depuis la branche « production » (voir docs/exploitation.md).
+      "workers_dev": false,
+      "routes": [{ "pattern": "app.parlobox.com", "custom_domain": true }],
+      // ACCESS_AUD : saisie dans le tableau de bord (application Access « Parlobox »), conservée par keep_vars.
+      "vars": {
+        "ENVIRONNEMENT": "production",
+        "AUTH_MODE": "access",
+        "ACCESS_TEAM_DOMAIN": "https://laurent-7ed.cloudflareaccess.com",
+        "ADMIN_EMAILS": "laurent@whyme.jobs"
+      },
       "d1_databases": [
         { "binding": "DB", "database_name": "voxbox-prod", "database_id": "ec16fb8a-4776-4d5a-bc2f-12b8f0f4c750", "migrations_dir": "migrations" }
       ],
