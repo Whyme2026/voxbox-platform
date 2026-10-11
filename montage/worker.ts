@@ -17,8 +17,8 @@ type Travail = { id: string; api: string };
 
 /**
  * Le Durable Object reçoit les demandes, les garde dans son stockage (elles survivent à un redémarrage) et répond
- * tout de suite ; c'est son alarme qui démarre le conteneur (premier démarrage : jusqu'à 1 min 30) et lui confie
- * les montages. La plateforme n'attend donc jamais le conteneur.
+ * tout de suite ; c'est son alarme qui démarre le conteneur (premier démarrage : jusqu'à 1 min 30), lui confie
+ * les montages et reste active jusqu'à ce qu'ils soient finis. La plateforme n'attend donc jamais le conteneur.
  */
 export class ConteneurMontage extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
@@ -86,6 +86,16 @@ export class ConteneurMontage extends DurableObject<Env> {
       await this.ctx.storage.put("file", reste);
       if (reste.length) throw new Error(derniere);
       await this.ctx.storage.delete("erreur");
+      // Le conteneur ne vit que tant que le Durable Object est actif : l'alarme attend donc la fin des montages
+      // (14 minutes au plus ; au-delà, la plateforme redemande le montage, qui reprend depuis le début).
+      const fin = Date.now() + 14 * 60_000;
+      while (Date.now() < fin) {
+        await attendre(3_000);
+        const etat = (await (await port.fetch("http://conteneur/sante")).json()) as { enCours: string | null; attente: number };
+        if (!etat.enCours && !etat.attente) break;
+        const suivants = (await this.ctx.storage.get<Travail[]>("file")) ?? [];
+        if (suivants.length) { await this.ctx.storage.setAlarm(Date.now()); break; } // nouvelles demandes : alarme suivante
+      }
     } catch (e) {
       const message = String((e as Error).message ?? e).slice(0, 300);
       console.error("Montage : transmission au conteneur en échec", message);
