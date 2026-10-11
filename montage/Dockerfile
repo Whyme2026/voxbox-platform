@@ -2,7 +2,7 @@
 FROM node:22-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY monter.ts serveur.ts ./
+COPY monter.ts serveur.ts signature.ts ./
 COPY polices ./polices
 ENV PORT=8080 NODE_ENV=production
 EXPOSE 8080
