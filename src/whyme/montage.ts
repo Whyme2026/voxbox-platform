@@ -34,7 +34,7 @@ export async function declencherMontage(env: Env, id: string): Promise<boolean> 
       method: "POST",
       headers: { "content-type": "application/json", "x-montage-cle": env.MONTAGE_CLE! },
       body: JSON.stringify({ id, api: c.origine }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(15_000),
     };
     const res = env.MONTAGE_SERVICE ? await env.MONTAGE_SERVICE.fetch(url, init) : await fetch(url, init);
     if (!res.ok) throw new Error(`service de montage : ${res.status}`);

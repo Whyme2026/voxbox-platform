@@ -2,13 +2,14 @@
 // une fois l'offre Workers payante activée (environ 5 $ par mois) :
 //   npx wrangler deploy -c montage/wrangler.jsonc
 //   npx wrangler secret put MONTAGE_CLE -c montage/wrangler.jsonc     (même valeur que le secret MONTAGE_CLE de voxbox-test)
-// Puis, sur voxbox-test : variable MONTAGE_URL = adresse workers.dev de ce Worker, secret MONTAGE_CLE.
+// Puis, sur voxbox-test : secret MONTAGE_CLE (la plateforme joint ce Worker par la liaison MONTAGE_SERVICE).
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "voxbox-montage",
   "main": "worker.ts",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
+  "observability": { "enabled": true },
   "vars": {
     // Plateformes autorisées à faire monter des vidéos (le secret n'est envoyé qu'à elles).
     "MONTAGE_API_AUTORISEES": "https://voxbox-test.laurent-7ed.workers.dev"
