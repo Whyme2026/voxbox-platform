@@ -49,10 +49,12 @@ config.questionEssai.dureeSec = 5;
 for (const q of config.questions) Object.assign(q, { dureeSec: 5, lectureSec: 3 });
 config.validationAutoSec = 3;
 const ids: Record<string, string> = {};
-for (const nom of ["Verkor", "Valeo", "Renault", "Stellantis"]) ids[nom] = (await appel("POST", "/api/admin/whyme/entreprises", { nom })).entreprise.id;
-await appel("POST", "/api/admin/whyme/recruteurs", { email: "rh@verkor.test", entreprise_id: ids.Verkor });
-const cp = await appel("POST", "/api/admin/whyme/campagnes", { nom: "Mondial 2026 (essai)", code: "mondial-essai", config, entreprises: Object.values(ids) });
-await appel("POST", `/api/admin/whyme/campagnes/${cp.campagne.id}/statut`, { statut: "active" });
+const pfa = (await appel("POST", "/api/rh/clients", { nom: "PFA" })).client.id;
+await appel("POST", `/api/rh/clients/${pfa}/contacts`, { email: "contact@pfa.test" });
+for (const nom of ["Verkor", "Valeo", "Renault", "Stellantis"]) ids[nom] = (await appel("POST", "/api/rh/entreprises", { nom })).entreprise.id;
+await appel("POST", "/api/rh/recruteurs", { email: "rh@verkor.test", entreprise_id: ids.Verkor });
+const cp = await appel("POST", "/api/rh/campagnes", { nom: "Mondial 2026 (essai)", code: "mondial-essai", client_id: pfa, config, entreprises: Object.values(ids) });
+await appel("POST", `/api/rh/campagnes/${cp.campagne.id}/statut`, { statut: "active" });
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, `--use-file-for-fake-video-capture=${camera}`, "--autoplay-policy=no-user-gesture-required"],
@@ -223,14 +225,28 @@ await capture("23-recruteur-video", rh);
 const lectures = db.sqlite.prepare("SELECT COUNT(*) AS n FROM journal WHERE utilisateur_email = 'rh@verkor.test' AND action = 'recruteur.video.lecture'").get() as any;
 assert.equal(lectures.n, 1, "lecture du recruteur journalisée");
 
-// Parlorama · Why me.
+// Contact du client (organisateur) : statistiques seulement, dans le même espace.
+const orga = await bureau.newPage();
+await orga.goto(`${base}/recruteur/`);
+await orga.getByLabel("Adresse e-mail").fill("contact@pfa.test");
+await orga.getByRole("button", { name: "Recevoir mon lien" }).click();
+await orga.getByText("un lien de connexion vient").waitFor();
+const lienOrga = /#lien=([\w-]+)/.exec((db.sqlite.prepare("SELECT texte FROM wm_courriels WHERE a = 'contact@pfa.test'").get() as any).texte)![1];
+await orga.goto(`${base}/recruteur/#lien=${lienOrga}`);
+await orga.getByText("Candidatures par entreprise").waitFor();
+await capture("24-organisateur-statistiques", orga);
+
+// Espace RH (séparé de Parlorama).
 const admin = await bureau.newPage();
-await admin.goto(`${base}/admin/whyme.html#/campagne/${cp.campagne.id}`);
+await admin.goto(`${base}/rh/#/campagne/${cp.campagne.id}`);
 await admin.getByText("Interviews (1)").waitFor();
-await capture("24-parlorama-campagne", admin);
-await admin.goto(`${base}/admin/whyme.html#/courriels`);
+await capture("25-rh-campagne", admin);
+await admin.goto(`${base}/rh/#/clients`);
+await admin.getByText("contact@pfa.test").waitFor();
+await capture("26-rh-clients", admin);
+await admin.goto(`${base}/rh/#/courriels`);
 await admin.getByText("Ta vidéo WhyMe est prête").waitFor();
-await capture("25-parlorama-emails", admin);
+await capture("27-rh-emails", admin);
 
 assert.deepEqual(erreurs, [], `erreurs dans les pages : ${erreurs.join(" | ")}`);
 await navigateur.close();

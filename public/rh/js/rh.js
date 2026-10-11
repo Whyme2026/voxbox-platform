@@ -1,8 +1,9 @@
 // @ts-check
-// Parlorama · Why me (JobBox smartphone, usages RH) : campagnes, entreprises recruteuses, recruteurs, suivi des
-// interviews et e-mails de test. Réservé aux comptes WhyMe. Tout le texte venant de la base est inséré en texte.
+// Espace RH Why me (/rh/) : clients (organisateurs) et leurs contacts, campagnes et leurs statistiques, entreprises
+// recruteuses (sous-clients), recruteurs, suivi des interviews, e-mails, équipe RH. Réservé à l'équipe RH, séparée
+// des comptes Parlopop. Tout le texte venant de la base est inséré en texte.
 
-import { h } from "./dom.js";
+import { h } from "../../admin/js/dom.js";
 import { genererQR, cheminQR } from "../../cabine/js/qr.js";
 
 const contenu = /** @type {HTMLElement} */ (document.getElementById("contenu"));
@@ -44,33 +45,38 @@ const STATUTS_CANDIDAT = /** @type {Record<string, [string, string]>} */ ({
 const pastille = (/** @type {Record<string, [string, string]>} */ table, /** @type {string} */ s) => h("span", { class: "pastille", "data-ton": table[s]?.[1] ?? "" }, table[s]?.[0] ?? s);
 
 function onglets(/** @type {string} */ actif) {
-  const liens = [["campagnes", "Campagnes"], ["entreprises", "Entreprises"], ["recruteurs", "Recruteurs"], ["courriels", "E-mails"]];
+  const liens = [["campagnes", "Campagnes"], ["clients", "Clients"], ["entreprises", "Entreprises"], ["recruteurs", "Recruteurs"], ["courriels", "E-mails"], ...(moi?.role === "admin_rh" ? [["equipe", "Équipe"]] : [])];
   return h("div", { class: "onglets", role: "tablist" }, ...liens.map(([cle, lib]) =>
     h("button", { type: "button", role: "tab", "aria-selected": String(cle === actif), onclick: () => { location.hash = `#/${cle}`; } }, lib)));
 }
 
 function page(/** @type {string} */ titre, /** @type {string} */ sous, /** @type {string} */ actif, /** @type {any[]} */ ...corps) {
   contenu.replaceChildren(
-    h("div", { class: "entete-page" }, h("div", {}, h("div", { class: "fil" }, h("a", { href: "index.html" }, "Parlorama"), " · Why me"), h("h1", {}, titre), h("p", { class: "sous" }, sous))),
+    h("div", { class: "entete-page" }, h("div", {}, h("div", { class: "fil" }, "why me · Espace RH"), h("h1", {}, titre), h("p", { class: "sous" }, sous))),
     onglets(actif), ...corps);
 }
 
 // ------------------------------------------------------------------ campagnes
 
 let modele = /** @type {any} */ (null);
+/** @type {{ email: string, role: string } | null} */
+let moi = null;
 
 async function campagnes() {
-  const [{ campagnes }, { entreprises }] = await Promise.all([api("/api/admin/whyme/campagnes"), api("/api/admin/whyme/entreprises")]);
+  const [{ campagnes }, { entreprises }, { clients }] = await Promise.all([api("/api/rh/campagnes"), api("/api/rh/entreprises"), api("/api/rh/clients")]);
   modele ??= await fetch("/whyme/modele-campagne.json").then((r) => r.json()).catch(() => ({}));
-  const liste = h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Campagne", "Événement", "Code du QR", "Entreprises", "Interviews", "Statut"].map((t) => h("th", {}, t)))),
+  const liste = h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Campagne", "Client", "Événement", "Code du QR", "Entreprises", "Interviews", "Statut"].map((t) => h("th", {}, t)))),
     h("tbody", {}, ...campagnes.map((/** @type {any} */ c) => h("tr", { class: "lien-ligne", onclick: () => { location.hash = `#/campagne/${c.id}`; } },
-      h("td", {}, h("strong", {}, c.nom)), h("td", {}, c.config.evenement), h("td", {}, h("code", {}, `/i/${c.code}`)),
+      h("td", {}, h("strong", {}, c.nom)), h("td", {}, c.client ?? h("em", {}, "à rattacher")), h("td", {}, c.config.evenement), h("td", {}, h("code", {}, `/i/${c.code}`)),
       h("td", {}, c.entreprises.map((/** @type {any} */ e) => e.nom).join(", ")), h("td", { class: "nombre" }, `${c.prets} / ${c.candidats}`),
       h("td", {}, pastille(STATUTS_CAMPAGNE, c.statut))))));
   const form = /** @type {HTMLFormElement} */ (h("form", { class: "grille" },
     h("label", { class: "champ" }, "Nom interne", h("input", { name: "nom", required: true, placeholder: "Mondial de l'Auto 2026 · PFA" })),
+    h("label", { class: "champ" }, "Client (qui commande la campagne)",
+      clients.length ? h("select", { name: "client_id", required: true }, ...clients.map((/** @type {any} */ c) => h("option", { value: c.id }, c.nom)))
+        : h("p", {}, "Créez d'abord le client (onglet Clients).")),
     h("label", { class: "champ" }, "Code dans l'adresse du QR (facultatif)", h("input", { name: "code", placeholder: "mondial-2026" })),
-    h("fieldset", { class: "champ" }, h("legend", {}, "Entreprises proposées"),
+    h("fieldset", { class: "champ" }, h("legend", {}, "Entreprises proposées (sous-clients)"),
       ...(entreprises.length ? entreprises.map((/** @type {any} */ e) => h("label", {}, h("input", { type: "checkbox", name: "entreprise", value: e.id }), ` ${e.nom}`)) : [h("p", {}, "Créez d'abord les entreprises (onglet Entreprises).")])),
     h("label", { class: "champ" }, "Questionnaire et réglages (JSON)", h("textarea", { name: "config", rows: "18", spellcheck: "false", style: "font-family:monospace;font-size:13px" }, JSON.stringify(modele, null, 2))),
     h("div", { class: "boutons" }, h("button", { class: "bouton action" }, "Créer la campagne"))));
@@ -80,12 +86,12 @@ async function campagnes() {
       const f = new FormData(form);
       let config;
       try { config = JSON.parse(String(f.get("config"))); } catch { throw new Error("Le JSON du questionnaire est illisible"); }
-      const r = await api("/api/admin/whyme/campagnes", { methode: "POST", corps: { nom: f.get("nom"), code: f.get("code") || undefined, config, entreprises: f.getAll("entreprise") } });
+      const r = await api("/api/rh/campagnes", { methode: "POST", corps: { nom: f.get("nom"), client_id: f.get("client_id"), code: f.get("code") || undefined, config, entreprises: f.getAll("entreprise") } });
       toast("Campagne créée");
       location.hash = `#/campagne/${r.campagne.id}`;
     });
   });
-  page("Why me", "Interviews vidéo des candidats sur leur propre téléphone (JobBox ou lien).", "campagnes",
+  page("Campagnes", "Interviews vidéo des candidats sur leur propre téléphone (JobBox ou lien), pour un client et ses entreprises recruteuses.", "campagnes",
     h("section", { class: "carte" }, h("h2", {}, "Campagnes"), campagnes.length ? liste : h("p", { class: "vide" }, "Aucune campagne pour l'instant.")),
     h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, "Nouvelle campagne"), form));
 }
@@ -100,12 +106,19 @@ function qrSvg(/** @type {string} */ adresse) {
 }
 
 async function campagne(/** @type {string} */ id) {
-  const { campagnes } = await api("/api/admin/whyme/campagnes");
+  const { campagnes } = await api("/api/rh/campagnes");
   const c = campagnes.find((/** @type {any} */ x) => x.id === id);
   if (!c) { location.hash = "#/campagnes"; return; }
-  const { candidats, questions } = await api(`/api/admin/whyme/campagnes/${id}/candidats`);
+  const [{ candidats, questions }, stats, { clients }] = await Promise.all([api(`/api/rh/campagnes/${id}/candidats`), api(`/api/rh/campagnes/${id}/statistiques`), api("/api/rh/clients")]);
+  const choixClient = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Client" }, h("option", { value: "" }, "— à rattacher —"),
+    ...clients.map((/** @type {any} */ cl) => h("option", { value: cl.id, selected: cl.id === c.client_id }, cl.nom))));
+  choixClient.addEventListener("change", () => essayer(async () => {
+    if (!choixClient.value) return;
+    await api(`/api/rh/campagnes/${id}`, { methode: "PATCH", corps: { client_id: choixClient.value } });
+    toast("Client modifié"); await campagne(id);
+  }));
   const adresse = `${location.origin}/i/${c.code}`;
-  const statut = (/** @type {string} */ s) => essayer(async () => { await api(`/api/admin/whyme/campagnes/${id}/statut`, { methode: "POST", corps: { statut: s } }); toast("Statut modifié"); await campagne(id); });
+  const statut = (/** @type {string} */ s) => essayer(async () => { await api(`/api/rh/campagnes/${id}/statut`, { methode: "POST", corps: { statut: s } }); toast("Statut modifié"); await campagne(id); });
   const boutons = h("div", { class: "boutons" },
     c.statut !== "active" ? h("button", { class: "bouton action", onclick: () => statut("active") }, "Ouvrir la campagne") : null,
     c.statut === "active" ? h("button", { class: "bouton discret", onclick: () => statut("close") }, "Clore") : null,
@@ -120,13 +133,15 @@ async function campagne(/** @type {string} */ id) {
     h("td", {}, date(x.cree_le)),
     h("td", {}, x.courriel_envoye_le ? date(x.courriel_envoye_le) : "—"),
     h("td", {}, h("div", { class: "boutons" },
-      x.a_video ? h("a", { class: "bouton discret petit", href: `/api/admin/whyme/candidats/${x.id}/video`, target: "_blank", rel: "noopener" }, "Vidéo") : null,
+      x.a_video ? h("a", { class: "bouton discret petit", href: `/api/rh/candidats/${x.id}/video`, target: "_blank", rel: "noopener" }, "Vidéo") : null,
       x.code_public && x.a_video ? h("a", { class: "bouton discret petit", href: `/v/${x.code_public}`, target: "_blank", rel: "noopener" }, "Page publique") : null,
-      ["termine", "montage", "erreur"].includes(x.statut) ? h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/admin/whyme/candidats/${x.id}/montage`, { methode: "POST" }); toast("Montage relancé"); await campagne(id); }) }, "Relancer le montage") : null))));
-  page(c.nom, `${c.config.evenement} · ${c.config.questions.length} questions · ${c.entreprises.map((/** @type {any} */ e) => e.nom).join(", ")}`, "campagnes",
+      ["termine", "montage", "erreur"].includes(x.statut) ? h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/candidats/${x.id}/montage`, { methode: "POST" }); toast("Montage relancé"); await campagne(id); }) }, "Relancer le montage") : null))));
+  page(c.nom, `${c.client ?? "Client à rattacher"} · ${c.config.evenement} · ${c.config.questions.length} questions · ${c.entreprises.map((/** @type {any} */ e) => e.nom).join(", ")}`, "campagnes",
     h("div", { class: "grille deux" },
-      h("section", { class: "carte" }, h("h2", {}, "Statut"), pastille(STATUTS_CAMPAGNE, c.statut), h("p", {}, "Le questionnaire et les entreprises ne changent plus une fois la campagne ouverte."), boutons),
+      h("section", { class: "carte" }, h("h2", {}, "Statut"), pastille(STATUTS_CAMPAGNE, c.statut), h("p", {}, "Le questionnaire et les entreprises ne changent plus une fois la campagne ouverte."), boutons,
+        h("label", { class: "champ", style: "margin-top:14px" }, "Client", choixClient)),
       h("section", { class: "carte" }, h("h2", {}, "QR code de la JobBox"), qrSvg(adresse), h("p", {}, h("code", {}, adresse)))),
+    vueStatistiques(stats, "Ce que voit le client (statistiques seulement)"),
     h("section", { class: "carte", style: "margin-top:18px" }, h("h2", {}, `Interviews (${candidats.length})`),
       candidats.length ? h("table", { class: "tableau" }, h("thead", {}, h("tr", {}, ...["Candidat", "État", "Réponses", "Entreprises", "Fourni", "Commencée", "E-mail", ""].map((t) => h("th", {}, t)))), h("tbody", {}, ...lignes))
         : h("p", { class: "vide" }, "Aucune interview pour l'instant.")),
@@ -135,51 +150,110 @@ async function campagne(/** @type {string} */ id) {
       h("p", {}, `Âge ${c.config.ageAffiche ? "affiché" : "non affiché"} sur la vidéo · âge minimum ${c.config.ageMinimum} ans`)));
 }
 
+
+/** Statistiques agrégées d'une campagne (même vue que celle du client dans son espace). */
+function vueStatistiques(/** @type {any} */ s, /** @type {string} */ titre) {
+  const barres = (/** @type {{ nom: string, n: number }[]} */ lignes) => {
+    const max = Math.max(1, ...lignes.map((l) => l.n));
+    return h("div", { class: "barres" }, ...lignes.map((l) => h("div", { class: "ligne" }, h("span", {}, l.nom),
+      h("span", { class: "jauge" }, h("span", { style: `width:${Math.round((l.n / max) * 100)}%` })), h("span", { class: "n" }, String(l.n)))));
+  };
+  const kpi = (/** @type {number} */ v, /** @type {string} */ l) => h("div", { class: "carte" }, h("span", { class: "valeur" }, String(v)), h("span", { class: "libelle" }, l));
+  return h("section", { style: "margin-top:18px" }, h("h2", {}, titre),
+    h("div", { class: "grille kpi" }, kpi(s.commencees, "interviews commencées"), kpi(s.terminees, "terminées"), kpi(s.transmises, "vidéos transmises"), kpi(s.candidatures, "candidatures")),
+    h("div", { class: "grille deux" },
+      h("div", { class: "carte" }, h("h2", {}, "Candidatures par entreprise"), barres(s.parEntreprise.map((/** @type {any} */ e) => ({ nom: e.nom, n: e.candidatures })))),
+      h("div", { class: "carte" }, h("h2", {}, "Candidats par famille de métiers"), barres(s.parFamille.filter((/** @type {any} */ f) => f.candidats).map((/** @type {any} */ f) => ({ nom: f.nom, n: f.candidats }))))));
+}
+
+// ------------------------------------------------------------------ clients et contacts
+
+async function clients() {
+  const { clients } = await api("/api/rh/clients");
+  const champ = "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid var(--trait)";
+  const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" }, h("input", { name: "nom", required: true, placeholder: "Nom du client (ex. PFA)", style: champ }), h("button", { class: "bouton action" }, "Ajouter le client")));
+  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api("/api/rh/clients", { methode: "POST", corps: { nom: new FormData(form).get("nom") } }); toast("Client ajouté"); await clients(); }); });
+  const fiche = (/** @type {any} */ c) => {
+    const ajout = /** @type {HTMLFormElement} */ (h("form", { class: "boutons", style: "margin-top:10px" },
+      h("input", { name: "email", type: "email", required: true, placeholder: "contact@client.fr", style: champ }), h("button", { class: "bouton discret" }, "Ajouter un contact")));
+    ajout.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api(`/api/rh/clients/${c.id}/contacts`, { methode: "POST", corps: { email: new FormData(ajout).get("email") } }); toast("Contact ajouté"); await clients(); }); });
+    return h("section", { class: "carte" }, h("h2", {}, c.nom), h("p", { class: "sous" }, `${c.campagnes} campagne${c.campagnes > 1 ? "s" : ""}`),
+      c.contacts.length ? h("table", { class: "tableau" }, h("tbody", {}, ...c.contacts.map((/** @type {any} */ k) => h("tr", {}, h("td", {}, k.email),
+        h("td", {}, h("span", { class: "pastille", "data-ton": k.actif ? "vert" : "" }, k.actif ? "Actif" : "Désactivé")),
+        h("td", {}, h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/contacts/${k.id}`, { methode: "PATCH", corps: { actif: !k.actif } }); await clients(); }) }, k.actif ? "Désactiver" : "Réactiver"))))))
+        : h("p", { class: "vide" }, "Aucun contact : personne chez ce client ne voit encore ses statistiques."),
+      ajout);
+  };
+  page("Clients", "Le client commande la campagne (ex. la PFA au Mondial de l'Auto) ; WhyMe y opère pour ses entreprises recruteuses. Ses contacts voient les statistiques de ses campagnes, jamais un candidat.", "clients",
+    h("section", { class: "carte" }, form),
+    h("div", { class: "grille", style: "margin-top:18px" }, ...(clients.length ? clients.map(fiche) : [h("p", { class: "vide" }, "Aucun client.")])),
+    h("p", {}, "Les contacts se connectent sur ", h("a", { href: "/recruteur/", target: "_blank" }, `${location.origin}/recruteur/`), " avec un lien reçu par e-mail."));
+}
+
+// ------------------------------------------------------------------ équipe RH
+
+async function equipe() {
+  const { equipe, dOffice } = await api("/api/rh/equipe");
+  const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" },
+    h("input", { name: "email", type: "email", required: true, placeholder: "prenom@whyme.jobs", style: "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid var(--trait)" }),
+    h("select", { name: "role", style: "min-height:42px;border-radius:12px;padding:0 10px" }, h("option", { value: "operateur_rh" }, "Opérateur"), h("option", { value: "admin_rh" }, "Administrateur")),
+    h("button", { class: "bouton action" }, "Ajouter")));
+  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { const f = new FormData(form); await api("/api/rh/equipe", { methode: "POST", corps: { email: f.get("email"), role: f.get("role") } }); toast("Accès ajouté"); await equipe(); }); });
+  page("Équipe RH", "Comptes WhyMe qui gèrent Why me. Indépendants de Parlorama : un compte Parlopop n'ouvre pas cet espace.", "equipe",
+    h("section", { class: "carte" }, form,
+      h("table", { class: "tableau", style: "margin-top:12px" }, h("thead", {}, h("tr", {}, ...["E-mail", "Rôle", "État", ""].map((t) => h("th", {}, t)))),
+        h("tbody", {},
+          ...dOffice.map((/** @type {string} */ e) => h("tr", {}, h("td", {}, e), h("td", {}, "Administrateur"), h("td", {}, h("span", { class: "pastille", "data-ton": "vert" }, "D'office (RH_ADMIN_EMAILS)")), h("td", {}))),
+          ...equipe.map((/** @type {any} */ m) => h("tr", {}, h("td", {}, m.email), h("td", {}, m.role === "admin_rh" ? "Administrateur" : "Opérateur"),
+            h("td", {}, h("span", { class: "pastille", "data-ton": m.actif ? "vert" : "" }, m.actif ? "Actif" : "Retiré")),
+            h("td", {}, m.actif && m.email !== moi?.email ? h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api("/api/rh/equipe/retirer", { methode: "POST", corps: { email: m.email } }); await equipe(); }) }, "Retirer l'accès") : null)))))));
+}
+
 // ------------------------------------------------------------------ entreprises et recruteurs
 
 async function entreprises() {
-  const { entreprises } = await api("/api/admin/whyme/entreprises");
+  const { entreprises } = await api("/api/rh/entreprises");
   const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" }, h("input", { name: "nom", required: true, placeholder: "Nom de l'entreprise", style: "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid #E1E3EC" }), h("button", { class: "bouton action" }, "Ajouter")));
-  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api("/api/admin/whyme/entreprises", { methode: "POST", corps: { nom: new FormData(form).get("nom") } }); await entreprises(); }); });
+  form.addEventListener("submit", (e) => { e.preventDefault(); essayer(async () => { await api("/api/rh/entreprises", { methode: "POST", corps: { nom: new FormData(form).get("nom") } }); await entreprises(); }); });
   const ligne = (/** @type {any} */ e) => {
     const fichier = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: "image/png,image/jpeg,image/webp", hidden: true }));
     fichier.addEventListener("change", () => essayer(async () => {
       const f = fichier.files?.[0];
       if (!f) return;
-      await api(`/api/admin/whyme/entreprises/${e.id}/logo`, { methode: "PUT", brut: f, type: f.type });
+      await api(`/api/rh/entreprises/${e.id}/logo`, { methode: "PUT", brut: f, type: f.type });
       toast("Logo enregistré"); await entreprises();
     }));
     return h("tr", {}, h("td", {}, e.logo ? h("img", { src: `${e.logo}?v=${Date.now()}`, alt: "", style: "max-height:32px;max-width:120px" }) : "—"),
       h("td", {}, h("strong", {}, e.nom)), h("td", { class: "nombre" }, String(e.recruteurs)),
       h("td", {}, fichier, h("button", { class: "bouton discret petit", onclick: () => fichier.click() }, e.logo ? "Changer le logo" : "Ajouter un logo")));
   };
-  page("Entreprises recruteuses", "Communes à toutes les campagnes. Logo PNG, JPEG ou WebP (1 Mo au plus).", "entreprises",
+  page("Entreprises recruteuses", "Les sous-clients : une fiche par entreprise, commune à toutes les campagnes et à tous les clients. Ses recruteurs voient dans un seul espace les candidats de toutes les campagnes où elle participe. Logo PNG, JPEG ou WebP (1 Mo au plus).", "entreprises",
     h("section", { class: "carte" }, form,
       entreprises.length ? h("table", { class: "tableau", style: "margin-top:12px" }, h("thead", {}, h("tr", {}, ...["Logo", "Entreprise", "Recruteurs", ""].map((t) => h("th", {}, t)))), h("tbody", {}, ...entreprises.map(ligne)))
         : h("p", { class: "vide" }, "Aucune entreprise.")));
 }
 
 async function recruteurs() {
-  const [{ recruteurs }, { entreprises }] = await Promise.all([api("/api/admin/whyme/recruteurs"), api("/api/admin/whyme/entreprises")]);
+  const [{ recruteurs }, { entreprises }] = await Promise.all([api("/api/rh/recruteurs"), api("/api/rh/entreprises")]);
   const form = /** @type {HTMLFormElement} */ (h("form", { class: "boutons" },
     h("input", { name: "email", type: "email", required: true, placeholder: "recruteur@entreprise.fr", style: "flex:1;min-height:42px;padding:0 12px;border-radius:12px;border:1.5px solid #E1E3EC" }),
     h("select", { name: "entreprise_id", required: true, style: "min-height:42px;border-radius:12px;padding:0 10px" }, ...entreprises.map((/** @type {any} */ e) => h("option", { value: e.id }, e.nom))),
     h("button", { class: "bouton action" }, "Ajouter")));
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    essayer(async () => { const f = new FormData(form); await api("/api/admin/whyme/recruteurs", { methode: "POST", corps: { email: f.get("email"), entreprise_id: f.get("entreprise_id") } }); toast("Recruteur ajouté"); await recruteurs(); });
+    essayer(async () => { const f = new FormData(form); await api("/api/rh/recruteurs", { methode: "POST", corps: { email: f.get("email"), entreprise_id: f.get("entreprise_id") } }); toast("Recruteur ajouté"); await recruteurs(); });
   });
   page("Recruteurs", "Ils se connectent sur /recruteur/ avec un lien reçu par e-mail, et ne voient que les candidatures de leur entreprise.", "recruteurs",
     h("section", { class: "carte" }, form,
       h("table", { class: "tableau", style: "margin-top:12px" }, h("thead", {}, h("tr", {}, ...["E-mail", "Entreprise", "Créé", "État", ""].map((t) => h("th", {}, t)))),
         h("tbody", {}, ...recruteurs.map((/** @type {any} */ r) => h("tr", {}, h("td", {}, r.email), h("td", {}, r.entreprise), h("td", {}, date(r.cree_le)),
           h("td", {}, h("span", { class: "pastille", "data-ton": r.actif ? "vert" : "" }, r.actif ? "Actif" : "Désactivé")),
-          h("td", {}, h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/admin/whyme/recruteurs/${r.id}`, { methode: "PATCH", corps: { actif: !r.actif } }); await recruteurs(); }) }, r.actif ? "Désactiver" : "Réactiver"))))))),
+          h("td", {}, h("button", { class: "bouton discret petit", onclick: () => essayer(async () => { await api(`/api/rh/recruteurs/${r.id}`, { methode: "PATCH", corps: { actif: !r.actif } }); await recruteurs(); }) }, r.actif ? "Désactiver" : "Réactiver"))))))),
     h("p", {}, "Adresse de l'espace recruteur : ", h("a", { href: "/recruteur/", target: "_blank" }, `${location.origin}/recruteur/`)));
 }
 
 async function courriels() {
-  const { courriels, brevo, expediteur, montage, montageCle } = await api("/api/admin/whyme/courriels");
+  const { courriels, brevo, expediteur, montage, montageCle } = await api("/api/rh/courriels");
   /** @type {Record<string, string>} */
   const etatsMontage = {
     identique: "Configuré : le service répond, avec le même secret.",
@@ -187,7 +261,7 @@ async function courriels() {
     injoignable: "Configuré, mais le service ne répond pas pour l'instant.",
   };
   const apercu = h("iframe", { title: "Aperçu de l'e-mail", style: "width:100%;height:640px;border:1px solid #E1E3EC;border-radius:12px;background:#fff", sandbox: "allow-popups allow-popups-to-escape-sandbox" });
-  page("E-mails Why me", "Gardés 7 jours. Sans clé Brevo (environnement de test), ils ne partent pas : c'est ici qu'on les lit et qu'on suit leurs liens.", "courriels",
+  page("E-mails", "Gardés 7 jours. Sans clé Brevo (environnement de test), ils ne partent pas : c'est ici qu'on les lit et qu'on suit leurs liens.", "courriels",
     h("div", { class: "grille kpi" },
       h("div", { class: "carte" }, h("strong", {}, "Envoi par Brevo"), h("p", {}, brevo ? `Configuré : les e-mails partent de ${expediteur}, qui doit être un expéditeur vérifié du compte Brevo.` : "Non configuré : e-mails gardés ici.")),
       h("div", { class: "carte" }, h("strong", {}, "Service de montage"), h("p", {}, montage ? (etatsMontage[montageCle] ?? "Configuré.") : "Non configuré : les interviews terminées attendent leur montage."))),
@@ -196,7 +270,7 @@ async function courriels() {
         h("td", {}, h("strong", {}, c.sujet), h("div", { class: "sous", style: "font-size:13px" }, `${c.a} · ${date(c.cree_le)}`)), h("td", {}, h("span", { class: "pastille", "data-ton": c.envoye ? "vert" : "jaune" }, c.envoye ? "Transmis à Brevo" : "Non envoyé")),
         h("td", {}, brevo ? h("button", { class: "secondaire", type: "button", onclick: async (/** @type {Event} */ e) => {
           e.stopPropagation();
-          try { await api(`/api/admin/whyme/courriels/${c.id}/renvoyer`, { methode: "POST" }); toast(`Renvoyé à ${c.a}.`, "ok"); }
+          try { await api(`/api/rh/courriels/${c.id}/renvoyer`, { methode: "POST" }); toast(`Renvoyé à ${c.a}.`, "ok"); }
           catch (err) { toast(String(/** @type {Error} */ (err).message ?? err), "erreur"); }
         } }, "Renvoyer") : "")))))
         : h("p", { class: "vide" }, "Aucun e-mail.")),
@@ -209,6 +283,8 @@ async function router() {
   const [, pageCle = "campagnes", id = ""] = location.hash.replace(/^#/, "").split("/");
   try {
     if (pageCle === "campagne" && id) await campagne(id);
+    else if (pageCle === "clients") await clients();
+    else if (pageCle === "equipe") await equipe();
     else if (pageCle === "entreprises") await entreprises();
     else if (pageCle === "recruteurs") await recruteurs();
     else if (pageCle === "courriels") await courriels();
@@ -218,4 +294,8 @@ async function router() {
   }
 }
 window.addEventListener("hashchange", router);
-router();
+api("/api/rh/moi").then((m) => {
+  moi = m;
+  /** @type {HTMLElement} */ (document.getElementById("qui")).replaceChildren(h("strong", {}, m.email), m.role === "admin_rh" ? "Administrateur RH" : "Opérateur RH");
+  /** @type {HTMLElement} */ (document.getElementById("menu-equipe")).hidden = m.role !== "admin_rh";
+}).catch((e) => { contenu.replaceChildren(h("p", { class: "vide" }, /** @type {Error} */ (e).message)); }).finally(router);

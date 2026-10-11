@@ -1,5 +1,6 @@
 // @ts-check
-// Espace recruteur Why me. Connexion par lien reçu par e-mail (#lien=<jeton>, 15 min, usage unique), puis session
+// Espace partenaires Why me : recruteurs (candidatures de leur entreprise) et contacts client (statistiques agrégées
+// des campagnes de leur client, sans aucun candidat). Connexion par lien reçu par e-mail (#lien=<jeton>, 15 min, usage unique), puis session
 // de 12 h gardée dans l'onglet (sessionStorage). Le jeton voyage dans l'en-tête Authorization : vidéos et CV sont
 // donc chargés par fetch puis affichés depuis la mémoire. Chaque lecture et chaque téléchargement sont journalisés.
 
@@ -10,7 +11,7 @@ const video = /** @type {HTMLVideoElement} */ (document.getElementById("lecteur-
 const echapper = (/** @type {unknown} */ t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const CLE = "whyme-recruteur";
 
-/** @type {{ jeton: string, entreprise: string, email: string } | null} */
+/** @type {{ jeton: string, profil: "recruteur" | "client", entreprise?: string, client?: string, email: string } | null} */
 let session = null;
 try { session = JSON.parse(sessionStorage.getItem(CLE) ?? "null"); } catch { session = null; }
 
@@ -22,8 +23,9 @@ async function appeler(/** @type {string} */ chemin, /** @type {RequestInit} */ 
 
 function connexion(/** @type {string} */ message = "") {
   compte.innerHTML = "";
-  app.innerHTML = `<div class="connexion carte"><h1>Espace recruteur</h1>
-    <p>Retrouvez les candidatures vidéo transmises à votre entreprise. Saisissez votre adresse professionnelle : nous vous envoyons un lien de connexion.</p>
+  nomEspace("Espace partenaires");
+  app.innerHTML = `<div class="connexion carte"><h1>Espace partenaires</h1>
+    <p>Recruteurs : retrouvez les candidatures vidéo transmises à votre entreprise. Organisateurs : suivez la participation à vos campagnes. Saisissez votre adresse professionnelle : nous vous envoyons un lien de connexion.</p>
     ${message ? `<p class="alerte">${echapper(message)}</p>` : ""}
     <form id="form" class="champ"><label for="email">Adresse e-mail</label><input id="email" type="email" autocomplete="email" required>
     <button class="bouton" style="margin-top:12px">Recevoir mon lien</button></form><p id="retour" role="status"></p></div>`;
@@ -40,9 +42,9 @@ async function ouvrirSession(/** @type {string} */ lien) {
   const res = await fetch("/api/recruteur/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lien }) });
   const d = await res.json().catch(() => ({}));
   if (!res.ok) return connexion(d.message ?? "Ce lien n'est pas valable.");
-  session = { jeton: d.jeton, entreprise: d.entreprise, email: d.email };
+  session = { jeton: d.jeton, profil: d.profil ?? "recruteur", entreprise: d.entreprise, client: d.client, email: d.email };
   sessionStorage.setItem(CLE, JSON.stringify(session));
-  await liste();
+  await accueil();
 }
 
 /** @param {string} chemin @param {string} nom */
@@ -55,11 +57,48 @@ async function telecharger(chemin, nom) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
+function nomEspace(/** @type {string} */ nom) {
+  const el = document.getElementById("nom-espace");
+  if (el) el.textContent = nom;
+}
+
+function deconnexionPossible(/** @type {string} */ libelle) {
+  compte.innerHTML = `<span>${echapper(libelle)}</span><button class="bouton discret" id="sortir" style="width:auto">Se déconnecter</button>`;
+  document.getElementById("sortir")?.addEventListener("click", async () => { await appeler("/api/recruteur/deconnexion", { method: "POST" }); sessionStorage.removeItem(CLE); session = null; connexion(); });
+}
+
+const accueil = () => (session?.profil === "client" ? statistiques() : liste());
+
+/** Contact client : la participation à ses campagnes, en chiffres seulement. */
+async function statistiques() {
+  const res = await appeler("/api/recruteur/statistiques");
+  const d = await res.json();
+  nomEspace("Espace organisateur");
+  deconnexionPossible(`${d.client} · ${d.email}`);
+  /** @param {{ nom: string, n: number }[]} lignes */
+  const barres = (lignes) => {
+    const max = Math.max(1, ...lignes.map((l) => l.n));
+    return `<div class="barres">${lignes.map((l) => `<div class="ligne"><span>${echapper(l.nom)}</span><span class="jauge"><span style="width:${Math.round((l.n / max) * 100)}%"></span></span><span class="n">${l.n}</span></div>`).join("")}</div>`;
+  };
+  /** @type {any[]} */
+  const campagnes = d.campagnes;
+  app.innerHTML = `<h1>${echapper(d.client)}</h1>
+    <p>La participation à vos campagnes Why me. Les candidatures elles-mêmes (vidéos, CV, coordonnées) ne sont transmises qu'aux entreprises choisies par chaque candidat.</p>
+    ${campagnes.length ? campagnes.map((c) => `<section class="stats-campagne">
+      <h2>${echapper(c.evenement)}</h2><p class="meta">${echapper(c.nom)} · ${c.statut === "active" ? "en cours" : "terminée"}</p>
+      <div class="chiffres"><div><strong>${c.commencees}</strong>interviews commencées</div><div><strong>${c.terminees}</strong>interviews terminées</div>
+        <div><strong>${c.transmises}</strong>vidéos transmises</div><div><strong>${c.candidatures}</strong>candidatures</div></div>
+      <h3>Candidatures par entreprise</h3>${barres(c.parEntreprise.map((/** @type {any} */ e) => ({ nom: e.nom, n: e.candidatures })))}
+      ${c.parFamille.some((/** @type {any} */ f) => f.candidats) ? `<h3>Candidats par famille de métiers</h3>${barres(c.parFamille.filter((/** @type {any} */ f) => f.candidats).map((/** @type {any} */ f) => ({ nom: f.nom, n: f.candidats })))}` : ""}
+      ${c.parJour.length > 1 ? `<h3>Interviews par jour</h3>${barres(c.parJour.map((/** @type {any} */ j) => ({ nom: new Date(j.jour).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }), n: j.commencees })))}` : ""}
+    </section>`).join("") : `<div class="vide">Aucune campagne ouverte pour l'instant.</div>`}`;
+}
+
 async function liste() {
   const res = await appeler("/api/recruteur/candidats");
   const d = await res.json();
-  compte.innerHTML = `<span>${echapper(d.entreprise)} · ${echapper(d.email)}</span><button class="bouton discret" id="sortir" style="width:auto">Se déconnecter</button>`;
-  document.getElementById("sortir")?.addEventListener("click", async () => { await appeler("/api/recruteur/deconnexion", { method: "POST" }); sessionStorage.removeItem(CLE); session = null; connexion(); });
+  nomEspace("Espace recruteur");
+  deconnexionPossible(`${d.entreprise} · ${d.email}`);
   /** @type {any[]} */
   const candidats = d.candidats;
   const evenements = [...new Set(candidats.map((c) => c.evenement))];
@@ -125,7 +164,7 @@ function lireLien() {
 }
 window.addEventListener("hashchange", lireLien);
 if (!lireLien()) {
-  if (session) liste().catch(() => {});
+  if (session) accueil().catch(() => {});
   else connexion();
 }
 

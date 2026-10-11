@@ -69,6 +69,7 @@ export async function tachesWhyme(env: Env): Promise<BilanTaches> {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM wm_courriels WHERE cree_le < ?").bind(ilYa(7 * 24 * 60)),
     env.DB.prepare("DELETE FROM wm_jetons_recruteur WHERE expire_le < ?").bind(ilYa(24 * 60)),
+    env.DB.prepare("DELETE FROM wm_jetons_contact WHERE expire_le < ?").bind(ilYa(24 * 60)),
   ]);
   return bilan;
 }

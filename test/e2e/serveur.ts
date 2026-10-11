@@ -37,7 +37,7 @@ const media: R2Bucket = {
 const ADMIN = "admin@whyme.test";
 const db = creerD1();
 const env: Env = {
-  DB: db, MEDIA: media, ENVIRONNEMENT: "dev", AUTH_MODE: "dev", ADMIN_EMAILS: ADMIN,
+  DB: db, MEDIA: media, ENVIRONNEMENT: "dev", AUTH_MODE: "dev", ADMIN_EMAILS: ADMIN, RH_ADMIN_EMAILS: ADMIN,
   ASSETS: {
     async fetch(req: Request) {
       let chemin = normalize(decodeURIComponent(new URL(req.url).pathname)).replace(/^(\.\.[/\\])+/, "");

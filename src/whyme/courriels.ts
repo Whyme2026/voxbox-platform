@@ -7,7 +7,7 @@ import { envoyerCourriel } from "../courriel.ts";
 import { maintenant, nouvelId } from "../http.ts";
 import { ACCES_RECRUTEURS_MOIS } from "./config.ts";
 
-export type SorteCourriel = "video_prete" | "reprise" | "connexion_recruteur";
+export type SorteCourriel = "video_prete" | "reprise" | "connexion_recruteur" | "connexion_client";
 
 const FUCHSIA = "#C6017C";
 const ENCRE = "#333333";
@@ -104,13 +104,13 @@ ${bouton(lien, "Reprendre mon interview")}
   return { sujet, texte, html };
 }
 
-export function courrielConnexionRecruteur(entreprise: string, lien: string): { sujet: string; texte: string; html: string } {
+export function courrielConnexionRecruteur(entreprise: string, lien: string, espace = "l'espace recruteur WhyMe"): { sujet: string; texte: string; html: string } {
   const sujet = "Votre lien de connexion WhyMe";
-  const texte = `Bonjour,\n\nVoici votre lien de connexion à l'espace recruteur WhyMe (${entreprise}). Il est valable 15 minutes et ne sert qu'une fois.\n\n${lien}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message.\nL'équipe WhyMe`;
+  const texte = `Bonjour,\n\nVoici votre lien de connexion à ${espace} (${entreprise}). Il est valable 15 minutes et ne sert qu'une fois.\n\n${lien}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message.\nL'équipe WhyMe`;
   const html = gabarit(
     `<p style="font-size:20px;font-weight:700;color:${ENCRE};margin:0 0 12px">Bonjour,</p>
-<p>Voici votre lien de connexion à l'espace recruteur WhyMe (${echapper(entreprise)}). Il est valable 15 minutes et ne sert qu'une fois.</p>
-${bouton(lien, "Ouvrir l'espace recruteur")}`,
+<p>Voici votre lien de connexion à ${echapper(espace)} (${echapper(entreprise)}). Il est valable 15 minutes et ne sert qu'une fois.</p>
+${bouton(lien, "Ouvrir mon espace")}`,
     "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.",
   );
   return { sujet, texte, html };

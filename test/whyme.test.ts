@@ -16,16 +16,17 @@ const CLE = "secret-de-montage-pour-les-tests-0123456789";
 
 /** Campagne ouverte avec deux entreprises (Verkor, Valeo) et un recruteur chez chacune. */
 async function preparer(surcharges: Record<string, unknown> = {}) {
-  const { env, db, media } = creerEnv({ MONTAGE_CLE: CLE, ...surcharges });
+  const { env, db, media } = creerEnv({ MONTAGE_CLE: CLE, RH_ADMIN_EMAILS: ADMIN, ...surcharges });
   const api = client(env);
-  const verkor = (await api("POST", "/api/admin/whyme/entreprises", ADMIN, { nom: "Verkor" })).corps.entreprise.id as string;
-  const valeo = (await api("POST", "/api/admin/whyme/entreprises", ADMIN, { nom: "Valeo" })).corps.entreprise.id as string;
-  await api("POST", "/api/admin/whyme/recruteurs", ADMIN, { email: "rh@verkor.test", entreprise_id: verkor });
-  await api("POST", "/api/admin/whyme/recruteurs", ADMIN, { email: "rh@valeo.test", entreprise_id: valeo });
-  const cp = await api("POST", "/api/admin/whyme/campagnes", ADMIN, { nom: "Mondial 2026", code: "mondial-2026", config: modele, entreprises: [verkor, valeo] });
+  const pfa = (await api("POST", "/api/rh/clients", ADMIN, { nom: "PFA" })).corps.client.id as string;
+  const verkor = (await api("POST", "/api/rh/entreprises", ADMIN, { nom: "Verkor" })).corps.entreprise.id as string;
+  const valeo = (await api("POST", "/api/rh/entreprises", ADMIN, { nom: "Valeo" })).corps.entreprise.id as string;
+  await api("POST", "/api/rh/recruteurs", ADMIN, { email: "rh@verkor.test", entreprise_id: verkor });
+  await api("POST", "/api/rh/recruteurs", ADMIN, { email: "rh@valeo.test", entreprise_id: valeo });
+  const cp = await api("POST", "/api/rh/campagnes", ADMIN, { nom: "Mondial 2026", code: "mondial-2026", client_id: pfa, config: modele, entreprises: [verkor, valeo] });
   assert.equal(cp.status, 201, JSON.stringify(cp.corps));
   const campagneId = cp.corps.campagne.id as string;
-  assert.equal((await api("POST", `/api/admin/whyme/campagnes/${campagneId}/statut`, ADMIN, { statut: "active" })).status, 200);
+  assert.equal((await api("POST", `/api/rh/campagnes/${campagneId}/statut`, ADMIN, { statut: "active" })).status, 200);
   const publique = (await api("GET", "/api/whyme/campagnes/mondial-2026")).corps;
 
   const telephone = async (methode: string, chemin: string, jeton: string, corps?: unknown, entetes: Record<string, string> = {}) => {
@@ -86,7 +87,7 @@ async function preparer(surcharges: Record<string, unknown> = {}) {
     };
   };
 
-  return { env, db, media, api, verkor, valeo, campagneId, publique, telephone, service, candidat, monter, recruteur };
+  return { env, db, media, api, pfa, verkor, valeo, campagneId, publique, telephone, service, candidat, monter, recruteur };
 }
 
 test("Why me : configuration validée (3 à 5 questions, durées, identifiants)", () => {
@@ -110,7 +111,7 @@ test("Why me : le téléphone voit la campagne ouverte, ses entreprises et ses t
   assert.match(publique.textes.informationAge, /âge/);
   assert.equal(publique.empreinte.length, 64);
   // Campagne close : fermée au public.
-  await api("POST", `/api/admin/whyme/campagnes/${campagneId}/statut`, ADMIN, { statut: "close" });
+  await api("POST", `/api/rh/campagnes/${campagneId}/statut`, ADMIN, { statut: "close" });
   assert.equal((await api("GET", "/api/whyme/campagnes/mondial-2026")).status, 404);
 });
 
@@ -294,14 +295,14 @@ test("Why me : espace recruteur cloisonné par entreprise, CV et vidéo journali
 });
 
 test("Why me : paramétrage réservé à WhyMe ; campagne figée une fois ouverte", async () => {
-  const { api, campagneId, verkor } = await preparer();
+  const { api, campagneId, verkor, pfa } = await preparer();
   const cl = await api("POST", "/api/admin/clients", ADMIN, { nom: "Marque", raison_sociale: "Marque SAS", contact_rgpd: "rgpd@marque.test" });
   await api("POST", "/api/admin/utilisateurs", ADMIN, { email: "lit@marque.test", role: "lecteur_client", client_id: cl.corps.client.id });
-  assert.equal((await api("GET", "/api/admin/whyme/campagnes", "lit@marque.test")).status, 403);
-  assert.equal((await api("PATCH", `/api/admin/whyme/campagnes/${campagneId}`, ADMIN, { config: modele })).status, 409);
-  assert.equal((await api("PATCH", `/api/admin/whyme/campagnes/${campagneId}`, ADMIN, { nom: "Renommée" })).status, 200);
-  assert.equal((await api("POST", "/api/admin/whyme/campagnes", ADMIN, { nom: "X", config: { ...modele, questions: [] }, entreprises: [verkor] })).status, 400);
-  assert.equal((await api("POST", "/api/admin/whyme/campagnes", ADMIN, { nom: "X", code: "mondial-2026", config: modele, entreprises: [verkor] })).status, 409);
+  assert.equal((await api("GET", "/api/rh/campagnes", "lit@marque.test")).status, 403);
+  assert.equal((await api("PATCH", `/api/rh/campagnes/${campagneId}`, ADMIN, { config: modele })).status, 409);
+  assert.equal((await api("PATCH", `/api/rh/campagnes/${campagneId}`, ADMIN, { nom: "Renommée" })).status, 200);
+  assert.equal((await api("POST", "/api/rh/campagnes", ADMIN, { nom: "X", client_id: pfa, config: { ...modele, questions: [] }, entreprises: [verkor] })).status, 400);
+  assert.equal((await api("POST", "/api/rh/campagnes", ADMIN, { nom: "X", code: "mondial-2026", client_id: pfa, config: modele, entreprises: [verkor] })).status, 409);
 });
 
 test("Why me : tâches planifiées (relance du montage, e-mail de reprise, purges)", async () => {
@@ -364,7 +365,7 @@ test("Why me : renvoi d'un e-mail gardé (expéditeur corrigé chez Brevo)", asy
   const t0 = await sans.candidat();
   await sans.monter(t0.id);
   const mail0 = sans.db.sqlite.prepare("SELECT id FROM wm_courriels WHERE sorte = 'video_prete'").get() as { id: string };
-  assert.equal((await sans.api("POST", `/api/admin/whyme/courriels/${mail0.id}/renvoyer`, ADMIN)).status, 409); // sans Brevo
+  assert.equal((await sans.api("POST", `/api/rh/courriels/${mail0.id}/renvoyer`, ADMIN)).status, 409); // sans Brevo
 
   const envois: string[] = [];
   const fetchOriginal = globalThis.fetch;
@@ -378,8 +379,8 @@ test("Why me : renvoi d'un e-mail gardé (expéditeur corrigé chez Brevo)", asy
     await monter(t.id);
     const mail = db.sqlite.prepare("SELECT id, a FROM wm_courriels WHERE sorte = 'video_prete'").get() as { id: string; a: string };
     const avant = envois.length;
-    assert.equal((await api("POST", `/api/admin/whyme/courriels/${mail.id}/renvoyer`, "lit@marque.test")).status, 403);
-    const r = await api("POST", `/api/admin/whyme/courriels/${mail.id}/renvoyer`, ADMIN);
+    assert.equal((await api("POST", `/api/rh/courriels/${mail.id}/renvoyer`, "lit@marque.test")).status, 403);
+    const r = await api("POST", `/api/rh/courriels/${mail.id}/renvoyer`, ADMIN);
     assert.equal(r.status, 200, JSON.stringify(r.corps));
     assert.equal(envois.length, avant + 1);
     assert.match(envois.at(-1)!, /laurent@whyme\.test/);
@@ -406,4 +407,63 @@ test("Why me : plan « question » du montage (bulle, texte, signature sonore)",
   const e = expressionSon(0.75);
   assert.match(e, /880\*\(t-0\.75\)/);
   assert.match(e, /1318\.5\*\(t-0\.86\)/);
+});
+
+test("Why me : espace RH séparé de Parlopop (comptes et rôles distincts)", async () => {
+  // L'administrateur Parlopop (ADMIN_EMAILS) n'ouvre pas l'espace RH sans être de l'équipe RH, et inversement.
+  const { env } = creerEnv({ RH_ADMIN_EMAILS: "rh@whyme.test" });
+  const api = client(env);
+  assert.equal((await api("GET", "/api/rh/campagnes", ADMIN)).status, 403);
+  assert.equal((await api("GET", "/api/rh/campagnes", "rh@whyme.test")).status, 200);
+  assert.equal((await api("GET", "/api/admin/utilisateurs", "rh@whyme.test")).status, 403);
+  // L'équipe RH : un opérateur gère les campagnes mais pas l'équipe.
+  assert.equal((await api("POST", "/api/rh/equipe", "rh@whyme.test", { email: "op@whyme.test", role: "operateur_rh" })).status, 201);
+  assert.equal((await api("GET", "/api/rh/clients", "op@whyme.test")).status, 200);
+  assert.equal((await api("GET", "/api/rh/equipe", "op@whyme.test")).status, 403);
+  assert.equal((await api("GET", "/api/admin/campagnes", "op@whyme.test")).status, 403);
+  assert.equal((await api("POST", "/api/rh/equipe/retirer", "rh@whyme.test", { email: "op@whyme.test" })).status, 200);
+  assert.equal((await api("GET", "/api/rh/clients", "op@whyme.test")).status, 403);
+});
+
+test("Why me : client et sous-clients (statistiques agrégées pour le client, rien de personnel)", async () => {
+  const { api, pfa, verkor, valeo, candidat, monter, db, env, campagneId } = await preparer();
+  // Une campagne ne s'ouvre pas sans client ; le client se change à tout moment.
+  const sans = await api("POST", "/api/rh/campagnes", ADMIN, { nom: "Sans client", client_id: "x", config: modele, entreprises: [verkor] });
+  assert.equal(sans.status, 400);
+  // Deux candidats : l'un postule chez Verkor et Valeo, l'autre chez Verkor seulement.
+  const a = await candidat({ entreprises: [verkor, valeo] });
+  await monter(a.id);
+  const b = await candidat({ entreprises: [verkor] });
+  await monter(b.id);
+  await candidat({ entreprises: [valeo] }); // commencée, jamais terminée
+
+  // Le contact client se connecte sur le même espace que les recruteurs, par lien reçu par e-mail.
+  assert.equal((await api("POST", `/api/rh/clients/${pfa}/contacts`, ADMIN, { email: "contact@pfa.test" })).status, 201);
+  assert.equal((await api("POST", `/api/rh/clients/${pfa}/contacts`, ADMIN, { email: "rh@verkor.test" })).status, 409); // déjà recruteur
+  await api("POST", "/api/recruteur/lien", undefined, { email: "contact@pfa.test" });
+  const mail = db.sqlite.prepare("SELECT texte FROM wm_courriels WHERE a = 'contact@pfa.test' AND sorte = 'connexion_client'").get() as { texte: string };
+  const lien = /#lien=([\w-]+)/.exec(mail.texte)![1];
+  const s = await api("POST", "/api/recruteur/session", undefined, { lien });
+  assert.equal(s.status, 200);
+  assert.equal(s.corps.profil, "client");
+  const appel = (chemin: string) => traiter(new Request(`http://localhost${chemin}`, { headers: { authorization: `Bearer ${s.corps.jeton}` } }), env);
+
+  const st = await (await appel("/api/recruteur/statistiques")).json() as any;
+  assert.equal(st.client, "PFA");
+  assert.equal(st.campagnes.length, 1);
+  const c = st.campagnes[0];
+  assert.equal(c.id, campagneId);
+  assert.equal(c.commencees, 3);
+  assert.equal(c.terminees, 2);
+  assert.equal(c.transmises, 2);
+  assert.equal(c.candidatures, 3);
+  assert.deepEqual(c.parEntreprise.map((e: any) => [e.nom, e.candidatures]), [["Verkor", 2], ["Valeo", 1]]);
+  // Aucune donnée personnelle dans les statistiques.
+  const brut = JSON.stringify(st);
+  for (const interdit of [a.id, "@exemple", "prenom", "email\":\"r"]) assert.ok(!brut.includes(interdit), interdit);
+  // Le contact client n'a aucun accès aux candidatures.
+  assert.equal((await appel("/api/recruteur/candidats")).status, 401);
+  assert.equal((await appel(`/api/recruteur/candidats/${a.id}/video`)).status, 401);
+  // Et la même statistique côté équipe RH.
+  assert.equal((await api("GET", `/api/rh/campagnes/${campagneId}/statistiques`, ADMIN)).corps.transmises, 2);
 });

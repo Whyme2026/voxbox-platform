@@ -1,4 +1,4 @@
-/* Espace recruteur Why me : même charte que le parcours candidat (whyme.css), mise en page bureau. */
+/* Espace partenaires Why me (recruteurs et contacts client) : même charte que le parcours candidat (whyme.css), mise en page bureau. */
 .entete { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 24px; background: #fff; border-bottom: 1px solid var(--filet); }
 .entete #compte { font-size: 15px; display: flex; gap: 12px; align-items: center; }
 .contenu { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
@@ -23,3 +23,13 @@ dialog#lecteur::backdrop { background: rgba(42, 45, 48, 0.75); }
 .lecteur-tete { display: flex; justify-content: space-between; align-items: center; padding: 8px 8px 8px 16px; background: #fff; color: var(--titre); }
 .lecteur-tete .bouton { width: auto; min-height: 36px; }
 #lecteur-video { width: 100%; aspect-ratio: 9 / 16; display: block; background: #000; }
+.stats-campagne { background: #fff; border-radius: var(--rayon); box-shadow: var(--ombre); padding: 20px 22px; margin-bottom: 18px; }
+.stats-campagne h2 { margin: 0 0 4px; }
+.chiffres { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+.chiffres div { background: var(--rose); border-radius: 16px; padding: 12px 14px; }
+.chiffres strong { display: block; font-size: 32px; line-height: 1.1; color: var(--fuchsia); }
+.barres { display: grid; gap: 8px; margin: 8px 0 16px; }
+.barres .ligne { display: grid; grid-template-columns: minmax(100px, 220px) minmax(0, 1fr) 40px; gap: 10px; align-items: center; font-size: 15px; }
+.barres .jauge { height: 12px; border-radius: 999px; background: #F1ECEE; overflow: hidden; }
+.barres .jauge span { display: block; height: 100%; border-radius: 999px; background: var(--fuchsia); }
+.barres .n { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }

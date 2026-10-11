@@ -1,0 +1,26 @@
+/* Espace RH Why me : mêmes composants que Parlorama (admin.css), à la charte why me (fuchsia, Source Sans 3).
+   Les polices de Parlopop déclarées par admin.css ne sont jamais téléchargées : aucune règle ne les utilise ici. */
+@font-face { font-family: "Source Sans 3"; src: url("/polices/source-sans-3-regular.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url("/polices/source-sans-3-semibold.woff") format("woff"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Source Sans 3"; src: url("/polices/source-sans-3-bold.woff") format("woff"); font-weight: 700; font-display: swap; }
+
+:root {
+  --vox: #C6017C; --vox-fonce: #8E0159; --vox-pale: #FBE3F1;
+  --parole: #F7C9E3; --parole-pale: #FDF0F7;
+  --fond: #F6F3F4; --encre: #2A2D30; --doux: #6B6168; --trait: #E9E1E5;
+  --titres: "Source Sans 3", system-ui, sans-serif;
+  font-family: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.nom-marque small { font-family: "Source Sans 3", system-ui, sans-serif; }
+.marque .logo-rh { font-weight: 700; font-size: 28px; color: var(--vox); letter-spacing: -0.02em; }
+.entete-page h1, h2 { font-weight: 700; }
+.barres { display: grid; gap: 8px; }
+.barres .ligne { display: grid; grid-template-columns: minmax(110px, 200px) minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 15px; }
+.barres .jauge { height: 12px; border-radius: 999px; background: var(--gris-pale); overflow: hidden; }
+.barres .jauge span { display: block; height: 100%; border-radius: 999px; background: var(--vox); }
+.barres .n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+@media (max-width: 720px) {
+  .cadre { grid-template-columns: 1fr; }
+  .barre { position: static; height: auto; }
+  .contenu { padding: 18px 16px 48px; }
+}

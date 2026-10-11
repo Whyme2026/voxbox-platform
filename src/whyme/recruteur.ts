@@ -1,6 +1,10 @@
-// Espace recruteur Why me (/recruteur/). Connexion par lien envoyé par e-mail (15 min, usage unique), puis session
-// de 12 h. Un recruteur ne voit que les candidatures transmises à son entreprise, pendant 12 mois : CV et vidéo
-// montée (jamais les rushes), consultables et téléchargeables, chaque accès journalisé. Aucune note, aucun score.
+// Espace partenaires Why me (/recruteur/). Connexion par lien envoyé par e-mail (15 min, usage unique), puis session
+// de 12 h. Deux sortes de comptes :
+// - recruteur (entreprise, sous-client) : ne voit que les candidatures transmises à son entreprise, pendant 12 mois :
+//   CV et vidéo montée (jamais les rushes), consultables et téléchargeables, chaque accès journalisé ;
+// - contact client (organisateur qui a commandé la campagne) : statistiques agrégées de ses campagnes seulement,
+//   jamais une identité, une vidéo ni un CV.
+// Aucune note, aucun score.
 // ⚠ Publique côté Cloudflare Access : /recruteur et /api/recruteur doivent être exclus de la protection.
 
 import type { Routeur, Contexte } from "../routeur.ts";
@@ -10,12 +14,13 @@ import { journaliser } from "../journal.ts";
 import { servirMiniature, servirVideo } from "../media.ts";
 import { JETON } from "./commun.ts";
 import { courrielConnexionRecruteur, envoyerWhyme } from "./courriels.ts";
+import { statistiquesClient } from "./statistiques.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const LIEN_MIN = 15;
 export const SESSION_H = 12;
 export const DEMANDES_PAR_HEURE = 3;
-const MESSAGE = "Si cette adresse a accès à l'espace recruteur, un lien de connexion vient d'y être envoyé.";
+const MESSAGE = "Si cette adresse a accès à l'espace, un lien de connexion vient d'y être envoyé.";
 
 interface Recruteur { id: string; email: string; entreprise_id: string; entreprise: string }
 
@@ -31,6 +36,20 @@ async function recruteurConnecte(ctx: Contexte): Promise<Recruteur> {
   ).bind(await empreinteJeton(m[1]!), maintenant()).first<Recruteur>();
   if (!r) throw new HttpError(401, "session_expiree", "Votre session a expiré : reconnectez-vous");
   return r;
+}
+
+interface Contact { id: string; email: string; client_id: string; client: string }
+
+async function contactConnecte(ctx: Contexte): Promise<Contact> {
+  const m = /^Bearer\s+(\S+)$/.exec(ctx.request.headers.get("authorization") ?? "");
+  if (!m || !JETON.test(m[1]!)) throw new HttpError(401, "non_authentifie", "Connectez-vous");
+  const c = await ctx.env.DB.prepare(
+    `SELECT k.id, k.email, k.client_id, cl.nom AS client FROM wm_jetons_contact j
+       JOIN wm_contacts_client k ON k.id = j.contact_id JOIN wm_clients cl ON cl.id = k.client_id
+      WHERE j.empreinte = ? AND j.sorte = 'session' AND j.expire_le > ? AND k.actif = 1`,
+  ).bind(await empreinteJeton(m[1]!), maintenant()).first<Contact>();
+  if (!c) throw new HttpError(401, "session_expiree", "Votre session a expiré : reconnectez-vous");
+  return c;
 }
 
 /** Candidature visible par ce recruteur : transmise à son entreprise, non retirée, accès de 12 mois en cours. */
@@ -63,6 +82,21 @@ export function routesWhymeRecruteur(r: Routeur): void {
           .bind(await empreinteJeton(jeton), rec.id, plusTard(LIEN_MIN), maintenant()).run();
         await envoyerWhyme(ctx.env, email, "connexion_recruteur", courrielConnexionRecruteur(rec.entreprise, `${ctx.url.origin}/recruteur/#lien=${jeton}`));
       }
+    } else {
+      const contact = await ctx.env.DB.prepare(
+        "SELECT k.id, cl.nom AS client FROM wm_contacts_client k JOIN wm_clients cl ON cl.id = k.client_id WHERE k.email = ? AND k.actif = 1",
+      ).bind(email).first<{ id: string; client: string }>();
+      if (contact) {
+        const recents = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM wm_jetons_contact WHERE contact_id = ? AND sorte = 'lien' AND cree_le > ?")
+          .bind(contact.id, plusTard(-60)).first<{ n: number }>();
+        if ((recents?.n ?? 0) < DEMANDES_PAR_HEURE) {
+          const jeton = nouveauJeton();
+          await ctx.env.DB.prepare("INSERT INTO wm_jetons_contact (empreinte, contact_id, sorte, expire_le, cree_le) VALUES (?, ?, 'lien', ?, ?)")
+            .bind(await empreinteJeton(jeton), contact.id, plusTard(LIEN_MIN), maintenant()).run();
+          await envoyerWhyme(ctx.env, email, "connexion_client",
+            courrielConnexionRecruteur(contact.client, `${ctx.url.origin}/recruteur/#lien=${jeton}`, "votre espace WhyMe"));
+        }
+      }
     }
     return json({ message: MESSAGE });
   });
@@ -78,7 +112,7 @@ export function routesWhymeRecruteur(r: Routeur): void {
          JOIN wm_entreprises e ON e.id = r.entreprise_id
         WHERE j.empreinte = ? AND j.sorte = 'lien' AND j.utilise_le IS NULL AND j.expire_le > ? AND r.actif = 1`,
     ).bind(empreinte, maintenant()).first<{ recruteur_id: string; email: string; entreprise: string }>();
-    if (!j) throw new HttpError(401, "lien_expire", "Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.");
+    if (!j) return sessionContact(ctx, empreinte);
     const session = nouveauJeton();
     const t = maintenant();
     const res = await ctx.env.DB.batch([
@@ -88,13 +122,26 @@ export function routesWhymeRecruteur(r: Routeur): void {
     ]);
     if (!res[0]?.meta.changes) throw new HttpError(401, "lien_expire", "Ce lien a déjà servi. Demandez-en un nouveau.");
     await journaliser(ctx.env.DB, j.email, { action: "recruteur.connexion", cibleType: "wm_recruteur", cibleId: j.recruteur_id });
-    return json({ jeton: session, email: j.email, entreprise: j.entreprise, expire_le: plusTard(SESSION_H * 60) });
+    return json({ jeton: session, email: j.email, profil: "recruteur", entreprise: j.entreprise, expire_le: plusTard(SESSION_H * 60) });
   });
 
   r.post("/api/recruteur/deconnexion", async (ctx) => {
     const m = /^Bearer\s+(\S+)$/.exec(ctx.request.headers.get("authorization") ?? "");
-    if (m && JETON.test(m[1]!)) await ctx.env.DB.prepare("DELETE FROM wm_jetons_recruteur WHERE empreinte = ? AND sorte = 'session'").bind(await empreinteJeton(m[1]!)).run();
+    if (m && JETON.test(m[1]!)) {
+      const e = await empreinteJeton(m[1]!);
+      await ctx.env.DB.batch([
+        ctx.env.DB.prepare("DELETE FROM wm_jetons_recruteur WHERE empreinte = ? AND sorte = 'session'").bind(e),
+        ctx.env.DB.prepare("DELETE FROM wm_jetons_contact WHERE empreinte = ? AND sorte = 'session'").bind(e),
+      ]);
+    }
     return json({ ok: true });
+  });
+
+  // Contact client : statistiques agrégées des campagnes de son client, rien d'autre.
+  r.get("/api/recruteur/statistiques", async (ctx) => {
+    const c = await contactConnecte(ctx);
+    await journaliser(ctx.env.DB, c.email, { action: "client.statistiques.lecture", cibleType: "wm_client", cibleId: c.client_id });
+    return json({ client: c.client, email: c.email, campagnes: await statistiquesClient(ctx.env.DB, c.client_id) });
   });
 
   r.get("/api/recruteur/candidats", async (ctx) => {
@@ -158,4 +205,24 @@ export function routesWhymeRecruteur(r: Routeur): void {
       },
     });
   });
+}
+
+/** Lien d'un contact client contre une session de 12 h (même mécanique que pour les recruteurs). */
+async function sessionContact(ctx: Contexte, empreinte: string): Promise<Response> {
+  const j = await ctx.env.DB.prepare(
+    `SELECT j.contact_id, k.email, cl.nom AS client FROM wm_jetons_contact j JOIN wm_contacts_client k ON k.id = j.contact_id
+       JOIN wm_clients cl ON cl.id = k.client_id
+      WHERE j.empreinte = ? AND j.sorte = 'lien' AND j.utilise_le IS NULL AND j.expire_le > ? AND k.actif = 1`,
+  ).bind(empreinte, maintenant()).first<{ contact_id: string; email: string; client: string }>();
+  if (!j) throw new HttpError(401, "lien_expire", "Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.");
+  const session = nouveauJeton();
+  const t = maintenant();
+  const res = await ctx.env.DB.batch([
+    ctx.env.DB.prepare("UPDATE wm_jetons_contact SET utilise_le = ? WHERE empreinte = ? AND utilise_le IS NULL").bind(t, empreinte),
+    ctx.env.DB.prepare("INSERT INTO wm_jetons_contact (empreinte, contact_id, sorte, expire_le, cree_le) VALUES (?, ?, 'session', ?, ?)")
+      .bind(await empreinteJeton(session), j.contact_id, plusTard(SESSION_H * 60), t),
+  ]);
+  if (!res[0]?.meta.changes) throw new HttpError(401, "lien_expire", "Ce lien a déjà servi. Demandez-en un nouveau.");
+  await journaliser(ctx.env.DB, j.email, { action: "client.connexion", cibleType: "wm_contact_client", cibleId: j.contact_id });
+  return json({ jeton: session, email: j.email, profil: "client", client: j.client, expire_le: plusTard(SESSION_H * 60) });
 }

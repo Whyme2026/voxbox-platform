@@ -52,6 +52,8 @@ export interface Env {
   AUTH_MODE: AuthMode;
   /** E-mails (séparés par des virgules) qui sont administrateurs WhyMe d'office. */
   ADMIN_EMAILS?: string;
+  /** E-mails (séparés par des virgules) administrateurs de l'espace RH Why me (/rh/) d'office. Sans lien avec Parlopop. */
+  RH_ADMIN_EMAILS?: string;
   /** Domaine d'équipe Cloudflare Access, ex. https://whyme.cloudflareaccess.com */
   ACCESS_TEAM_DOMAIN?: string;
   /** Audience (AUD) de l'application Cloudflare Access qui protège la plateforme. */

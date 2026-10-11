@@ -34,7 +34,6 @@ const ICONES = {
   comptes: "M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1a4 4 0 0 0-3-3.8M16 4.2a3.5 3.5 0 0 1 0 6.6",
   journal: "M6 3h9l4 4v14H6zM14 3v5h5M9 12h6M9 16h6",
   lecture: "M8 5v14l11-7z",
-  whyme: "M15 10l4.6-2.3A1 1 0 0 1 21 8.6v6.8a1 1 0 0 1-1.4.9L15 14M5 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z",
 };
 
 const peut = (/** @type {string} */ droit) => Boolean(moi?.droits.includes(droit));
@@ -188,8 +187,6 @@ const PAGES = [
   { cle: "clients", chemin: "#/clients", libelle: "Clients", visible: () => peut("clients.gerer") },
   { cle: "comptes", chemin: "#/comptes", libelle: "Comptes", visible: () => peut("utilisateurs.gerer") },
   { cle: "journal", chemin: "#/journal", libelle: "Journal", visible: () => peut("journal.lire") },
-  // Why me (JobBox smartphone, usages RH) : produit distinct, page à part (whyme.html).
-  { cle: "whyme", chemin: "whyme.html", libelle: "Why me (RH)", visible: () => estWhyme() },
 ];
 
 function menu(/** @type {string} */ actif) {

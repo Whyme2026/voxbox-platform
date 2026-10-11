@@ -18,6 +18,8 @@ export interface CampagneWhyme {
   statut: "brouillon" | "active" | "close";
   config: ConfigWhyme;
   textes_empreinte: string;
+  /** Client qui a commandé la campagne (organisateur), null pour les campagnes antérieures aux clients. */
+  client_id: string | null;
 }
 
 export interface EntrepriseWhyme { id: string; nom: string; slug: string; logo_cle: string | null }
@@ -30,7 +32,7 @@ export async function campagneParCode(db: D1Database, code: string, activeSeulem
 }
 
 export async function campagneParId(db: D1Database, id: string): Promise<CampagneWhyme> {
-  const c = await db.prepare("SELECT id, code, nom, statut, config, textes_empreinte FROM wm_campagnes WHERE id = ?")
+  const c = await db.prepare("SELECT id, code, nom, statut, config, textes_empreinte, client_id FROM wm_campagnes WHERE id = ?")
     .bind(id).first<Omit<CampagneWhyme, "config"> & { config: string }>();
   if (!c) throw introuvable("Campagne introuvable");
   return { ...c, config: validerConfig(JSON.parse(c.config)) };

@@ -2,7 +2,10 @@
 
 Interview vidéo du candidat **sur son propre téléphone**, dans la JobBox (QR code de la campagne) ou en digital pur
 (même lien). Produit distinct de Parlopop sur la même plateforme : même Worker, même base, même stockage, même
-journal ; tables `wm_*`, routes `/api/whyme`, `/api/recruteur`, `/api/montage`, `/api/admin/whyme`.
+journal ; tables `wm_*` et `rh_equipe`, routes `/api/whyme`, `/api/recruteur`, `/api/montage`, `/api/rh`.
+**Univers séparé de Parlopop** (12/10/2026) : back-office `/rh/` avec ses propres comptes (`rh_equipe`, amorçage par
+`RH_ADMIN_EMAILS`) ; un compte Parlorama n'ouvre pas l'espace RH, un compte RH n'ouvre pas Parlorama, et Parlorama ne
+montre plus rien de Why me.
 Note de cadrage : projet « vox-boxes », `claude/whyme-jobbox-note-cadrage.md` (version 4, validée le 11/10/2026).
 
 ## Règles (non négociables)
@@ -44,13 +47,28 @@ Conteneur : `montage/Dockerfile`, Worker `montage/worker.ts`, `montage/wrangler.
 Vidéo prête (entreprises nommées, bouton « Voir ma vidéo », sticker QR code PNG, « Tu gardes la main »), reprise,
 connexion recruteur. Tous gardés 7 jours dans `wm_courriels` ; envoyés par Brevo si `BREVO_CLE` est configuré.
 
-## Espace recruteur (`/recruteur/`)
-Lien de connexion par e-mail (15 min, usage unique, 3 demandes par heure), session de 12 h. Liste, filtres
-(événement, métier, nom), lecture et téléchargement de la vidéo, CV. Comptes créés par WhyMe (Parlorama > Why me).
+## Clients et sous-clients (12/10/2026)
+- **Client** (`wm_clients`) : celui qui commande la campagne, ex. la PFA au Mondial de l'Auto. Toute campagne est
+  rattachée à un client avant d'ouvrir (modifiable à tout moment). Ses **contacts** (`wm_contacts_client`) ne voient
+  que des **statistiques agrégées** de ses campagnes (commencées, terminées, transmises, candidatures par entreprise,
+  par famille de métiers, par jour) : jamais une identité, une vidéo ni un CV. Le candidat postule chez les
+  entreprises, pas chez le client : rien à ajouter à son consentement.
+- **Sous-clients** : les entreprises recruteuses (`wm_entreprises`), une fiche **commune** à toutes les campagnes et
+  à tous les clients. Les recruteurs d'une entreprise voient dans un seul espace les candidats de toutes les
+  campagnes où elle participe.
+- Une adresse e-mail = un seul compte partenaire (recruteur ou contact client).
 
-## Parlorama · Why me (`/admin/whyme.html`, comptes WhyMe)
-Campagnes (configuration JSON, modèle `fixtures/whyme-campagne-demo.json`, QR code, ouverture/clôture, suivi des
-interviews, relance du montage), entreprises et logos, recruteurs, e-mails de test.
+## Espace partenaires (`/recruteur/`)
+Lien de connexion par e-mail (15 min, usage unique, 3 demandes par heure), session de 12 h. Le même espace sert :
+- au **recruteur** : liste, filtres (événement, métier, nom), lecture et téléchargement de la vidéo, CV ;
+- au **contact client** (« Espace organisateur ») : statistiques de ses campagnes (`/api/recruteur/statistiques`).
+L'adresse reste `/recruteur/` pour ne pas toucher aux chemins publics Access ; à renommer avec le domaine dédié.
+
+## Espace RH (`/rh/`, équipe RH, derrière Cloudflare Access)
+Campagnes (client, configuration JSON, modèle `fixtures/whyme-campagne-demo.json`, QR code, ouverture/clôture, suivi
+des interviews, relance du montage, statistiques telles que les voit le client), clients et contacts, entreprises et
+logos, recruteurs, e-mails (renvoi possible), équipe (administrateurs : `admin_rh` ; opérateurs : `operateur_rh`, sans
+gestion de l'équipe).
 
 ## Tâches planifiées (cron, toutes les 5 minutes, `src/whyme/taches.ts`)
 Relance des montages (3 essais), e-mails de reprise, purges (30 jours, 12 et 24 mois), CV effacé à la fin de l'accès

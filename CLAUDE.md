@@ -7,8 +7,10 @@ Vocabulaire : **Parlobox** = la marque, la cabine et l'expérience ; **Parlorama
 **Parlomètre** = mesure et indicateurs ; **Parlomix** = le clip monté (à venir). Maintenue par Claude, avec un développeur freelance en filet.
 Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploitation.md` en cas d'incident.
 **Why me** (11/10/2026) : second produit sur la même plateforme, l'interview vidéo RH du candidat sur son propre
-téléphone (JobBox ou lien). Code dans `src/whyme/`, `public/whyme/`, `public/recruteur/`, `montage/` ; lire `docs/whyme.md`.
+téléphone (JobBox ou lien). Code dans `src/whyme/`, `public/whyme/`, `public/recruteur/`, `public/rh/`, `montage/` ; lire `docs/whyme.md`.
 Ses règles propres : aucune IA ni note, rushes effacés après montage, recruteurs 12 mois, tout en 9:16.
+Univers RH **séparé de Parlopop** : back-office `/rh/` et comptes propres (`rh_equipe`), rien de Why me dans Parlorama ;
+client (organisateur, statistiques agrégées seulement) et sous-clients (entreprises recruteuses, fiches communes).
 
 ## Règles du produit (non négociables)
 - On analyse ce que les gens disent, **jamais les personnes** (aucune notation, aucun profilage d'individu).
