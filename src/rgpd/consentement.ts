@@ -19,11 +19,27 @@ function dureeLisible(jours: number): string {
   return `${jours} jours`;
 }
 
-export function genererTextes(client: FicheClient, conservationJours: number): TextesConsentement {
+/**
+ * Phrase ajoutée aux textes d'une campagne avec l'option Analyse. Sa présence est la condition pour transcrire :
+ * une version de textes qui la contient porte analyse = 1 (voir textesMentionnentAnalyse).
+ */
+export const MENTION_ANALYSE =
+  "Vos réponses sont aussi transcrites et analysées automatiquement pour en dégager les sujets abordés : " +
+  "l'analyse porte sur ce que vous dites, jamais sur votre personne. Elle est réalisée dans l'Union européenne " +
+  "par Mistral AI, sous-traitant de WhyMe. ";
+
+/** Un texte rédigé à la main pour une campagne avec l'option doit au moins parler de transcription et d'analyse. */
+export function textesMentionnentAnalyse(texteInterne: string): boolean {
+  const t = texteInterne.toLowerCase();
+  return t.includes("transcri") && t.includes("analys");
+}
+
+export function genererTextes(client: FicheClient, conservationJours: number, opts: { analyse?: boolean } = {}): TextesConsentement {
   const duree = dureeLisible(conservationJours);
   const texte_interne =
     `En touchant « C'est parti », vous acceptez que ${client.raison_sociale} (${client.nom}) enregistre ` +
     `vos réponses en vidéo pour analyser les avis de ses clients. ` +
+    (opts.analyse ? MENTION_ANALYSE : "") +
     `Les vidéos sont réservées à un usage interne, hébergées dans l'Union européenne par WhyMe pour le compte ` +
     `de ${client.nom}, et supprimées au bout de ${duree}. ` +
     `Vous pouvez retirer votre accord ou supprimer vos vidéos à tout moment grâce au QR code affiché à l'extérieur de la cabine, ` +

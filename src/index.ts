@@ -18,6 +18,7 @@ import { routesWhymePublic } from "./whyme/public.ts";
 import { routesWhymeRecruteur } from "./whyme/recruteur.ts";
 import { routesWhymeAdmin } from "./whyme/admin.ts";
 import { tachesWhyme } from "./whyme/taches.ts";
+import { reprendreTranscriptions } from "./analyse/transcription.ts";
 
 export const VERSION = "0.1.0";
 
@@ -61,7 +62,7 @@ export function construireRouteur(): Routeur {
 
 const routeur = construireRouteur();
 
-export async function traiter(request: Request, env: Env): Promise<Response> {
+export async function traiter(request: Request, env: Env, execution?: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/")) {
     // Why me : /i/<code> (QR code de la campagne) et /v/<code> (page vidéo du candidat) sont des pages fixes.
@@ -70,13 +71,13 @@ export async function traiter(request: Request, env: Env): Promise<Response> {
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("Introuvable", { status: 404 });
   }
-  const reponse = await repondre(request, env, url);
+  const reponse = await repondre(request, env, url, execution);
   const version = versionDeploiement(env);
   if (version) reponse.headers.set(EN_TETE_VERSION, version);
   return reponse;
 }
 
-async function repondre(request: Request, env: Env, url: URL): Promise<Response> {
+async function repondre(request: Request, env: Env, url: URL, execution?: ExecutionContext): Promise<Response> {
   const trouve = routeur.trouver(request.method, url.pathname);
   if (trouve === null) return json({ erreur: "introuvable", message: "Route inconnue" }, 404);
   if (trouve === "methode") return json({ erreur: "methode", message: "Méthode non permise" }, 405);
@@ -87,18 +88,22 @@ async function repondre(request: Request, env: Env, url: URL): Promise<Response>
     return json({ erreur: "parlorama_perime", message: "Une nouvelle version de Parlorama est en ligne : rechargez la page avant de continuer." }, 409);
   }
   try {
-    return await trouve.gestionnaire({ request, env, params: trouve.params, url });
+    return await trouve.gestionnaire({ request, env, params: trouve.params, url, execution });
   } catch (e) {
     return erreur(e);
   }
 }
 
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    return traiter(request, env);
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return traiter(request, env, ctx);
   },
-  // Déclencheur planifié (toutes les 5 minutes) : montages, reprises et purges de Why me.
+  // Tâches planifiées (toutes les 5 minutes, voir wrangler.jsonc) : montages, reprises et purges de Why me ;
+  // reprise des transcriptions de l'option Analyse de Parlopop. Indépendantes : l'échec de l'une n'arrête pas l'autre.
   async scheduled(_evenement: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(tachesWhyme(env).then((b) => console.log("Why me, tâches planifiées", b)));
+    ctx.waitUntil(reprendreTranscriptions(env).then((bilan) => {
+      if (bilan.traitees) console.log("Parlopop, reprise des transcriptions", JSON.stringify(bilan));
+    }));
   },
 };

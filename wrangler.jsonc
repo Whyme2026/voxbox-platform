@@ -16,7 +16,8 @@
   // Les variables sensibles ou propres à un environnement (ADMIN_EMAILS, ACCESS_TEAM_DOMAIN, ACCESS_AUD)
   // sont saisies dans le tableau de bord Cloudflare et conservées à chaque déploiement.
   "keep_vars": true,
-  // Why me : relance des montages, e-mails de reprise et purges (src/whyme/taches.ts).
+  // Toutes les 5 minutes : Why me (relance des montages, e-mails de reprise, purges, src/whyme/taches.ts) et
+  // Parlopop option Analyse (reprise des transcriptions, src/analyse/transcription.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
 
   "env": {

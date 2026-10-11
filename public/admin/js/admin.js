@@ -385,6 +385,7 @@ async function vueCampagne(/** @type {string} */ id) {
     c.client_nom ?? null,
     c.debut || c.fin ? `du ${jour(c.debut)} au ${jour(c.fin)}` : null,
     c.conservation_jours ? `vidéos conservées ${c.conservation_jours} jours` : null,
+    c.option_analyse ? "option Analyse" : null,
     c.validee_par ? `validée par ${c.validee_par}` : null,
   ].filter(Boolean).join(" · ");
 
@@ -394,6 +395,15 @@ async function vueCampagne(/** @type {string} */ id) {
     c.statut === "close" ? null : champ("Début", h("input", { name: "debut", type: "date", value: c.debut ?? null })),
     c.statut === "close" ? null : champ("Fin", h("input", { name: "fin", type: "date", value: c.fin ?? null })),
     c.statut === "close" ? null : champ("Conservation des vidéos (jours)", h("input", { name: "conservation_jours", type: "number", min: 1, max: 1095, value: c.conservation_jours, disabled: c.statut === "active" })),
+    c.statut === "close" ? null : h("label", { class: "champ large case-option" },
+      h("span", { style: "display: flex; gap: 10px; align-items: center; color: var(--encre)" },
+        h("input", { type: "checkbox", name: "option_analyse", checked: Boolean(c.option_analyse), disabled: c.statut === "active", style: "min-height: 0; width: 20px; height: 20px" }),
+        "Option Analyse (transcription des réponses par Mistral AI, dans l'UE)"),
+      h("span", { style: "font-weight: 400; font-size: 13px" }, c.statut === "active"
+        ? "Elle ne change plus une fois la campagne active : elle figure dans les textes acceptés par les visiteurs."
+        : "Vendue au contrat. L'activer ou la retirer régénère les textes de consentement et remet la campagne en brouillon. Sans elle, rien n'est envoyé hors de la plateforme.")),
+    c.statut === "close" ? null : champ("Vocabulaire de la campagne (un terme par ligne : noms de modèles, de marques…)",
+      h("textarea", { name: "vocabulaire", rows: 3, placeholder: "Ex. : Geely EX5", style: "min-height: 70px" }, (c.vocabulaire ?? []).join("\n")), "large"),
     c.statut === "close" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Campagne close : seul son nom peut encore changer.")
       : c.statut === "active" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "La durée de conservation ne change plus une fois la campagne active : elle figure dans les textes acceptés par les visiteurs.")
       : c.statut === "validee" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Changer la durée régénère les textes de consentement et remet la campagne en brouillon (nouvelle validation du client).") : null,
@@ -403,9 +413,10 @@ async function vueCampagne(/** @type {string} */ id) {
     ev.preventDefault();
     const v = valeurs(edition);
     try {
+      const vocabulaire = (v.vocabulaire ?? "").split("\n").map((t) => t.trim()).filter(Boolean);
       await api(`/api/admin/campagnes/${c.id}`, { methode: "PATCH", corps: c.statut === "close" ? { nom: v.nom } : {
-        nom: v.nom, debut: v.debut || null, fin: v.fin || null,
-        ...(c.statut === "active" ? {} : { conservation_jours: Number(v.conservation_jours) }),
+        nom: v.nom, debut: v.debut || null, fin: v.fin || null, vocabulaire,
+        ...(c.statut === "active" ? {} : { conservation_jours: Number(v.conservation_jours), option_analyse: v.option_analyse === "on" }),
       } });
       toast("Campagne enregistrée."); router();
     } catch (e) { toast(/** @type {Error} */ (e).message, "erreur"); }
@@ -681,7 +692,67 @@ function tuileVideo(/** @type {any} */ r, /** @type {string} */ titre, /** @type
   });
   return h("div", { class: "video" }, ecran,
     h("div", { class: "legende" }, h("strong", {}, titre), h("span", {}, sous || duree(r.duree_ms))),
-    r.son_present === false ? h("span", { class: "pastille", "data-ton": "rouge" }, "Son non détecté") : null);
+    r.son_present === false ? h("span", { class: "pastille", "data-ton": "rouge" }, "Son non détecté") : null,
+    blocTranscription(r, ecran));
+}
+
+// ------------------------------------------------------------------ transcriptions (option Analyse)
+
+/**
+ * Regroupe les mots horodatés en lignes lisibles : nouvelle ligne après une fin de phrase, un silence de plus de
+ * 0,8 s ou 14 mots.
+ * @param {{ d: number, f: number, t: string }[]} segments
+ * @returns {{ d: number, f: number, texte: string }[]}
+ */
+function lignesTranscription(segments) {
+  /** @type {{ d: number, f: number, texte: string }[]} */
+  const lignes = [];
+  let mots = 0;
+  for (const s of segments) {
+    const der = lignes[lignes.length - 1];
+    const couper = !der || s.d - der.f > 0.8 || mots >= 14 || /[.!?…]$/.test(der.texte);
+    if (couper) { lignes.push({ d: s.d, f: s.f, texte: s.t }); mots = s.t.split(/\s+/).length; }
+    else { der.texte += (/^[,.;:!?…)]/.test(s.t) ? "" : " ") + s.t; der.f = s.f; mots += s.t.split(/\s+/).length; }
+  }
+  return lignes;
+}
+
+const minutes = (/** @type {number} */ s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/** État et lecture de la transcription d'une réponse. Le texte n'est chargé qu'à la demande (lecture journalisée). */
+function blocTranscription(/** @type {any} */ r, /** @type {HTMLElement} */ ecran) {
+  if (!r.transcription_etat) return null;
+  if (r.transcription_etat === "a_faire" || r.transcription_etat === "en_cours") return h("span", { class: "pastille", "data-ton": "jaune" }, "Transcription en cours");
+  if (r.transcription_etat === "echec") return h("span", { class: "pastille", "data-ton": "rouge" }, "Transcription impossible");
+  const zone = h("div", { class: "transcription", hidden: true });
+  const bouton = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton discret petit", "aria-expanded": "false" }, "Lire la transcription"));
+  bouton.addEventListener("click", async () => {
+    if (!zone.hidden) { zone.hidden = true; bouton.setAttribute("aria-expanded", "false"); bouton.textContent = "Lire la transcription"; return; }
+    if (!zone.childElementCount) {
+      bouton.disabled = true;
+      try {
+        const { transcription: t } = await api(`/api/espace/reponses/${r.id}/transcription`);
+        const lignes = lignesTranscription(t.segments ?? []);
+        zone.replaceChildren(...(lignes.length ? lignes.map((l) => {
+          // Un clic sur une ligne place la vidéo à ce moment (si elle est ouverte).
+          const b = h("button", { type: "button", class: "ligne-transcription", "data-debut": String(l.d) },
+            h("span", { class: "temps" }, minutes(l.d)), h("span", {}, l.texte));
+          b.addEventListener("click", () => {
+            const v = /** @type {HTMLVideoElement | null} */ (ecran.querySelector("video"));
+            if (v) { v.currentTime = l.d; v.play().catch(() => {}); } else ecran.click();
+          });
+          return b;
+        }) : [h("p", { class: "ligne-transcription" }, t.texte || "Aucune parole reconnue.")]));
+      } catch (e) {
+        toast(/** @type {Error} */ (e).message, "erreur");
+        bouton.disabled = false;
+        return;
+      }
+      bouton.disabled = false;
+    }
+    zone.hidden = false; bouton.setAttribute("aria-expanded", "true"); bouton.textContent = "Masquer la transcription";
+  });
+  return h("div", { class: "pile", style: "gap: 6px" }, bouton, zone);
 }
 
 // ------------------------------------------------------------------ Parlomix (montages)

@@ -1,12 +1,14 @@
 // Routeur minimal : méthode + motif de chemin avec paramètres (:id).
 
-import type { Env } from "./types.ts";
+import type { Env, ExecutionContext } from "./types.ts";
 
 export interface Contexte {
   request: Request;
   env: Env;
   params: Record<string, string>;
   url: URL;
+  /** Contexte d'exécution du Worker (travail après la réponse) ; absent dans les tests. */
+  execution?: ExecutionContext;
 }
 
 export type Gestionnaire = (ctx: Contexte) => Promise<Response>;

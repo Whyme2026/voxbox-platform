@@ -8,6 +8,7 @@ import { conflit, HttpError, introuvable, invalide, json, lireJson, maintenant, 
 import { ligneJournal } from "../journal.ts";
 import { choix as etapesChoix, diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
 import { lireMiniature } from "../media.ts";
+import { doitEtreTranscrite, transcrireReponse } from "../analyse/transcription.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -170,14 +171,25 @@ export function routesCabine(r: Routeur): void {
 
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: type } });
     const now = maintenant();
+    // Option Analyse : la réponse est mise « à faire » (sauf si la tablette n'a entendu aucune voix). Un nouvel envoi
+    // de la même réponse remplace la vidéo, donc aussi sa transcription.
+    const aTranscrire = sonPresent !== 0 && await doitEtreTranscrite(ctx.env, s.id);
+    const etatTranscription = aTranscrire ? "a_faire" : null;
     await ctx.env.DB.prepare(
-      `INSERT INTO reponses (id, session_id, etape_id, cle_source, octets_source, duree_ms, son_present, statut, cree_le, maj_le)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'recue', ?, ?)
+      `INSERT INTO reponses (id, session_id, etape_id, cle_source, octets_source, duree_ms, son_present, statut, transcription_etat, cree_le, maj_le)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'recue', ?, ?, ?)
        ON CONFLICT (session_id, etape_id) DO UPDATE SET
          cle_source = excluded.cle_source, octets_source = excluded.octets_source, duree_ms = excluded.duree_ms, son_present = excluded.son_present,
-         statut = 'recue', erreur = NULL, maj_le = excluded.maj_le`,
-    ).bind(nouvelId(), s.id, etape, cle, corps.byteLength, dureeMs, sonPresent, now, now).run();
-    return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent } }, 201);
+         statut = 'recue', erreur = NULL, maj_le = excluded.maj_le,
+         transcription = NULL, transcription_segments = NULL, transcription_langue = NULL, transcription_erreur = NULL,
+         transcription_essais = 0, transcription_le = NULL, transcription_etat = excluded.transcription_etat`,
+    ).bind(nouvelId(), s.id, etape, cle, corps.byteLength, dureeMs, sonPresent, etatTranscription, now, now).run();
+    if (aTranscrire && ctx.execution && ctx.env.MISTRAL_API_KEY) {
+      // Après la réponse à la tablette : elle n'attend pas la transcription. En cas d'échec, la reprise planifiée prend le relais.
+      const rep = await ctx.env.DB.prepare("SELECT id FROM reponses WHERE session_id = ? AND etape_id = ?").bind(s.id, etape).first<{ id: string }>();
+      if (rep) ctx.execution.waitUntil(transcrireReponse(ctx.env, rep.id).catch((e) => console.error("Transcription", e)));
+    }
+    return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent, transcription: etatTranscription } }, 201);
   });
 
   // Choix du visiteur à une étape « choix » (qualification, aiguillage). Idempotent : un nouvel envoi remplace le précédent.
