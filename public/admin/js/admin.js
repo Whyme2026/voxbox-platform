@@ -387,6 +387,9 @@ async function vueCampagne(/** @type {string} */ id) {
     c.debut || c.fin ? `du ${jour(c.debut)} au ${jour(c.fin)}` : null,
     c.conservation_jours ? `vidéos conservées ${c.conservation_jours} jours` : null,
     c.option_analyse ? "option Analyse" : null,
+    // Purge à échéance : prochaine suppression automatique (durée de conservation promise aux visiteurs).
+    c.purge?.prochaine ? `prochaine suppression automatique le ${date(c.purge.prochaine)}${c.purge.sous_30_jours ? ` (${c.purge.sous_30_jours} visiteur${c.purge.sous_30_jours > 1 ? "s" : ""} d'ici 30 jours)` : ""}` : null,
+    c.purge?.purgees ? `${c.purge.purgees} passage${c.purge.purgees > 1 ? "s" : ""} déjà supprimé${c.purge.purgees > 1 ? "s" : ""} à échéance` : null,
     c.validee_par ? `validée par ${c.validee_par}` : null,
   ].filter(Boolean).join(" · ");
 

@@ -5,6 +5,7 @@ import type { Identite } from "../auth/identite.ts";
 import { verifierAppartenance } from "../auth/droits.ts";
 import { conflit, introuvable, maintenant } from "../http.ts";
 import { ligneJournal } from "../journal.ts";
+import { prochainePurge } from "../rgpd/purge.ts";
 
 export type Statut = "brouillon" | "validee" | "active" | "close";
 
@@ -55,6 +56,8 @@ export async function detailCampagne(db: D1Database, c: LigneCampagne) {
     option_analyse: c.option_analyse === 1,
     vocabulaire: JSON.parse(c.vocabulaire) as string[],
     grille_themes: JSON.parse(c.grille_themes) as unknown[],
+    // Purge à échéance : prochaine date et visiteurs concernés (affiché dans Parlorama).
+    purge: await prochainePurge(db, c.id),
     client: client ? { nom: client.nom, logo_url: client.logo_url, couleurs: JSON.parse(client.couleurs) as unknown } : null,
     parcours: parcours ? { ...parcours, config: JSON.parse(parcours.config) as unknown } : null,
     consentement,

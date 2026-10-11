@@ -21,6 +21,7 @@ import { tachesWhyme } from "./whyme/taches.ts";
 import { reprendreTranscriptions } from "./analyse/transcription.ts";
 import { reprendreClassements } from "./analyse/classement.ts";
 import { routesAnalyse } from "./routes/analyse.ts";
+import { purgerEchues } from "./rgpd/purge.ts";
 
 export const VERSION = "0.1.0";
 
@@ -105,6 +106,8 @@ export default {
   // reprise des transcriptions de l'option Analyse de Parlopop. Indépendantes : l'échec de l'une n'arrête pas l'autre.
   async scheduled(_evenement: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(tachesWhyme(env).then((b) => console.log("Why me, tâches planifiées", b)));
+    // Parlopop : purge à échéance (durée de conservation promise aux visiteurs).
+    ctx.waitUntil(purgerEchues(env).then((b) => { if (b.sessions || b.erreurs) console.log("Parlopop, purge à échéance", JSON.stringify(b)); }));
     // Transcriptions d'abord, classements ensuite (une réponse transcrite ici est classée au même passage).
     ctx.waitUntil(reprendreTranscriptions(env).then(async (bilan) => {
       if (bilan.traitees) console.log("Parlopop, reprise des transcriptions", JSON.stringify(bilan));

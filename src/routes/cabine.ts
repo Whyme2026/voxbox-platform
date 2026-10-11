@@ -148,11 +148,13 @@ export function routesCabine(r: Routeur): void {
   r.ajouter("PUT", "/api/cabine/sessions/:session/reponses/:etape", async (ctx) => {
     const cab = await authentifierCabine(ctx.request, ctx.env.DB);
     const s = await ctx.env.DB.prepare(
-      `SELECT s.id, s.campagne_id, s.cabine_id, s.retiree_le, p.config
+      `SELECT s.id, s.campagne_id, s.cabine_id, s.retiree_le, s.purgee_le, p.config
          FROM sessions s JOIN parcours_versions p ON p.id = s.parcours_version_id WHERE s.id = ?`,
-    ).bind(ctx.params.session).first<{ id: string; campagne_id: string; cabine_id: string | null; retiree_le: string | null; config: string }>();
+    ).bind(ctx.params.session).first<{ id: string; campagne_id: string; cabine_id: string | null; retiree_le: string | null; purgee_le: string | null; config: string }>();
     if (!s || s.cabine_id !== cab.id) throw introuvable("Session introuvable");
     if (s.retiree_le) throw new HttpError(410, "retiree", "Le visiteur a retiré son accord");
+    // Durée de conservation écoulée (tablette restée longtemps hors ligne) : on ne recrée rien.
+    if (s.purgee_le) throw new HttpError(410, "purgee", "La durée de conservation de ce passage est écoulée");
     const etape = ctx.params.etape!;
     if (!questions(JSON.parse(s.config) as Parcours).some((q) => q.id === etape)) throw invalide("Cette étape n'est pas une question du parcours");
 
@@ -204,11 +206,12 @@ export function routesCabine(r: Routeur): void {
   r.ajouter("PUT", "/api/cabine/sessions/:session/choix/:etape", async (ctx) => {
     const cab = await authentifierCabine(ctx.request, ctx.env.DB);
     const s = await ctx.env.DB.prepare(
-      `SELECT s.id, s.cabine_id, s.retiree_le, p.config
+      `SELECT s.id, s.cabine_id, s.retiree_le, s.purgee_le, p.config
          FROM sessions s JOIN parcours_versions p ON p.id = s.parcours_version_id WHERE s.id = ?`,
-    ).bind(ctx.params.session).first<{ id: string; cabine_id: string | null; retiree_le: string | null; config: string }>();
+    ).bind(ctx.params.session).first<{ id: string; cabine_id: string | null; retiree_le: string | null; purgee_le: string | null; config: string }>();
     if (!s || s.cabine_id !== cab.id) throw introuvable("Session introuvable");
     if (s.retiree_le) throw new HttpError(410, "retiree", "Le visiteur a retiré son accord");
+    if (s.purgee_le) throw new HttpError(410, "purgee", "La durée de conservation de ce passage est écoulée");
     const etape = etapesChoix(JSON.parse(s.config) as Parcours).find((e) => e.id === ctx.params.etape);
     if (!etape) throw invalide("Cette étape n'est pas un choix du parcours");
     const d = await lireJson(ctx.request);
@@ -227,11 +230,11 @@ export function routesCabine(r: Routeur): void {
   r.ajouter("PUT", "/api/cabine/sessions/:session/reponses/:etape/miniature", async (ctx) => {
     const cab = await authentifierCabine(ctx.request, ctx.env.DB);
     const rep = await ctx.env.DB.prepare(
-      `SELECT r.id, s.campagne_id, s.cabine_id, s.retiree_le FROM reponses r JOIN sessions s ON s.id = r.session_id
+      `SELECT r.id, s.campagne_id, s.cabine_id, s.retiree_le, s.purgee_le FROM reponses r JOIN sessions s ON s.id = r.session_id
         WHERE r.session_id = ? AND r.etape_id = ?`,
-    ).bind(ctx.params.session, ctx.params.etape).first<{ id: string; campagne_id: string; cabine_id: string | null; retiree_le: string | null }>();
+    ).bind(ctx.params.session, ctx.params.etape).first<{ id: string; campagne_id: string; cabine_id: string | null; retiree_le: string | null; purgee_le: string | null }>();
     if (!rep || rep.cabine_id !== cab.id) throw introuvable("Réponse introuvable");
-    if (rep.retiree_le) throw new HttpError(410, "retiree", "Le visiteur a retiré son accord");
+    if (rep.retiree_le || rep.purgee_le) throw new HttpError(410, "retiree", "Le visiteur a retiré son accord ou la durée de conservation est écoulée");
     const corps = await lireMiniature(ctx.request);
     const cle = `campagnes/${rep.campagne_id}/sessions/${ctx.params.session}/${ctx.params.etape}.jpg`;
     await ctx.env.MEDIA.put(cle, corps, { httpMetadata: { contentType: "image/jpeg" } });

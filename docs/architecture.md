@@ -185,6 +185,17 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   (`conversation`, `pop`, `marine`…) et les visuels de l'habillage. Maquettes : canevas « Parlopop : direction
   artistique », lignes V2.
 
+## Purge à échéance (11/10/2026)
+Les textes acceptés par le visiteur promettent la suppression de ses vidéos au bout de la durée de conservation de la
+campagne. Chaque session porte sa date (`sessions.purge_prevue_le`, fixée à sa création ; la durée ne change plus
+une fois la campagne active). La tâche planifiée (toutes les 5 minutes) purge les sessions échues par paquets de 40
+(`src/rgpd/purge.ts`) : vidéos, miniatures et Parlomix où la personne figure (stockage d'abord), puis réponses,
+transcriptions, thèmes classés et choix (`effacementSession`, partagé avec le retrait d'accord). Il reste une trace
+anonyme (`prenom = '(supprimé)'`, `purgee_le`) et une ligne de journal `session.purge` sans prénom. Une session en
+échec (stockage indisponible) est reprise au passage suivant. Une vidéo renvoyée plus tard par une tablette restée
+hors ligne est refusée (410). Parlorama affiche sur la campagne la prochaine suppression automatique et le nombre de
+visiteurs concernés dans les 30 jours. Why me a sa propre purge (`src/whyme/taches.ts`).
+
 ## Option Analyse, lot 1 : transcription (11/10/2026)
 Décisions : note `parlopop-note-demarrage-reporting.md` du projet. L'analyse des propos est une **option vendue
 campagne par campagne** ; Mistral AI (UE) est le seul sous-traitant pour toute la chaîne (Voxtral pour la
