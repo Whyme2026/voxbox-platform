@@ -57,11 +57,12 @@
       // Déployée par Workers Builds depuis la branche « production » (voir docs/exploitation.md).
       "workers_dev": false,
       "routes": [{ "pattern": "app.parlobox.com", "custom_domain": true }],
-      // ACCESS_AUD : saisie dans le tableau de bord (application Access « Parlobox »), conservée par keep_vars.
+      // Access : application « Parlobox (production) » sur app.parlobox.com (politique « Equipe WhyMe »).
       "vars": {
         "ENVIRONNEMENT": "production",
         "AUTH_MODE": "access",
         "ACCESS_TEAM_DOMAIN": "https://laurent-7ed.cloudflareaccess.com",
+        "ACCESS_AUD": "76fa4f67784d702d470b3a41b4658db04b7be2cf607a62ce3f9b367017eb68e0",
         "ADMIN_EMAILS": "laurent@whyme.jobs"
       },
       "d1_databases": [
