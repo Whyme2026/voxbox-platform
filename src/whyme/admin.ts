@@ -13,7 +13,7 @@ import { servirVideo } from "../media.ts";
 import { slugifier } from "../routes/admin.ts";
 import { empreinteTextes, genererTextes, validerConfig } from "./config.ts";
 import { campagneParId, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
-import { declencherMontage, planMontage } from "./montage.ts";
+import { declencherMontage, montageConfigure, planMontage } from "./montage.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOGOS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -225,7 +225,7 @@ export function routesWhymeAdmin(r: Routeur): void {
     const c = await candidatParId(ctx.env.DB, ctx.params.id!);
     if (!c || c.supprime_le) throw introuvable("Interview introuvable");
     if (!["termine", "montage", "erreur"].includes(c.statut)) throw conflit("Rien à monter pour cette interview");
-    if (!ctx.env.MONTAGE_URL || !ctx.env.MONTAGE_CLE) throw new HttpError(503, "montage_absent", "Le service de montage n'est pas encore configuré");
+    if (!montageConfigure(ctx.env)) throw new HttpError(503, "montage_absent", "Le service de montage n'est pas encore configuré");
     await journaliser(ctx.env.DB, id, { action: "whyme.montage.relance", cibleType: "wm_candidat", cibleId: c.id });
     return json({ demande: await declencherMontage(ctx.env, c.id) });
   });
@@ -259,6 +259,6 @@ export function routesWhymeAdmin(r: Routeur): void {
     const id = await whyme(ctx, "journal.lire");
     const res = await ctx.env.DB.prepare("SELECT id, a, sujet, texte, html, sorte, envoye, cree_le FROM wm_courriels ORDER BY cree_le DESC LIMIT 50").all();
     await journaliser(ctx.env.DB, id, { action: "whyme.courriels.lecture" });
-    return json({ courriels: res.results, brevo: Boolean(ctx.env.BREVO_CLE), montage: Boolean(ctx.env.MONTAGE_URL && ctx.env.MONTAGE_CLE) });
+    return json({ courriels: res.results, brevo: Boolean(ctx.env.BREVO_CLE), montage: montageConfigure(ctx.env) });
   });
 }

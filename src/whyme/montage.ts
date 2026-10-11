@@ -20,19 +20,23 @@ export const ESSAIS_MAX = 3;
 export const TAILLE_MAX_MONTAGE = 95 * 1024 * 1024;
 
 /** Demande le montage au service. Sans service configuré, l'interview reste « terminée » (en attente). */
+export const montageConfigure = (env: Env) => Boolean((env.MONTAGE_SERVICE || env.MONTAGE_URL) && env.MONTAGE_CLE);
+
 export async function declencherMontage(env: Env, id: string): Promise<boolean> {
-  if (!env.MONTAGE_URL || !env.MONTAGE_CLE) return false;
+  if (!montageConfigure(env)) return false;
   const c = await candidatParId(env.DB, id);
   if (!c || c.supprime_le || (c.statut !== "termine" && c.statut !== "montage" && c.statut !== "erreur")) return false;
   await env.DB.prepare("UPDATE wm_candidats SET statut = 'montage', erreur = NULL, montage_demande_le = ?, montage_essais = montage_essais + 1 WHERE id = ?")
     .bind(maintenant(), id).run();
   try {
-    const res = await fetch(`${env.MONTAGE_URL.replace(/\/$/, "")}/monter`, {
+    const url = env.MONTAGE_SERVICE ? "https://voxbox-montage/monter" : `${env.MONTAGE_URL!.replace(/\/$/, "")}/monter`;
+    const init: RequestInit = {
       method: "POST",
-      headers: { "content-type": "application/json", "x-montage-cle": env.MONTAGE_CLE },
+      headers: { "content-type": "application/json", "x-montage-cle": env.MONTAGE_CLE! },
       body: JSON.stringify({ id, api: c.origine }),
-      signal: AbortSignal.timeout(10_000),
-    });
+      signal: AbortSignal.timeout(30_000),
+    };
+    const res = env.MONTAGE_SERVICE ? await env.MONTAGE_SERVICE.fetch(url, init) : await fetch(url, init);
     if (!res.ok) throw new Error(`service de montage : ${res.status}`);
     return true;
   } catch (e) {

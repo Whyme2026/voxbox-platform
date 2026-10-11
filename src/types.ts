@@ -35,7 +35,7 @@ export interface R2Bucket {
 }
 
 export interface Fetcher {
-  fetch(request: Request): Promise<Response>;
+  fetch(input: Request | string, init?: RequestInit): Promise<Response>;
 }
 
 export interface ExecutionContext {
@@ -64,6 +64,9 @@ export interface Env {
   COURRIEL_EXPEDITEUR_WHYME?: string;
   /** Why me : adresse du service de montage (conteneur ffmpeg en UE) ; absente : montages en attente. */
   MONTAGE_URL?: string;
+  /** Why me : liaison interne vers le Worker voxbox-montage (Cloudflare refuse qu'un Worker appelle l'adresse
+   *  workers.dev d'un autre Worker du même compte). Prioritaire sur MONTAGE_URL. */
+  MONTAGE_SERVICE?: Fetcher;
   /** Why me : secret partagé avec le service de montage (secret Cloudflare). */
   MONTAGE_CLE?: string;
   /**

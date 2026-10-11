@@ -30,7 +30,7 @@ questions : lecture, enregistrement, puis « On garde » / « Je veux la revoir 
   d'inactivité ; le lien porte un nouveau jeton).
 
 ## Montage (`src/whyme/montage.ts` + service `montage/`)
-Interview terminée → la plateforme appelle `POST {MONTAGE_URL}/monter` → le service lit le plan
+Interview terminée → la plateforme appelle `POST /monter` du service (liaison interne `MONTAGE_SERVICE`, ou `MONTAGE_URL` hors Cloudflare) → le service lit le plan
 (`/api/montage/travaux/:id`) et les prises, monte avec ffmpeg (ouverture why me + prénom, pour chaque question un
 carton fuchsia puis la réponse sans ses blancs, logo et « prénom, âge » à l'image, fermeture), renvoie miniature puis
 film → finalisation : rushes effacés, candidatures transmises, e-mail. Secret partagé `MONTAGE_CLE` (en-tête

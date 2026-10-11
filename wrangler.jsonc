@@ -44,6 +44,9 @@
         { "binding": "DB", "database_name": "voxbox-test", "database_id": "ca5e4354-9ad6-4060-9020-b40c8209dded", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "voxbox-media-test", "jurisdiction": "eu" }],
+      // Why me : service de montage (Worker voxbox-montage, conteneur ffmpeg en UE). Liaison interne obligatoire :
+      // Cloudflare refuse qu'un Worker appelle l'adresse workers.dev d'un autre Worker du même compte.
+      "services": [{ "binding": "MONTAGE_SERVICE", "service": "voxbox-montage" }],
       // Identifiant du déploiement : Parlorama détecte qu'il est périmé après une mise en ligne.
       "version_metadata": { "binding": "VERSION_DEPLOIEMENT" }
     },

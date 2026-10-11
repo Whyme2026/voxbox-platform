@@ -10,7 +10,7 @@ import { empreinteJeton, nouveauJeton } from "../auth/cabine.ts";
 import { journaliser } from "../journal.ts";
 import { campagneParId, candidatParId, supprimerCandidat } from "./commun.ts";
 import { courrielReprise, envoyerWhyme } from "./courriels.ts";
-import { declencherMontage, ESSAIS_MAX } from "./montage.ts";
+import { declencherMontage, ESSAIS_MAX, montageConfigure } from "./montage.ts";
 
 const PURGE = "purge automatique";
 const ilYa = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -22,7 +22,7 @@ export async function tachesWhyme(env: Env): Promise<BilanTaches> {
   const t = maintenant();
 
   // Montages : jamais demandés (service absent au moment de la fin), ou demandés il y a plus de 15 minutes sans résultat.
-  if (env.MONTAGE_URL && env.MONTAGE_CLE) {
+  if (montageConfigure(env)) {
     const enAttente = await env.DB.prepare(
       `SELECT id FROM wm_candidats WHERE supprime_le IS NULL AND montage_essais < ?
          AND (statut = 'termine' OR (statut IN ('montage', 'erreur') AND montage_demande_le < ?)) LIMIT 20`,
