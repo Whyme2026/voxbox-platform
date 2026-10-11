@@ -33,7 +33,7 @@ export async function doitEtreTranscrite(env: Env, sessionId: string): Promise<b
 interface AFaire {
   id: string; cle_source: string | null; son_present: number | null; etape_id: string; transcription_essais: number;
   session_id: string; campagne_id: string; client_id: string; option_analyse: number; analyse: number;
-  retiree_le: string | null; purgee_le: string | null; vocabulaire: string; duree_ms: number | null;
+  retiree_le: string | null; purgee_le: string | null; vocabulaire: string; duree_ms: number | null; grille_themes: string;
 }
 
 export type Issue = "faite" | "reessai" | "echec" | "ignoree" | "sans_cle";
@@ -52,7 +52,7 @@ export async function transcrireReponse(env: Env, reponseId: string, opts: { fet
 
   const r = await env.DB.prepare(
     `SELECT r.id, r.cle_source, r.son_present, r.etape_id, r.transcription_essais, r.duree_ms, s.id AS session_id, s.retiree_le, s.purgee_le,
-            c.id AS campagne_id, c.client_id, c.option_analyse, c.vocabulaire, v.analyse
+            c.id AS campagne_id, c.client_id, c.option_analyse, c.vocabulaire, c.grille_themes, v.analyse
        FROM reponses r JOIN sessions s ON s.id = r.session_id JOIN campagnes c ON c.id = s.campagne_id
        JOIN consentement_versions v ON v.id = s.consentement_version_id
       WHERE r.id = ?`,
@@ -81,9 +81,12 @@ export async function transcrireReponse(env: Env, reponseId: string, opts: { fet
     await env.DB.batch([
       // Si la réponse a été supprimée entre-temps (retrait d'accord), la mise à jour ne touche rien.
       env.DB.prepare(
+        // Lot 2 : si la campagne a une grille de thèmes, la réponse passe aussitôt « à classer ».
         `UPDATE reponses SET transcription = ?, transcription_segments = ?, transcription_langue = ?, transcription_etat = 'faite',
-                transcription_le = ?, transcription_erreur = NULL WHERE id = ? AND transcription_etat = 'en_cours'`,
-      ).bind(resultat.texte, JSON.stringify(resultat.segments), resultat.langue, maintenant(), r.id),
+                transcription_le = ?, transcription_erreur = NULL, analyse_etat = ?, analyse_essais = 0
+          WHERE id = ? AND transcription_etat = 'en_cours'`,
+      ).bind(resultat.texte, JSON.stringify(resultat.segments), resultat.langue, maintenant(),
+        (JSON.parse(r.grille_themes) as unknown[]).length ? "a_faire" : null, r.id),
       ligneJournal(env.DB, QUI, {
         action: "reponse.transcription", cibleType: "reponse", cibleId: r.id, clientId: r.client_id,
         details: { campagne_id: r.campagne_id, session_id: r.session_id, etape: r.etape_id, service: "mistral", duree_ms: r.duree_ms, caracteres: resultat.texte.length },

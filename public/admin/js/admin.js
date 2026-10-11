@@ -4,6 +4,7 @@
 
 import { h } from "./dom.js";
 import { editeurParcours } from "./editeur.js";
+import { vueAnalyse } from "./analyse.js";
 import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
 import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "./montage/rendu.js";
 
@@ -402,6 +403,9 @@ async function vueCampagne(/** @type {string} */ id) {
       h("span", { style: "font-weight: 400; font-size: 13px" }, c.statut === "active"
         ? "Elle ne change plus une fois la campagne active : elle figure dans les textes acceptés par les visiteurs."
         : "Vendue au contrat. L'activer ou la retirer régénère les textes de consentement et remet la campagne en brouillon. Sans elle, rien n'est envoyé hors de la plateforme.")),
+    c.statut === "close" ? null : champ("Grille de thèmes (option Analyse) : un thème par ligne, « Libellé : ce qu'il couvre »",
+      h("textarea", { name: "grille_themes", rows: 5, placeholder: "Silence : bruit, calme, acoustique\nÉcran : écran, interface, menus\nPrix", style: "min-height: 110px" },
+        (c.grille_themes ?? []).map((/** @type {any} */ t) => t.description ? `${t.libelle} : ${t.description}` : t.libelle).join("\n")), "large"),
     c.statut === "close" ? null : champ("Vocabulaire de la campagne (un terme par ligne : noms de modèles, de marques…)",
       h("textarea", { name: "vocabulaire", rows: 3, placeholder: "Ex. : Geely EX5", style: "min-height: 70px" }, (c.vocabulaire ?? []).join("\n")), "large"),
     c.statut === "close" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Campagne close : seul son nom peut encore changer.")
@@ -414,8 +418,16 @@ async function vueCampagne(/** @type {string} */ id) {
     const v = valeurs(edition);
     try {
       const vocabulaire = (v.vocabulaire ?? "").split("\n").map((t) => t.trim()).filter(Boolean);
+      // Grille : « Libellé : description » ; un thème dont le libellé ne change pas garde son identifiant.
+      const grille_themes = (v.grille_themes ?? "").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+        const i = l.indexOf(":");
+        const libelle = (i < 0 ? l : l.slice(0, i)).trim();
+        const description = i < 0 ? "" : l.slice(i + 1).trim();
+        const existant = (c.grille_themes ?? []).find((/** @type {any} */ t) => t.libelle === libelle);
+        return { ...(existant ? { id: existant.id } : {}), libelle, ...(description ? { description } : {}) };
+      });
       await api(`/api/admin/campagnes/${c.id}`, { methode: "PATCH", corps: c.statut === "close" ? { nom: v.nom } : {
-        nom: v.nom, debut: v.debut || null, fin: v.fin || null, vocabulaire,
+        nom: v.nom, debut: v.debut || null, fin: v.fin || null, vocabulaire, grille_themes,
         ...(c.statut === "active" ? {} : { conservation_jours: Number(v.conservation_jours), option_analyse: v.option_analyse === "on" }),
       } });
       toast("Campagne enregistrée."); router();
@@ -423,12 +435,13 @@ async function vueCampagne(/** @type {string} */ id) {
   });
 
   const zone = h("div", {});
-  const onglets = [["reponses", "Réponses"], ["parlomix", "Parlomix"], ["parcours", "Parcours"], ["consentement", "Consentement"]];
+  const onglets = [["reponses", "Réponses"], ...(c.option_analyse ? [["analyse", "Analyse"]] : []), ["parlomix", "Parlomix"], ["parcours", "Parcours"], ["consentement", "Consentement"]];
   const barre = h("div", { class: "onglets", role: "tablist" }, ...onglets.map(([cle, libelle]) =>
     h("button", { type: "button", role: "tab", "aria-selected": String(cle === onglet), onclick: () => { location.hash = `#/campagnes/${c.id}?onglet=${cle}`; } }, libelle)));
 
   const options = new URLSearchParams(location.hash.split("?")[1] ?? "");
-  if (onglet === "parlomix") zone.append(peut("reponses.lire") ? await vueParlomix(c, options) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
+  if (onglet === "analyse") zone.append(peut("reponses.lire") ? await vueAnalyse(c, { api, toast, lireDans, date, ilYa }, options) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
+  else if (onglet === "parlomix") zone.append(peut("reponses.lire") ? await vueParlomix(c, options) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));
   else if (onglet === "parcours") zone.append(await vueParcours(c));
   else if (onglet === "consentement") zone.append(vueConsentement(c));
   else zone.append(peut("reponses.lire") ? await vueReponses(c) : h("p", { class: "vide" }, "Vous n'avez pas accès aux réponses."));

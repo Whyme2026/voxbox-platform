@@ -9,6 +9,7 @@ import { ligneJournal } from "../journal.ts";
 import { choix as etapesChoix, diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
 import { lireMiniature } from "../media.ts";
 import { doitEtreTranscrite, transcrireReponse } from "../analyse/transcription.ts";
+import { classerReponse } from "../analyse/classement.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -182,12 +183,19 @@ export function routesCabine(r: Routeur): void {
          cle_source = excluded.cle_source, octets_source = excluded.octets_source, duree_ms = excluded.duree_ms, son_present = excluded.son_present,
          statut = 'recue', erreur = NULL, maj_le = excluded.maj_le,
          transcription = NULL, transcription_segments = NULL, transcription_langue = NULL, transcription_erreur = NULL,
-         transcription_essais = 0, transcription_le = NULL, transcription_etat = excluded.transcription_etat`,
+         transcription_essais = 0, transcription_le = NULL, transcription_etat = excluded.transcription_etat,
+         analyse_etat = NULL, analyse_essais = 0, analyse_erreur = NULL, analyse_grille = NULL, autre_sujet = NULL,
+         alerte = 0, alerte_motif = NULL, alerte_vue_le = NULL, alerte_vue_par = NULL`,
     ).bind(nouvelId(), s.id, etape, cle, corps.byteLength, dureeMs, sonPresent, etatTranscription, now, now).run();
+    // Un nouvel envoi remplace la vidéo : l'ancien classement ne vaut plus.
+    await ctx.env.DB.prepare("DELETE FROM reponse_themes WHERE reponse_id IN (SELECT id FROM reponses WHERE session_id = ? AND etape_id = ?)").bind(s.id, etape).run();
     if (aTranscrire && ctx.execution && ctx.env.MISTRAL_API_KEY) {
       // Après la réponse à la tablette : elle n'attend pas la transcription. En cas d'échec, la reprise planifiée prend le relais.
       const rep = await ctx.env.DB.prepare("SELECT id FROM reponses WHERE session_id = ? AND etape_id = ?").bind(s.id, etape).first<{ id: string }>();
-      if (rep) ctx.execution.waitUntil(transcrireReponse(ctx.env, rep.id).catch((e) => console.error("Transcription", e)));
+      // Transcription puis classement (lot 2) dans la foulée : le direct et les alertes en dépendent.
+      if (rep) ctx.execution.waitUntil(transcrireReponse(ctx.env, rep.id)
+        .then((issue) => (issue === "faite" ? classerReponse(ctx.env, rep.id) : null))
+        .catch((e) => console.error("Transcription ou classement", e)));
     }
     return json({ reponse: { session_id: s.id, etape_id: etape, octets: corps.byteLength, son_present: sonPresent, transcription: etatTranscription } }, 201);
   });

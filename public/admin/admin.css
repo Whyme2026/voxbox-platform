@@ -248,3 +248,56 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 .ligne-transcription:hover { background: var(--carte); }
 .ligne-transcription .temps { font-size: 12px; color: var(--doux); padding-top: 2px; font-variant-numeric: tabular-nums; }
 .champ textarea { font: inherit; font-weight: 400; }
+
+/* Option Analyse, lot 2 : onglet « Analyse » (par question, recherche par thèmes, direct). */
+.sous-onglets .puce { text-decoration: none; }
+.sous-onglets .puce[aria-pressed="true"], .puce[aria-pressed="true"] { background: var(--vox); color: #FFFFFF; box-shadow: none; }
+.sous { color: var(--doux); font-size: 14px; }
+.seuil { gap: 12px; }
+.jauge { display: block; background: var(--gris-pale); border-radius: 6px; overflow: hidden; }
+.jauge span { display: block; height: 100%; background: var(--vox); border-radius: 6px; }
+.jauge.large { height: 12px; max-width: 560px; width: 100%; }
+.liste-questions { margin: 0; padding-left: 20px; color: var(--doux); line-height: 1.6; }
+.question-analysee { align-self: flex-start; max-width: 720px; font-size: 18px; }
+.barres-themes, .tons { display: flex; flex-direction: column; gap: 8px; }
+.ligne-theme { display: grid; grid-template-columns: minmax(130px, 220px) minmax(0, 1fr) 48px; gap: 12px; align-items: center; }
+.ligne-theme .jauge { height: 22px; }
+.ligne-theme strong { text-align: right; font-variant-numeric: tabular-nums; }
+.ligne-ton { display: grid; grid-template-columns: minmax(130px, 220px) minmax(0, 1fr) 110px; gap: 12px; align-items: center; }
+.ligne-ton .nombres { color: var(--doux); font-size: 14px; font-variant-numeric: tabular-nums; }
+.barre-ton { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--gris-pale); }
+.ton-positif { background: var(--vox); }
+.ton-neutre { background: #A9ACBF; }
+.ton-negatif { background: var(--rouge); }
+.pastille.ton-positif { background: var(--vox-pale); color: var(--vox); }
+.pastille.ton-neutre { background: var(--gris-pale); color: var(--doux); }
+.pastille.ton-negatif { background: var(--rouge-pale); color: var(--rouge); }
+.puce-ton { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin: 0 4px 0 10px; vertical-align: -1px; }
+.legende-tons .puce-ton:first-child { margin-left: 0; }
+.verbatims { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 14px; }
+.verbatim { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.verbatim figcaption, .meta-propos { color: var(--doux); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.bulle-visiteur { margin: 0; padding: 10px 14px; border-radius: 18px 18px 6px 18px; background: var(--parole-pale); color: var(--encre); line-height: 1.45; }
+.ecran-video.petit { position: relative; aspect-ratio: 16 / 9; width: 100%; border-radius: 14px 14px 5px 14px; overflow: hidden; background: #2E3354;
+  border: 0; padding: 0; cursor: pointer; color: #FFFFFF; font: inherit; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.ecran-video.petit video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.boutons .ecran-video.petit { width: 150px; }
+.liste-propos { display: flex; flex-direction: column; }
+.propos { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--trait); }
+.propos:last-child { border-bottom: 0; }
+.colonnes-direct { display: flex; flex-wrap: wrap; gap: 18px; }
+.colonnes-direct > :first-child { flex: 999 1 520px; }
+.colonnes-direct > :last-child { flex: 1 1 320px; }
+.carte.alerte { box-shadow: inset 0 0 0 2px var(--rouge-pale), var(--ombre); }
+.heures { display: flex; gap: 6px; align-items: flex-end; height: 150px; }
+.heure { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; min-width: 0; }
+.heure .colonne { width: 100%; max-width: 38px; background: var(--vox); border-radius: 6px 6px 2px 2px; }
+.heure .n { font-size: 12px; font-weight: 600; }
+.heure .h { font-size: 12px; color: var(--doux); }
+.ligne-montee { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--trait); }
+.ligne-montee:last-child { border-bottom: 0; }
+@media (max-width: 640px) {
+  .ligne-theme, .ligne-ton { grid-template-columns: 1fr 48px; }
+  .ligne-theme .jauge, .ligne-ton .barre-ton { grid-column: 1 / -1; grid-row: 2; }
+  .propos { grid-template-columns: 1fr; }
+}

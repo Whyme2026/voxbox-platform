@@ -21,6 +21,8 @@ export interface LigneCampagne {
   option_analyse: number;
   /** JSON : termes propres à la campagne transmis au service de transcription. */
   vocabulaire: string;
+  /** JSON : grille de thèmes de l'option Analyse ([{ id, libelle, description? }]). */
+  grille_themes: string;
   parcours_version_id: string | null;
   consentement_version_id: string | null;
   validee_par: string | null;
@@ -52,6 +54,7 @@ export async function detailCampagne(db: D1Database, c: LigneCampagne) {
     ...c,
     option_analyse: c.option_analyse === 1,
     vocabulaire: JSON.parse(c.vocabulaire) as string[],
+    grille_themes: JSON.parse(c.grille_themes) as unknown[],
     client: client ? { nom: client.nom, logo_url: client.logo_url, couleurs: JSON.parse(client.couleurs) as unknown } : null,
     parcours: parcours ? { ...parcours, config: JSON.parse(parcours.config) as unknown } : null,
     consentement,
