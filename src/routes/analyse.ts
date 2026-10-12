@@ -1,6 +1,6 @@
 // Option Analyse, lot 2 : ce que la marque lit dans Parlorama (décisions du 11/10/2026).
 // - « Par question » : de quoi parlent les gens, tonalité par thème, verbatims représentatifs. Vues agrégées :
-//   ouvertes à partir de 100 visiteurs (en dessous, une répartition ne veut rien dire).
+//   ouvertes à partir de 100 visiteurs par défaut, réglable par campagne entre 20 et 1000 (en dessous, une répartition ne veut rien dire).
 // - « Recherche par thèmes » et « Aujourd'hui en direct » (avec les alertes) : dès la première réponse.
 // - La marque voit le classement dès qu'il est fait. Même périmètre que les vidéos (droit reponses.lire,
 //   cloisonnement par client), et chaque consultation qui montre des propos est journalisée.
@@ -15,8 +15,10 @@ import { chargerCampagne, type LigneCampagne } from "./campagnes-commun.ts";
 import { libellesParcours } from "./reponses.ts";
 import type { Theme, Tonalite } from "../analyse/classement.ts";
 
-/** Seuil d'ouverture des vues agrégées, en visiteurs (environ 450 réponses). */
+/** Seuil d'ouverture des vues agrégées par défaut, en visiteurs (environ 450 réponses). Réglable par campagne (seuil_analyse). */
 export const SEUIL_VISITEURS = 100;
+/** Plus petit seuil réglable : en dessous, une répartition isolerait trop facilement une personne. */
+export const SEUIL_MINIMUM = 20;
 const FUSEAU = "Europe/Paris";
 
 const jourParis = (iso: string) => new Intl.DateTimeFormat("fr-CA", { timeZone: FUSEAU, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
@@ -72,7 +74,8 @@ export function routesAnalyse(r: Routeur): void {
   r.get("/api/espace/campagnes/:id/analyse", async (ctx) => {
     const { id, c, grille } = await campagneAnalysee(ctx);
     const visiteurs = await nombreVisiteurs(ctx, c.id);
-    const atteint = visiteurs >= SEUIL_VISITEURS;
+    const requis = c.seuil_analyse ?? SEUIL_VISITEURS;
+    const atteint = visiteurs >= requis;
     const { questions } = await libellesParcours(ctx.env.DB, c.id);
     const etats = await ctx.env.DB.prepare(
       `SELECT r.etape_id, COUNT(*) AS reponses,
@@ -85,7 +88,7 @@ export function routesAnalyse(r: Routeur): void {
     ).bind(c.id).all<{ etape_id: string; reponses: number; transcrites: number; classees: number; en_cours: number; echecs: number }>();
     const parEtape = new Map(etats.results.map((e) => [e.etape_id, e]));
     const base = {
-      seuil: { visiteurs, requis: SEUIL_VISITEURS, atteint },
+      seuil: { visiteurs, requis, atteint },
       grille,
     };
     if (!atteint) {

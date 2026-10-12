@@ -24,6 +24,8 @@ export interface LigneCampagne {
   vocabulaire: string;
   /** JSON : grille de thèmes de l'option Analyse ([{ id, libelle, description? }]). */
   grille_themes: string;
+  /** Seuil d'ouverture des vues agrégées de l'option Analyse, en visiteurs (100 par défaut, 20 au moins). */
+  seuil_analyse: number;
   parcours_version_id: string | null;
   consentement_version_id: string | null;
   validee_par: string | null;

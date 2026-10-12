@@ -69,6 +69,23 @@ test("le parcours de démonstration Parlobox est valide", () => {
   assert.equal(questions(demo).length, 5);
 });
 
+test("le parcours de la Fabrique de l'Innovation (PFA) est valide : tutoiement, Barlow, prénom seul, sans diffusion publique", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  assert.deepEqual(validerParcours(pfa), []);
+  assert.equal(questions(pfa).length, 4);
+  assert.equal(pfa.tutoiement, true);
+  assert.deepEqual(pfa.habillage.polices, { titres: "barlow-condensed", texte: "barlow" });
+  const id = pfa.etapes.find((e: any) => e.type === "identification");
+  assert.ok(!id.demanderEmail && !id.demanderNom, "public jeune : le prénom seul");
+  assert.ok(!pfa.etapes.find((e: any) => e.type === "consentement").proposerDiffusion, "public jeune : pas de diffusion publique");
+});
+
+test("une police inconnue est refusée dans l'habillage", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  pfa.habillage.polices.titres = "comic-sans";
+  assert.ok(validerParcours(pfa).some((m) => m.includes("habillage.polices.titres")));
+});
+
 test("pistes et coup de pouce sont bornés", () => {
   const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
   const q = demo.etapes.find((e: any) => e.type === "question");

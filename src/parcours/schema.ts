@@ -105,7 +105,7 @@ export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop", "marine"];
  * à une marque ni à un secteur. Tout est facultatif : sans habillage, direction artistique Parlobox
  * (et couleurs de la fiche client). S'ajoute à l'ambiance générale (« conversation », « pop » ou « marine »).
  */
-export const POLICES = ["fredoka", "gabarito", "michroma", "inter"] as const;
+export const POLICES = ["fredoka", "gabarito", "michroma", "inter", "barlow-condensed", "barlow"] as const;
 export type Police = (typeof POLICES)[number];
 /** Fond d'un écran : une couleur, ou un dégradé vertical de `couleur` à `couleurBas` ; `texte` = couleur du texte posé dessus. */
 export interface Fond { id: string; nom?: string; couleur: string; couleurBas?: string; texte: string }

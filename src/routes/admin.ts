@@ -11,6 +11,7 @@ import { empreinte, genererTextes, textesMentionnentAnalyse, type FicheClient } 
 import { changerStatut, chargerCampagne, detailCampagne, verifierModifiable, type Statut } from "./campagnes-commun.ts";
 import { codeAleatoire } from "../auth/cabine.ts";
 import { listerAlertes } from "../exploitation/alertes.ts";
+import { SEUIL_MINIMUM } from "./analyse.ts";
 
 async function whyme(ctx: Contexte, action: Action): Promise<Identite> {
   const id = await identifier(ctx.request, ctx.env);
@@ -448,7 +449,7 @@ export function routesAdmin(r: Routeur): void {
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
     const d = await lireJson(ctx.request);
     // Une campagne close garde ses dates, sa durée et ses options ; seul son nom peut encore changer.
-    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined || d.option_analyse !== undefined || d.vocabulaire !== undefined || d.grille_themes !== undefined)) {
+    if (c.statut === "close" && (d.debut !== undefined || d.fin !== undefined || d.conservation_jours !== undefined || d.option_analyse !== undefined || d.vocabulaire !== undefined || d.grille_themes !== undefined || d.seuil_analyse !== undefined)) {
       throw conflit("Une campagne close ne se modifie plus, sauf son nom");
     }
     const nom = d.nom === undefined ? c.nom : texte(d, "nom", { requis: true, max: 120 })!;
@@ -465,6 +466,9 @@ export function routesAdmin(r: Routeur): void {
     // La grille de thèmes non plus : la changer fait reclasser les réponses déjà transcrites.
     const grille = d.grille_themes === undefined ? c.grille_themes : JSON.stringify(grilleThemes(d.grille_themes));
     const changeGrille = grille !== c.grille_themes;
+    // Le seuil d'affichage ne figure pas dans les textes : il peut changer en cours de campagne.
+    const seuil = d.seuil_analyse === undefined ? c.seuil_analyse : Number(d.seuil_analyse);
+    if (!Number.isInteger(seuil) || seuil < SEUIL_MINIMUM || seuil > 1000) throw invalide(`seuil_analyse : entre ${SEUIL_MINIMUM} et 1000 visiteurs`);
     const ecritures = [];
     const now = maintenant();
     const changeConservation = conservation !== c.conservation_jours;
@@ -491,8 +495,8 @@ export function routesAdmin(r: Routeur): void {
       ecritures.push(ctx.env.DB.prepare("UPDATE campagnes SET statut = 'brouillon', validee_par = NULL, validee_le = NULL WHERE id = ?").bind(c.id));
     }
     ecritures.unshift(
-      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, option_analyse = ?, vocabulaire = ?, grille_themes = ?, maj_le = ? WHERE id = ?")
-        .bind(nom, debut, fin, conservation, analyse ? 1 : 0, vocab, grille, now, c.id),
+      ctx.env.DB.prepare("UPDATE campagnes SET nom = ?, debut = ?, fin = ?, conservation_jours = ?, option_analyse = ?, vocabulaire = ?, grille_themes = ?, seuil_analyse = ?, maj_le = ? WHERE id = ?")
+        .bind(nom, debut, fin, conservation, analyse ? 1 : 0, vocab, grille, seuil, now, c.id),
     );
     if (changeGrille && analyse) {
       ecritures.push(ctx.env.DB.prepare(
@@ -508,10 +512,11 @@ export function routesAdmin(r: Routeur): void {
         option_analyse: changeAnalyse ? analyse : undefined,
         vocabulaire: vocab !== c.vocabulaire ? (JSON.parse(vocab) as string[]).length : undefined,
         grille_themes: changeGrille ? (JSON.parse(grille) as Theme[]).map((t) => t.libelle) : undefined,
+        seuil_analyse: seuil !== c.seuil_analyse ? seuil : undefined,
       },
     }));
     await ctx.env.DB.batch(ecritures);
-    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation, option_analyse: analyse, vocabulaire: JSON.parse(vocab) as string[], grille_themes: JSON.parse(grille) as Theme[] } });
+    return json({ campagne: { id: c.id, nom, debut, fin, conservation_jours: conservation, option_analyse: analyse, vocabulaire: JSON.parse(vocab) as string[], grille_themes: JSON.parse(grille) as Theme[], seuil_analyse: seuil } });
   });
 
   // Suppression d'une campagne : un brouillon jamais joué, ou une campagne close (ex. campagnes d'essai) avec tout ce

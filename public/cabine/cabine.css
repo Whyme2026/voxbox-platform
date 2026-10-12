@@ -24,6 +24,14 @@
   font-family: "Inter"; src: url("../polices/inter.woff") format("woff");
   font-weight: 400 700; font-display: swap;
 }
+/* Barlow Condensed (titres, une seule graisse grasse) et Barlow (texte) : codes de la Fabrique de l'Innovation, licence OFL. */
+@font-face {
+  font-family: "Barlow Condensed"; src: url("../polices/barlow-condensed-bold.woff") format("woff");
+  font-weight: 500 900; font-display: swap;
+}
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-regular.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-semibold.woff") format("woff"); font-weight: 500 600; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-bold.woff") format("woff"); font-weight: 700 900; font-display: swap; }
 
 :root {
   /* Format de l'image filmée (et de son aperçu) : 4:3 en paysage, 3:4 en portrait. */

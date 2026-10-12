@@ -5,7 +5,7 @@ import { ADMIN } from "./aide/env.ts";
 import { campagneAnalyse, fauxMistral } from "./aide/analyse.ts";
 import { transcrireReponse } from "../src/analyse/transcription.ts";
 import { classerReponse, consigne, lireClassement, reprendreClassements, situerExtrait } from "../src/analyse/classement.ts";
-import { SEUIL_VISITEURS, heureParis, verbatimsRepresentatifs } from "../src/routes/analyse.ts";
+import { SEUIL_MINIMUM, SEUIL_VISITEURS, heureParis, verbatimsRepresentatifs } from "../src/routes/analyse.ts";
 
 const traiterReponse = async (env: any, rid: string, faux: ReturnType<typeof fauxMistral>) => {
   assert.equal(await transcrireReponse(env, rid, { fetch: faux.f }), "faite");
@@ -157,6 +157,39 @@ test("par question : rien d'agrégé sous 100 visiteurs, répartition, tonalité
   assert.equal(silence.verbatims[0].tonalite, "positif", "la tonalité la plus fréquente d'abord");
   assert.ok(silence.verbatims.some((x: any) => x.tonalite === "negatif"), "la minorité est aussi représentée");
   assert.ok(await db.prepare("SELECT 1 FROM journal WHERE action = 'analyse.consultation'").first());
+});
+
+test("seuil réglable par campagne : 100 par défaut, 20 au moins, abaissé il ouvre les vues plus tôt (journalisé)", async () => {
+  const { env, db, api, cid, visiteur } = await campagneAnalyse();
+  const v = await visiteur();
+  await traiterReponse(env, v.rid, fauxMistral());
+  const c = (await api("GET", `/api/admin/campagnes/${cid}`, ADMIN)).corps.campagne;
+  assert.equal(c.seuil_analyse, SEUIL_VISITEURS);
+  assert.equal((await api("PATCH", `/api/admin/campagnes/${cid}`, ADMIN, { seuil_analyse: SEUIL_MINIMUM - 1 })).status, 400);
+  assert.equal((await api("PATCH", `/api/admin/campagnes/${cid}`, ADMIN, { seuil_analyse: 1001 })).status, 400);
+  assert.equal((await api("PATCH", `/api/admin/campagnes/${cid}`, "lit@alpha.test", { seuil_analyse: 20 })).status, 403, "réservé à WhyMe");
+  const ok = await api("PATCH", `/api/admin/campagnes/${cid}`, ADMIN, { seuil_analyse: 20 });
+  assert.equal(ok.status, 200, JSON.stringify(ok.corps));
+  assert.equal(ok.corps.campagne.seuil_analyse, 20);
+  const sous = await api("GET", `/api/espace/campagnes/${cid}/analyse`, "lit@alpha.test");
+  assert.deepEqual(sous.corps.seuil, { visiteurs: 1, requis: 20, atteint: false });
+
+  const s0 = await db.prepare("SELECT campagne_id, consentement_version_id, parcours_version_id FROM sessions WHERE id = ?").bind(v.sid).first<any>();
+  const now = new Date().toISOString();
+  for (let i = 0; i < 19; i++) {
+    const sid = crypto.randomUUID();
+    await db.batch([
+      db.prepare(`INSERT INTO sessions (id, campagne_id, canal, prenom, consent_interne, consentement_version_id, parcours_version_id, code_retrait, cree_le, purge_prevue_le)
+        VALUES (?, ?, 'cabine', ?, 1, ?, ?, ?, ?, ?)`).bind(sid, s0.campagne_id, `V${i}`, s0.consentement_version_id, s0.parcours_version_id, `S${String(i).padStart(9, "0")}`, now, now),
+      db.prepare(`INSERT INTO reponses (id, session_id, etape_id, cle_source, statut, transcription_etat, analyse_etat, cree_le, maj_le)
+        VALUES (?, ?, 'q-coup-de-coeur', 'x.webm', 'recue', 'faite', 'faite', ?, ?)`).bind(crypto.randomUUID(), sid, now, now),
+    ]);
+  }
+  const sur = await api("GET", `/api/espace/campagnes/${cid}/analyse`, "lit@alpha.test");
+  assert.deepEqual(sur.corps.seuil, { visiteurs: 20, requis: 20, atteint: true });
+  assert.ok(Array.isArray(sur.corps.questions[0].themes), "vues agrégées ouvertes");
+  const j = await db.prepare("SELECT details FROM journal WHERE action = 'campagne.modification' ORDER BY rowid DESC LIMIT 1").first<any>();
+  assert.equal(JSON.parse(j.details).seuil_analyse, 20);
 });
 
 test("changer la grille fait reclasser les réponses ; retrait d'accord : thèmes et alerte effacés avec la réponse", async () => {

@@ -5,6 +5,10 @@
 /* Polices des habillages de campagne : nécessaires au dessin des Parlomix. */
 @font-face { font-family: "Michroma"; src: url("../polices/michroma.woff") format("woff"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Inter"; src: url("../polices/inter.woff") format("woff"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("../polices/barlow-condensed-bold.woff") format("woff"); font-weight: 500 900; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-regular.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-semibold.woff") format("woff"); font-weight: 500 600; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-bold.woff") format("woff"); font-weight: 700 900; font-display: swap; }
 
 :root {
   --vox: #3F4C8F; --vox-fonce: #2C3769; --vox-pale: #E4E6F3;

@@ -56,7 +56,7 @@ consentement avant toute question, toutes les étapes atteignables, fin obligato
 ## Habillage de campagne (parcours.habillage)
 Une campagne peut prendre l'allure de sa marque sans une ligne de code propre à la marque : tout est dans le parcours,
 versionné et validé par le client comme le reste. Clés (toutes facultatives, contrôlées par `validerHabillage`) :
-- `polices` : `titres` et `texte` parmi `fredoka`, `gabarito`, `michroma`, `inter` (auto-hébergées, OFL). Une police
+- `polices` : `titres` et `texte` parmi `fredoka`, `gabarito`, `michroma`, `inter`, `barlow-condensed`, `barlow` (auto-hébergées, OFL). Une police
   de titre très large (Michroma) est dessinée plus petite et en graisse normale ; boutons et saisie restent dans la
   police du texte.
 - `titresMajuscules` : titres, questions, options et cartes du Parlomix en capitales.

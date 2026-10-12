@@ -425,6 +425,8 @@ async function vueCampagne(/** @type {string} */ id) {
     c.statut === "close" ? null : champ("Grille de thèmes (option Analyse) : un thème par ligne, « Libellé : ce qu'il couvre »",
       h("textarea", { name: "grille_themes", rows: 5, placeholder: "Silence : bruit, calme, acoustique\nÉcran : écran, interface, menus\nPrix", style: "min-height: 110px" },
         (c.grille_themes ?? []).map((/** @type {any} */ t) => t.description ? `${t.libelle} : ${t.description}` : t.libelle).join("\n")), "large"),
+    c.statut === "close" ? null : champ("Seuil d'ouverture des vues agrégées (visiteurs, 20 au moins, 100 par défaut)",
+      h("input", { name: "seuil_analyse", type: "number", min: 20, max: 1000, value: c.seuil_analyse ?? 100 })),
     c.statut === "close" ? null : champ("Vocabulaire de la campagne (un terme par ligne : noms de modèles, de marques…)",
       h("textarea", { name: "vocabulaire", rows: 3, placeholder: "Ex. : Geely EX5", style: "min-height: 70px" }, (c.vocabulaire ?? []).join("\n")), "large"),
     c.statut === "close" ? h("p", { class: "large", style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Campagne close : seul son nom peut encore changer.")
@@ -446,7 +448,7 @@ async function vueCampagne(/** @type {string} */ id) {
         return { ...(existant ? { id: existant.id } : {}), libelle, ...(description ? { description } : {}) };
       });
       await api(`/api/admin/campagnes/${c.id}`, { methode: "PATCH", corps: c.statut === "close" ? { nom: v.nom } : {
-        nom: v.nom, debut: v.debut || null, fin: v.fin || null, vocabulaire, grille_themes,
+        nom: v.nom, debut: v.debut || null, fin: v.fin || null, vocabulaire, grille_themes, seuil_analyse: Number(v.seuil_analyse),
         ...(c.statut === "active" ? {} : { conservation_jours: Number(v.conservation_jours), option_analyse: v.option_analyse === "on" }),
       } });
       toast("Campagne enregistrée."); router();

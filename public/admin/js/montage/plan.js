@@ -39,7 +39,7 @@ export function contraste(/** @type {string} */ hex) {
 }
 
 /** Polices auto-hébergées que l'habillage d'une campagne peut choisir (mêmes que la cabine). */
-export const POLICES = /** @type {const} */ ({ fredoka: "Fredoka", gabarito: "Gabarito", michroma: "Michroma", inter: "Inter" });
+export const POLICES = /** @type {const} */ ({ fredoka: "Fredoka", gabarito: "Gabarito", michroma: "Michroma", inter: "Inter", "barlow-condensed": "Barlow Condensed", barlow: "Barlow" });
 /** Polices de titre très larges : dessinées plus petites et en graisse normale. */
 const POLICES_LARGES = new Set(["michroma"]);
 

@@ -4,11 +4,13 @@
 //  - auto : parcours automobile (prénom, consentement, cadrage, choix, pause avant/après, reprise) ;
 //  - fabrice : ambiance « pop » et tutoiement (choix, 6 questions), en paysage puis en portrait ;
 //  - alexandre : ambiance « marine », tutoiement et un visuel par écran (4 questions), en paysage puis en portrait ;
+//  - pfa : Fabrique de l'Innovation (Mondial de l'Auto 2026) : habillage Barlow, dégradé et rayons, tutoiement, prénom seul,
+//    sans diffusion publique (public jeune), 4 questions, en paysage puis en portrait ;
 //  - geely : campagne habillée (polices, fonds, visuels) à trois branches ; le visiteur « jette un œil »,
 //    répond, part essayer la voiture, revient et répond aux questions d'après l'essai (choix enregistrés).
 // Chaque scénario vérifie ensuite que toutes les vidéos reçues contiennent une piste son et de la voix.
 //
-// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|geely]
+// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|pfa|geely]
 // Nécessite Playwright et Chromium (variables PLAYWRIGHT_MODULE et PLAYWRIGHT_BROWSERS_PATH).
 
 import { createRequire } from "node:module";
@@ -27,7 +29,7 @@ if (!audio) throw new Error("Fichier audio de test manquant");
 mkdirSync(captures, { recursive: true });
 
 const fixture = scenario === "auto" ? "parcours-automobile.json" : scenario === "fabrice" ? "parcours-fabrice.json"
-  : scenario === "alexandre" ? "parcours-alexandre.json" : scenario === "geely" ? "parcours-geely.json" : "parcours-demo.json";
+  : scenario === "alexandre" ? "parcours-alexandre.json" : scenario === "pfa" ? "parcours-pfa.json" : scenario === "geely" ? "parcours-geely.json" : "parcours-demo.json";
 const parcours = JSON.parse(readFileSync(join(import.meta.dirname, `../../fixtures/${fixture}`), "utf8"));
 // Parcours accéléré pour l'essai. E2E_RYTHME=demo garde un rythme proche du réel (pour filmer une démonstration).
 const rythmeDemo = process.env.E2E_RYTHME === "demo";
@@ -40,8 +42,8 @@ const nbQuestions = scenario === "geely" ? 6 : parcours.etapes.filter((e: any) =
 const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
 const { code } = await preparer(parcours,
-  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : { nom: "Parlobox" },
-  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "alexandre" ? "Spécial Alexandre" : scenario === "geely" ? "Geely — concession" : "Démo Parlobox (neutre)");
+  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : scenario === "pfa" ? { nom: "PFA" } : { nom: "Parlobox" },
+  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "alexandre" ? "Spécial Alexandre" : scenario === "pfa" ? "Fabrique de l'Innovation — Mondial 2026" : scenario === "geely" ? "Geely — concession" : "Démo Parlobox (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
@@ -322,6 +324,63 @@ async function scenarioAlexandre() {
   await page.waitForTimeout(800);
   await capture("08-question-portrait");
   return { sessions: 2, consentDiffusion: 0, prenom: "Alexandre" };
+}
+
+async function scenarioPfa() {
+  await page.getByText("Ton avis compte.").waitFor();
+  assert.equal(await page.locator(".visuel-accueil").count(), 1, "visuel de l'accueil affiché");
+  // Polices de la Fabrique, hébergées par la plateforme et bien chargées.
+  await page.evaluate(() => document.fonts.ready);
+  assert.equal(await page.evaluate(() => document.fonts.check('700 40px "Barlow Condensed"')), true, "Barlow Condensed chargée");
+  assert.equal(await page.evaluate(() => document.fonts.check('400 20px "Barlow"')), true, "Barlow chargée");
+  await page.waitForTimeout(2400);
+  await capture("01-accueil");
+  await bouton("Je me lance");
+  await page.getByText("ton prénom ?").waitFor();
+  assert.equal(await page.getByText("E-mail").count(), 0, "prénom seul : pas d'e-mail demandé");
+  await touche("I");
+  for (const c of "nès") await touche(c);
+  await page.waitForTimeout(500);
+  await capture("02-identification");
+  await bouton("Continuer");
+  await page.getByText("Merci Inès !").waitFor();
+  assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique proposée");
+  await cocher("J'accepte que PFA");
+  await page.waitForTimeout(1200);
+  await capture("03-regles");
+  await bouton("C'est parti");
+  await page.getByText("Place ton visage dans l'ovale").waitFor();
+  await page.waitForTimeout(1200);
+  await capture("03b-cadrage");
+  await bouton("Je suis prêt");
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  for (const [i, titre] of titres.entries()) {
+    const n = String(i + 1);
+    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator("#compte:not([hidden])").waitFor();
+    await page.waitForTimeout(400);
+    await capture(`04-q${n}-a-lire`);
+    await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    await capture(`05-q${n}-on-tourne`);
+  }
+  await page.getByText("Merci Inès !").waitFor({ timeout: 90_000 });
+  await page.waitForTimeout(2500);
+  await capture("06-fin");
+  await page.setViewportSize({ width: 720, height: 1280 });
+  await page.getByText("Ton avis compte.").waitFor({ timeout: 25_000 });
+  await page.waitForTimeout(2400);
+  await capture("07-accueil-portrait");
+  await bouton("Je me lance");
+  await touche("L"); await touche("o"); await touche("u");
+  await bouton("Continuer");
+  await cocher("J'accepte que PFA");
+  await bouton("C'est parti");
+  await bouton("Je suis prêt");
+  await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(800);
+  await capture("08-question-portrait");
+  return { sessions: 2, consentDiffusion: 0, prenom: "Inès" };
 }
 
 async function scenarioGeely() {
@@ -650,7 +709,7 @@ async function visiteAdminGeely() {
 try {
   await appairer();
   const attendu = scenario === "auto" ? await scenarioAuto() : scenario === "fabrice" ? await scenarioFabrice()
-    : scenario === "alexandre" ? await scenarioAlexandre() : scenario === "geely" ? await scenarioGeely() : await scenarioDemo();
+    : scenario === "alexandre" ? await scenarioAlexandre() : scenario === "pfa" ? await scenarioPfa() : scenario === "geely" ? await scenarioGeely() : await scenarioDemo();
 
   // La file d'envoi se vide.
   const videosRecues = () => [...objets.keys()].filter((k) => k.endsWith(".webm")).length;

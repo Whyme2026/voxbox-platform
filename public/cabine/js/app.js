@@ -183,7 +183,7 @@ async function chargerConfig() {
 }
 
 /** Familles des polices auto-hébergées, proposées aux habillages de campagne. */
-const POLICES = /** @type {Record<string, string>} */ ({ fredoka: '"Fredoka"', gabarito: '"Gabarito"', michroma: '"Michroma"', inter: '"Inter"' });
+const POLICES = /** @type {Record<string, string>} */ ({ fredoka: '"Fredoka"', gabarito: '"Gabarito"', michroma: '"Michroma"', inter: '"Inter"', "barlow-condensed": '"Barlow Condensed"', barlow: '"Barlow"' });
 /** Polices de titre très larges : tailles de titre réduites (voir cabine.css). */
 const POLICES_LARGES = new Set(["michroma"]);
 const COULEUR = /^#[0-9a-fA-F]{6}$/;
