@@ -322,6 +322,12 @@ button { font: inherit; color: inherit; }
 .guide-cadrage .voile { fill: rgba(20, 22, 40, .32); }
 .guide-cadrage .contour, .guide-cadrage .epaules { fill: none; stroke: #FFFFFF; stroke-width: 4; stroke-dasharray: 12 9; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke .3s ease; }
 .guide-cadrage.ok .contour, .guide-cadrage.ok .epaules { stroke: #3DDC84; stroke-dasharray: none; }
+.verifs-cadrage { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 0; list-style: none; font-size: clamp(15px, 2.4vmin, 18px); font-weight: 600; color: var(--texte); }
+.verifs-cadrage li { display: inline-flex; align-items: center; gap: 8px; }
+.verifs-cadrage .etat { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 14px; font-weight: 700;
+  background: color-mix(in srgb, var(--texte) 12%, var(--fond)); color: var(--texte); transition: background .3s ease; }
+.verifs-cadrage [data-etat="ok"] .etat { background: #1F9D55; color: #FFFFFF; }
+.verifs-cadrage [data-etat="ko"] .etat { background: var(--rec); color: #FFFFFF; }
 .ecran-cadrage .emplacement-camera { flex: 1; min-height: 40vh; display: grid; place-items: center; }
 .ecran-cadrage .apercu { width: auto; max-width: 100%; height: 100%; aspect-ratio: var(--format-camera); }
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
