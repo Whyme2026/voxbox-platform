@@ -7,7 +7,7 @@ import { traiter } from "../src/index.ts";
 import type { Env } from "../src/types.ts";
 import { ADMIN, client, creerEnv } from "./aide/env.ts";
 import { reprendreTranscriptions, transcrireReponse } from "../src/analyse/transcription.ts";
-import { lireReponse, type Fetch } from "../src/analyse/mistral.ts";
+import { lireReponse, termesContexte, type Fetch } from "../src/analyse/mistral.ts";
 import { MENTION_ANALYSE } from "../src/rgpd/consentement.ts";
 
 const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
@@ -112,7 +112,8 @@ test("avec l'option : textes qui l'annoncent, réponse transcrite, horodatée et
   const appel = faux.appels[0]!;
   assert.equal(appel.url, "https://api.mistral.ai/v1/audio/transcriptions");
   assert.equal(appel.auth, "Bearer cle-test");
-  assert.deepEqual(appel.champs.filter(([k]) => k === "context_bias").map(([, x]) => x), ["Geely EX5", "Zeekr"]);
+  // Mots isolés seulement (le service refuse espaces et virgules) : les expressions sont découpées.
+  assert.deepEqual(appel.champs.filter(([k]) => k === "context_bias").map(([, x]) => x), ["Geely", "EX5", "Zeekr"]);
   assert.ok(appel.champs.some(([k, x]) => k === "file" && x === "fichier:reponse.webm"));
   assert.ok(!appel.champs.some(([k]) => k === "language"), "la langue n'est pas imposée avec l'horodatage");
 
@@ -260,4 +261,11 @@ test("lecture tolérante de la réponse du service (mots ou segments)", () => {
   const vide = lireReponse({ text: "" });
   assert.deepEqual(vide, { texte: "", langue: null, segments: [] });
   assert.throws(() => lireReponse(null));
+});
+
+test("vocabulaire : envoyé au service en mots isolés, sans espace ni virgule (refus 400 du 12/10/2026)", () => {
+  assert.deepEqual(termesContexte(["Mondial de l'Auto", "PFA", "Fabrique de l'Innovation", "mondial", "Renault, Peugeot"]),
+    ["Mondial", "l'Auto", "PFA", "Fabrique", "l'Innovation", "Renault", "Peugeot"]);
+  assert.ok(termesContexte(Array.from({ length: 150 }, (_, i) => `terme${i}`)).length === 100);
+  assert.ok(termesContexte(["Mondial de l'Auto"]).every((t) => !/[\s,]/u.test(t)));
 });

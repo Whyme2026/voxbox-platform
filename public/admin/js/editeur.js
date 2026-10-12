@@ -106,12 +106,20 @@ export function nouvelleEtape(/** @type {string} */ type, /** @type {Record<stri
   return e;
 }
 
-/** Nettoie une étape avant envoi : champs vides retirés, listes sans lignes vides. */
+/**
+ * Nettoie une étape avant envoi : champs vides du formulaire retirés, listes sans lignes vides.
+ * Les réglages que le formulaire ne montre pas (posés en mode expert, ex. intitulePistes: "") sont gardés tels quels.
+ */
 export function nettoyer(/** @type {Record<string, any>} */ e) {
+  const duFormulaire = new Set((TYPES[e.type]?.champs ?? []).map((c) => c.cle));
   /** @type {Record<string, any>} */
   const propre = {};
   for (const [k, v] of Object.entries(e)) {
-    if (v === "" || v === null || v === undefined) continue;
+    if (v === null || v === undefined) continue;
+    if (v === "") {
+      if (!duFormulaire.has(k) && !["fond", "visuel", "suite"].includes(k)) propre[k] = v;
+      continue;
+    }
     if (Array.isArray(v) && k !== "options") {
       const l = v.map((x) => String(x).trim()).filter(Boolean);
       if (l.length) propre[k] = l;
@@ -125,6 +133,16 @@ export function nettoyer(/** @type {Record<string, any>} */ e) {
 /** Problèmes signalés par le serveur qui concernent une étape (« étape q-1 : … »). */
 export function problemesDe(/** @type {string} */ id, /** @type {string[]} */ problemes) {
   return problemes.filter((p) => new RegExp(`^étape (\\d+ \\()?${id.replace(/[-]/g, "\\-")}\\)?( |,|:)`).test(p));
+}
+
+/** Réglages du parcours entier autres que ceux gérés par l'éditeur (ex. disposition « centree ») : à conserver. */
+export function autresReglages(/** @type {any} */ c) {
+  /** @type {Record<string, any>} */
+  const autres = {};
+  for (const [k, v] of Object.entries(c ?? {})) {
+    if (!["version", "langue", "ambiance", "tutoiement", "habillage", "etapes"].includes(k)) autres[k] = structuredClone(v);
+  }
+  return autres;
 }
 
 /** Ambiance connue de la cabine ; « conversation » par défaut. */
@@ -156,7 +174,10 @@ export function editeurParcours(o) {
   let modifie = false;
   let minuterie = 0;
 
+  /** Réglages du parcours que l'éditeur ne montre pas (disposition…) : conservés tels quels à l'enregistrement. */
+  /** @type {Record<string, any>} */ let autres = autresReglages(o.config);
   const config = () => ({
+    ...autres,
     version: 1, langue,
     ...(ambiance !== "conversation" ? { ambiance } : {}),
     ...(tutoiement ? { tutoiement: true } : {}),
@@ -165,6 +186,7 @@ export function editeurParcours(o) {
   });
   /** Reprend les réglages d'un parcours chargé (JSON, modèle), habillage compris. */
   const reprendre = (/** @type {any} */ c) => {
+    autres = autresReglages(c);
     langue = c.langue ?? "fr";
     ambiance = ambianceConnue(c.ambiance);
     tutoiement = c.tutoiement === true;
