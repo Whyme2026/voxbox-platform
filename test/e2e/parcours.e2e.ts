@@ -734,7 +734,7 @@ async function visiteAdminPfa() {
   assert.equal(films.results.length, 2, "deux Parlomix prêts");
   for (const f of films.results) {
     const plan = JSON.parse(f.plan);
-    assert.match(plan.sequences[0].titre, /^Le Salon de l'auto de \S/, "ouverture de la campagne avec le prénom");
+    assert.equal(plan.sequences[0].titre, "Le Salon de l'auto d'Inès", "ouverture de la campagne avec le prénom (élision)");
     assert.equal(plan.sequences[0].dureeMs, 3000, "ouverture de 3 s");
     assert.equal(plan.theme.jingle, "turbo");
     const fichier = join(captures, `pfa-parlomix-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);

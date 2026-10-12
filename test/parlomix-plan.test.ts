@@ -127,14 +127,17 @@ test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouver
   const pfa = JSON.parse(readFileSync(new URL("../fixtures/parcours-pfa.json", import.meta.url), "utf8"));
   const theme = themeDepuisCouleurs({}, pfa.habillage, pfa.ambiance);
   assert.equal(theme.jingle, "turbo");
-  assert.equal(titreOuverture(theme, "Inès"), "Le Salon de l'auto de Inès");
+  assert.equal(titreOuverture(theme, "Inès"), "Le Salon de l'auto d'Inès", "élision devant une voyelle");
+  assert.equal(titreOuverture(theme, "Hugo"), "Le Salon de l'auto d'Hugo", "et devant un h");
+  assert.equal(titreOuverture(theme, "Élodie"), "Le Salon de l'auto d'Élodie", "voyelle accentuée");
+  assert.equal(titreOuverture(theme, "Lou"), "Le Salon de l'auto de Lou", "consonne : pas d'élision");
   assert.equal(titreOuverture(themeDepuisCouleurs({}, null), "Inès"), "Inès", "sans habillage : le prénom seul");
-  const plan = planParlomix({ type: "personne", titre: titreOuverture(theme, "Inès"), signature: "PFA", format: "16:9", theme,
+  const plan = planParlomix({ type: "personne", titre: titreOuverture(theme, "Lou"), signature: "PFA", format: "16:9", theme,
     clips: [{ id: "r1", etiquette: "Ta visite", dureeMs: 4000, segments: [[0, 4000]], sessionId: "s1" }] });
   const intro = plan.sequences[0] as any;
   assert.equal(intro.role, "intro");
   assert.equal(intro.dureeMs, DUREE_TURBO_MS);
-  assert.equal(intro.titre, "Le Salon de l'auto de Inès");
+  assert.equal(intro.titre, "Le Salon de l'auto de Lou");
   assert.equal(intro.jingle, true);
   assert.equal(intro.fond, "fabrique", "dégradé de la campagne");
   assert.equal(intro.visuel, "voiture-blanche");

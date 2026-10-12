@@ -73,7 +73,8 @@ versionné et validé par le client comme le reste. Clés (toutes facultatives, 
 - `parlomix` (12/10/2026) : `{ ouverture?, jingle?, fond?, visuel? }`. `ouverture` : titre de la carte d'ouverture
   du Parlomix par personne, 60 caractères au plus, `{prenom}` remplacé (ex. « Le Salon de l'auto de {prenom} ») ;
   `jingle` : `parlobox` (par défaut) ou `turbo` ; `fond` et `visuel` : ceux de la carte d'ouverture, parmi les
-  `fonds` et `visuels` de l'habillage. Ne touche que le montage, jamais l'écran de la cabine.
+  `fonds` et `visuels` de l'habillage. Ne touche que le montage, jamais l'écran de la cabine. « de {prenom} » devient
+  « d'{prenom} » devant une voyelle ou un h (« Le Salon de l'auto d'Inès »).
 Sans logo, l'en-tête d'une campagne habillée affiche le nom de la marque dans la police des titres.
 Références : `fixtures/parcours-geely.json` (première campagne habillée, silhouettes de voitures dessinées par WhyMe,
 à remplacer par les visuels officiels de la marque) ; `fixtures/parcours-pfa.json` (Fabrique de l'Innovation, Mondial

@@ -94,10 +94,18 @@ export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conv
   return theme;
 }
 
-/** Titre de la carte d'ouverture d'un Parlomix par personne : celui de l'habillage avec son prénom, sinon le prénom. */
+/** Un prénom qui appelle l'élision (« d'Inès », « d'Hugo ») : voyelle ou h, accentuée ou non. */
+const ELISION = /^[aeiouyhàâäéèêëîïôöùûüœæ]/i;
+
+/**
+ * Titre de la carte d'ouverture d'un Parlomix par personne : celui de l'habillage avec son prénom, sinon le prénom.
+ * « de {prenom} » devient « d'{prenom} » devant une voyelle ou un h (« Le Salon de l'auto d'Inès »).
+ */
 export function titreOuverture(/** @type {Theme} */ theme, /** @type {string} */ prenom) {
   if (!theme.ouverture) return prenom;
-  return theme.ouverture.replace(/\{prenom\}/g, prenom).replace(/\s+/g, " ").trim();
+  const p = prenom.trim();
+  const texte = ELISION.test(p) ? theme.ouverture.replace(/\b([Dd])e \{prenom\}/g, "$1'{prenom}") : theme.ouverture;
+  return texte.replace(/\{prenom\}/g, p).replace(/\s+/g, " ").trim();
 }
 
 /**
