@@ -80,35 +80,25 @@
         "Dis-nous tout en 4 questions, face caméra.",
         "Pas de bonne ou de mauvaise réponse : on veut ton vrai avis."
       ],
-      "bouton": "Je me lance"
+      "bouton": "Je me lance",
+      "bullesGrandes": true
     },
     {
       "id": "toi",
       "type": "identification",
       "fond": "blanc",
       "titre": "On commence simple : ton prénom ?",
-      "texte": "Juste pour t'appeler par ton prénom."
-    },
-    {
-      "id": "accord",
-      "type": "consentement",
-      "fond": "lilas",
-      "titre": "Avant de tourner, 4 choses à savoir",
-      "texte": "Merci {prenom} !",
-      "consignes": [
-        "4 questions vidéo, une à la fois.",
-        "25 secondes au plus par réponse : fini avant ? On passe à la suite.",
-        "1 an de conservation, à la PFA seulement, pour mieux connaître l'avis des jeunes sur l'auto.",
-        "1 QR code à la sortie pour retirer ton accord quand tu veux."
-      ],
-      "bouton": "C'est parti"
+      "texte": "Juste pour t'appeler par ton prénom.",
+      "accord": true
     },
     {
       "id": "cadrage",
       "type": "cadrage",
       "fond": "blanc",
+      "texte": "Merci {prenom} ! On va te poser 4 questions. Après chaque réponse, tu peux passer à la suivante.",
       "titre": "Place ton visage dans l'ovale",
-      "proposerFloutage": true
+      "proposerFloutage": true,
+      "reperes": false
     },
     {
       "id": "q-visite",

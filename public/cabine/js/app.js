@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.6.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -477,7 +477,7 @@ function ecranAccueil(/** @type {any} */ e) {
           e.texte ? h("p", { class: "chapo" }, e.texte) : null,
           visuelEtape(e, "visuel-accueil"),
           enPause.length ? h("div", { class: "actions" }, bouton("Je reviens", ecranReprise, "secondaire")) : null),
-        h("section", { class: "carte conversation", "aria-label": tv("La cabine vous parle", "La cabine te parle") },
+        h("section", { class: `carte conversation${e.bullesGrandes ? " grandes" : ""}`, "aria-label": tv("La cabine vous parle", "La cabine te parle") },
           ...bulles.map((t) => bulle("marque arrive", t)),
           h("p", { class: "bulle marque arrive ecrit", "aria-hidden": "true" }, h("i"), h("i"), h("i")),
           h("div", { class: "actions droite arrive" }, bouton(e.bouton, () => { nouvelleSession(); suite(e); }))))),
@@ -510,8 +510,17 @@ function ecranIdentification(/** @type {any} */ e) {
   if (e.demanderNom) defs.push({ cle: "nom", etiquette: "Nom, facultatif", indice: tv("Votre nom", "Ton nom"), mode: "nom", max: 60, principal: false });
   if (e.demanderEmail) defs.push({ cle: "email", etiquette: tv("E-mail, facultatif : pour retrouver vos vidéos et changer d'avis", "E-mail, facultatif : pour retrouver tes vidéos et changer d'avis"), indice: tv("vous@exemple.fr", "toi@exemple.fr"), mode: "email", max: 160, principal: false });
 
-  const continuer = bouton("Continuer", () => suite(e));
-  const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1);
+  // Accord sur cet écran (identification.accord) : entre le prénom et le bouton, obligatoire pour continuer.
+  let accord = !e.accord;
+  const continuer = bouton("Continuer", () => { if (!accord) return; if (e.accord) { v.diffusion = false; envoyerSession(); } suite(e); });
+  const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1 || !accord);
+  const marque = config.client?.nom ?? "la marque";
+  const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_interne ?? "");
+  const blocAccord = e.accord ? h("div", { class: "accord-identification" },
+    caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses visiteurs.`, false,
+      (x) => { accord = x; majBouton(); }, "Obligatoire pour commencer."),
+    h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, tv("En savoir plus sur vos données", "En savoir plus sur tes données")),
+    details) : null;
   const recontact = h("button", { type: "button", class: "case", role: "checkbox", "aria-checked": String(v.recontact), hidden: !v.email,
     onclick: () => { v.recontact = !v.recontact; recontact.setAttribute("aria-checked", String(v.recontact)); } },
     h("span", { class: "boite" }), h("span", {}, "J'accepte aussi d'être recontacté(e) par la marque."));
@@ -540,15 +549,21 @@ function ecranIdentification(/** @type {any} */ e) {
         e.texte ? bulle("marque douce moyenne arrive", perso(e.texte)) : null),
       h("div", { class: "champs" }, ...champs),
       recontact,
+      blocAccord,
       h("div", { class: "actions droite" }, continuer)),
   ], "identification");
   majBouton();
   champs[0]?.click();
 }
 
-function ecranConsentement(/** @type {any} */ e) {
+async function ecranConsentement(/** @type {any} */ e) {
   if (!visiteur) return accueil();
   const v = visiteur;
+  // Accord et cadrage sur le même écran : la caméra s'ouvre tout de suite, l'ovale s'affiche sur l'image.
+  if (e.avecCamera) {
+    if (!(await preparerCamera())) return ecranErreurCamera();
+    activerFlou(v.floutage);
+  }
   const marque = config.client?.nom ?? "la marque";
   const proposee = Boolean(e.proposerDiffusion) && diffusionProposee(config.parcours) && Boolean(config.consentement?.texte_diffusion);
   if (!proposee) v.diffusion = false;
@@ -563,12 +578,13 @@ function ecranConsentement(/** @type {any} */ e) {
   const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_interne ?? "");
 
   afficher([
-    h("div", { class: "ecran" },
+    h("div", { class: `ecran${e.avecCamera ? " ecran-cadrage ecran-accord-camera" : ""}` },
       h("div", { class: "deux" },
         h("section", { class: "colonne", "aria-label": "Comment ça marche" },
           e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
           h("h1", {}, perso(e.titre)),
-          e.consignes?.length ? h("ol", { class: "consignes" }, ...e.consignes.map((/** @type {string} */ c, /** @type {number} */ i) => {
+          e.avecCamera ? h("div", { class: "emplacement-camera" }) : null,
+          !e.avecCamera && e.consignes?.length ? h("ol", { class: "consignes" }, ...e.consignes.map((/** @type {string} */ c, /** @type {number} */ i) => {
             const { chiffre, reste } = decouperConsigne(perso(c));
             return h("li", { class: "arrive", style: `animation-delay: ${0.15 * (i + 1)}s` }, h("span", { class: "chiffre", "aria-hidden": chiffre ? null : "true" }, chiffre ?? String(i + 1)), h("span", {}, reste));
           })) : null),
@@ -577,7 +593,7 @@ function ecranConsentement(/** @type {any} */ e) {
             caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses visiteurs.`, false,
               (x) => { accord = x; partir.toggleAttribute("disabled", !x); }, "Obligatoire pour commencer."),
             proposee ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
-            e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, tv("Votre voix reste, votre visage disparaît.", "Ta voix reste, ton visage disparaît.")) : null),
+            e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; if (e.avecCamera) activerFlou(x); }, tv("Votre voix reste, votre visage disparaît.", "Ta voix reste, ton visage disparaît.")) : null),
           h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, tv("En savoir plus sur vos données", "En savoir plus sur tes données")),
           details,
           h("div", { class: "actions" }, partir)))),
@@ -592,18 +608,19 @@ async function ecranCadrage(/** @type {any} */ e) {
   activerFlou(v.floutage);
   afficher([
     h("div", { class: "ecran ecran-cadrage" },
+      e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
       h("h1", { class: "bulle marque grande" }, perso(e.titre)),
       h("div", { class: "emplacement-camera" }),
       h("div", { class: "actions" },
         e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
-        h("ul", { class: "verifs-cadrage", "aria-live": "polite" },
+        e.reperes === false ? null : h("ul", { class: "verifs-cadrage", "aria-live": "polite" },
           repere("v-lumiere", "Lumière"),
           repere("v-son", tv("Son : dites « bonjour »", "Son : dis « bonjour »")),
           detectionDisponible() ? repere("v-visage", "Visage dans l'ovale") : null),
         h("span", { style: "flex: 1" }),
         bouton("Je suis prêt", () => { envoyerSession(); suite(e); }))),
   ], "cadrage");
-  suivreCadrage();
+  if (e.reperes !== false) suivreCadrage(); else $("guide-cadrage").classList.remove("ok");
 }
 
 /** Repère de l'écran de cadrage : pastille (en attente, ok, à corriger) et libellé. */
