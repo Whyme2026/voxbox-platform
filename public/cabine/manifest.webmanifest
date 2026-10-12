@@ -1,0 +1,18 @@
+{
+  "name": "Parlobox",
+  "short_name": "Parlobox",
+  "description": "Cabine Parlobox by whyme",
+  "id": "/cabine/",
+  "start_url": "/cabine/",
+  "scope": "/cabine/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#F1F2F6",
+  "theme_color": "#F1F2F6",
+  "lang": "fr",
+  "icons": [
+    { "src": "icones/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icones/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icones/icone-masquable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

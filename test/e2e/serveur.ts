@@ -13,7 +13,7 @@ import { creerD1 } from "../aide/d1-local.ts";
 const PUBLIC = join(import.meta.dirname, "../../public");
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".woff": "font/woff", ".webm": "video/webm",
+  ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".webmanifest": "application/manifest+json", ".woff": "font/woff", ".webm": "video/webm",
 };
 
 export const objets = new Map<string, Uint8Array>();
