@@ -27,6 +27,8 @@ export interface EtapeAccueil extends EtapeBase {
   bouton: string;
   /** Bulles de la cabine qui « parle » au visiteur sur l'écran d'accueil (3 au plus). */
   bulles?: string[];
+  /** Bulles en grand, sur une colonne plus large : quand elles portent les consignes (12/10/2026). */
+  bullesGrandes?: boolean;
 }
 
 // Dans tous les textes affichés, {prenom} est remplacé par le prénom du visiteur (ou retiré s'il est inconnu).
@@ -55,6 +57,11 @@ export interface EtapeConsentement extends EtapeBase {
    * et le serveur refuse tout consentement de diffusion.
    */
   proposerDiffusion?: boolean;
+  /**
+   * Accord et cadrage sur le même écran (12/10/2026) : l'image et l'ovale à gauche sous le texte et le titre, l'accord
+   * et le bouton à droite. Le parcours n'a alors plus besoin d'étape « cadrage ». Les consignes ne sont pas affichées.
+   */
+  avecCamera?: boolean;
 }
 export interface EtapeCadrage extends EtapeBase { type: "cadrage"; titre: string; proposerFloutage?: boolean }
 export interface EtapeQuestion extends EtapeBase {
@@ -208,6 +215,7 @@ export function validerParcours(brut: unknown): string[] {
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
         if (e.surtitre !== undefined) txt(ou, "surtitre", e.surtitre, 40);
         if (e.bulles !== undefined) liste(ou, "bulles", e.bulles, 3, 120);
+        if (e.bullesGrandes !== undefined && typeof e.bullesGrandes !== "boolean") pb.push(`${ou} : « bullesGrandes » vrai ou faux`);
         break;
       case "pause":
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40); break;
@@ -227,6 +235,7 @@ export function validerParcours(brut: unknown): string[] {
         if (e.consignes !== undefined) liste(ou, "consignes", e.consignes, 6, 140);
         if (e.proposerFloutage !== undefined && typeof e.proposerFloutage !== "boolean") pb.push(`${ou} : « proposerFloutage » vrai ou faux`);
         if (e.proposerDiffusion !== undefined && typeof e.proposerDiffusion !== "boolean") pb.push(`${ou} : « proposerDiffusion » vrai ou faux`);
+        if (e.avecCamera !== undefined && typeof e.avecCamera !== "boolean") pb.push(`${ou} : « avecCamera » vrai ou faux`);
         break;
       case "question": {
         nbQuestions++;

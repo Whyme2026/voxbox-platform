@@ -84,6 +84,12 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - `ambiance` : `conversation` (par défaut), `pop` ou `marine` (voir plus bas).
 - `tutoiement` : textes fixes de la cabine au tutoiement ; les textes légaux restent au vouvoiement.
 - `disposition` (12/10/2026) : `cote` (par défaut) ou `centree`, voir « Disposition centrée » plus bas.
+- Accueil, `bullesGrandes` (12/10/2026) : les bulles en grand, sur une colonne plus large, quand elles portent les
+  consignes.
+- Consentement, `avecCamera` (12/10/2026, débrief PFA) : accord et cadrage sur le même écran. L'image et l'ovale sous
+  le texte et le titre, l'accord (obligatoire), le floutage et le bouton à droite ; ni consignes ni repères lumière et
+  son. Le parcours n'a alors plus d'étape `cadrage`. L'accord reste une étape à part entière : le supprimer n'est
+  jamais une option.
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle
