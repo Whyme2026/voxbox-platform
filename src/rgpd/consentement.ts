@@ -38,7 +38,7 @@ export function genererTextes(client: FicheClient, conservationJours: number, op
   const duree = dureeLisible(conservationJours);
   const texte_interne =
     `En touchant « C'est parti », vous acceptez que ${client.raison_sociale} (${client.nom}) enregistre ` +
-    `vos réponses en vidéo pour analyser les avis de ses clients. ` +
+    `vos réponses en vidéo pour analyser les avis de ses visiteurs. ` +
     (opts.analyse ? MENTION_ANALYSE : "") +
     `Les vidéos sont réservées à un usage interne, hébergées dans l'Union européenne par WhyMe pour le compte ` +
     `de ${client.nom}, et supprimées au bout de ${duree}. ` +

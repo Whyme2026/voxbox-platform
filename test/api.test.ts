@@ -89,6 +89,7 @@ test("le validateur valide sa campagne, le lecteur ne peut pas", async () => {
   assert.equal(d.corps.campagne.validee_par, a.validateur);
   assert.equal(d.corps.campagne.parcours.config.etapes.length, parcoursAuto.etapes.length);
   assert.match(d.corps.campagne.consentement.texte_interne, /Alpha France SAS/);
+  assert.match(d.corps.campagne.consentement.texte_interne, /avis de ses visiteurs/, "on parle de visiteurs, pas de clients : une cabine accueille du public");
 });
 
 test("modifier le parcours d'une campagne validée la remet en brouillon", async () => {

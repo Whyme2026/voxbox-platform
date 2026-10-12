@@ -563,7 +563,7 @@ function ecranConsentement(/** @type {any} */ e) {
           })) : null),
         h("section", { class: "carte accord", "aria-label": tv("Votre accord", "Ton accord") },
           h("div", { class: "cases" },
-            caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses clients.`, false,
+            caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses visiteurs.`, false,
               (x) => { accord = x; partir.toggleAttribute("disabled", !x); }, "Obligatoire pour commencer."),
             proposee ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
             e.proposerFloutage ? caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; }, tv("Votre voix reste, votre visage disparaît.", "Ta voix reste, ton visage disparaît.")) : null),

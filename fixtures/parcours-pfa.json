@@ -86,13 +86,13 @@
       "id": "accord",
       "type": "consentement",
       "fond": "lilas",
-      "titre": "Avant de tourner, trois choses",
+      "titre": "Avant de tourner, 4 choses à savoir",
       "texte": "Merci {prenom} !",
       "consignes": [
         "4 questions vidéo, une à la fois.",
-        "15 à 25 secondes par réponse : fini avant ? On passe à la suite.",
-        "Tes vidéos restent à la PFA, pour mieux connaître l'avis des jeunes sur l'auto.",
-        "Un QR code à la sortie pour retirer ton accord quand tu veux."
+        "25 secondes au plus par réponse : fini avant ? On passe à la suite.",
+        "1 an de conservation, à la PFA seulement, pour mieux connaître l'avis des jeunes sur l'auto.",
+        "1 QR code à la sortie pour retirer ton accord quand tu veux."
       ],
       "bouton": "C'est parti"
     },
