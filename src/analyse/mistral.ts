@@ -52,6 +52,24 @@ export function lireReponse(corps: unknown): Transcription {
 }
 
 /**
+ * Termes d'aide à la reconnaissance (context_bias) : le service n'accepte que des mots isolés, sans espace ni virgule
+ * (refus 400 constaté le 12/10/2026 avec « Mondial de l'Auto »). Les expressions du vocabulaire sont donc découpées en mots ;
+ * les petits mots en minuscules (de, la, à…) n'aident pas et sont écartés, les sigles (DS, MG) gardés ; doublons retirés, 100 termes au plus.
+ */
+export function termesContexte(vocabulaire: string[]): string[] {
+  const vus = new Set<string>();
+  const termes: string[] = [];
+  for (const expression of vocabulaire) {
+    for (const mot of expression.split(/[\s,]+/u)) {
+      if (!mot || ([...mot].length < 3 && mot === mot.toLowerCase()) || vus.has(mot.toLowerCase())) continue;
+      vus.add(mot.toLowerCase());
+      termes.push(mot);
+    }
+  }
+  return termes.slice(0, 100);
+}
+
+/**
  * Envoie l'audio d'une réponse (le fichier de la cabine tel quel) et renvoie le texte horodaté.
  * Pas de langue imposée : le service ne l'accepte pas avec l'horodatage ; il la détecte.
  */
@@ -67,7 +85,7 @@ export async function transcrire(opts: {
   form.append("model", MODELE_TRANSCRIPTION);
   form.append("file", new Blob([opts.audio], { type: opts.type }), opts.nomFichier);
   form.append("timestamp_granularities", "word");
-  for (const terme of opts.vocabulaire.slice(0, 100)) form.append("context_bias", terme);
+  for (const terme of termesContexte(opts.vocabulaire)) form.append("context_bias", terme);
 
   const appel = opts.fetch ?? fetch;
   let res: Response;
