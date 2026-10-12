@@ -340,21 +340,22 @@ async function scenarioPfa() {
   assert.equal(await page.getByText("E-mail").count(), 0, "prénom seul : pas d'e-mail demandé");
   await touche("I");
   for (const c of "nès") await touche(c);
+  // L'accord est sur cet écran, entre le prénom et le bouton : « Continuer » reste grisé sans lui.
+  assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique proposée");
+  assert.equal(await page.getByRole("button", { name: "Continuer" }).isDisabled(), true, "l'accord est obligatoire");
+  await cocher("J'accepte que PFA");
   await page.waitForTimeout(500);
-  await capture("02-identification");
+  await capture("02-identification-accord");
   await bouton("Continuer");
-  // Accord et cadrage sur le même écran : le message des 4 questions, l'image avec l'ovale, l'accord à droite.
+  // Cadrage : le message des 4 questions, l'image avec l'ovale, sans repères lumière et son.
   await page.getByText("On va te poser 4 questions").waitFor();
   await page.getByText("Place ton visage dans l'ovale").waitFor();
-  assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique proposée");
   assert.equal(await page.locator(".consignes").count(), 0, "plus d'écran de consignes");
-  await page.locator(".ecran-accord-camera #apercu:not([hidden])").waitFor({ timeout: 10_000 });
+  await page.locator(".ecran-cadrage #apercu:not([hidden])").waitFor({ timeout: 10_000 });
   assert.equal(await page.locator("#guide-cadrage").isVisible(), true, "ovale affiché sur l'image");
   assert.equal(await page.locator(".verifs-cadrage").count(), 0, "pas de repères lumière et son");
-  assert.equal(await page.getByRole("button", { name: "Je suis prêt" }).isDisabled(), true, "l'accord reste obligatoire");
-  await cocher("J'accepte que PFA");
   await page.waitForTimeout(1200);
-  await capture("03-accord-cadrage");
+  await capture("03-cadrage");
   await bouton("Je suis prêt");
   await page.locator("#compte:not([hidden])").waitFor({ timeout: 30_000 });
   assert.equal(await page.locator("#guide-cadrage").isVisible(), false, "pas d'ovale pendant les questions");
@@ -381,10 +382,11 @@ async function scenarioPfa() {
   await capture("07-accueil-portrait");
   await bouton("Je me lance");
   await touche("L"); await touche("o"); await touche("u");
-  await bouton("Continuer");
   await cocher("J'accepte que PFA");
+  await bouton("Continuer");
+  await page.getByText("On va te poser 4 questions").waitFor();
   await page.waitForTimeout(800);
-  await capture("07b-accord-cadrage-portrait");
+  await capture("07b-cadrage-portrait");
   await bouton("Je suis prêt");
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(800);

@@ -90,6 +90,10 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   le texte et le titre, l'accord (obligatoire), le floutage et le bouton à droite ; ni consignes ni repères lumière et
   son. Le parcours n'a alors plus d'étape `cadrage`. L'accord reste une étape à part entière : le supprimer n'est
   jamais une option.
+- Identification, `accord` (12/10/2026, débrief PFA) : la case d'accord d'usage interne entre le prénom et
+  « Continuer », grisé tant qu'elle n'est pas cochée ; la session part à ce moment. Tient lieu d'étape `consentement`
+  pour le schéma (pas de diffusion publique proposée dans ce cas). Retenu pour la PFA à la place de `avecCamera`.
+- Cadrage, `texte` (bulle au-dessus du titre) et `reperes` (`false` : ni lumière, ni son, ni visage ; l'ovale reste).
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle

@@ -40,6 +40,11 @@ export interface EtapeIdentification extends EtapeBase {
   texte?: string;
   demanderNom?: boolean;
   demanderEmail?: boolean;
+  /**
+   * L'accord d'usage interne sur le même écran, entre le prénom et le bouton (12/10/2026, débrief PFA) : « Continuer »
+   * reste grisé tant qu'il n'est pas donné. Tient lieu d'étape « consentement » (sans diffusion publique proposée).
+   */
+  accord?: boolean;
 }
 export interface EtapeConsentement extends EtapeBase {
   type: "consentement";
@@ -63,7 +68,13 @@ export interface EtapeConsentement extends EtapeBase {
    */
   avecCamera?: boolean;
 }
-export interface EtapeCadrage extends EtapeBase { type: "cadrage"; titre: string; proposerFloutage?: boolean }
+export interface EtapeCadrage extends EtapeBase {
+  type: "cadrage"; titre: string; proposerFloutage?: boolean;
+  /** Bulle au-dessus du titre (ex. « On va te poser 4 questions… »). */
+  texte?: string;
+  /** Repères lumière, son et visage sous l'image (par défaut : oui). */
+  reperes?: boolean;
+}
 export interface EtapeQuestion extends EtapeBase {
   type: "question";
   texte: string;
@@ -222,9 +233,14 @@ export function validerParcours(brut: unknown): string[] {
       case "identification":
         txt(ou, "titre", e.titre);
         if (e.texte !== undefined) txt(ou, "texte", e.texte, 120);
+        if (e.accord !== undefined && typeof e.accord !== "boolean") pb.push(`${ou} : « accord » vrai ou faux`);
+        if (e.accord === true) consentementVu = true;
         break;
       case "cadrage":
-        txt(ou, "titre", e.titre); break;
+        txt(ou, "titre", e.titre);
+        if (e.texte !== undefined) txt(ou, "texte", e.texte, 160);
+        if (e.reperes !== undefined && typeof e.reperes !== "boolean") pb.push(`${ou} : « reperes » vrai ou faux`);
+        break;
       case "fin":
         txt(ou, "titre", e.titre);
         if (e.sortie !== undefined) txt(ou, "sortie", e.sortie, 160);
@@ -267,7 +283,7 @@ export function validerParcours(brut: unknown): string[] {
   }
 
   if (nbQuestions === 0) pb.push("Le parcours doit contenir au moins une question");
-  if (!consentementVu) pb.push("Le parcours doit contenir une étape de consentement");
+  if (!consentementVu) pb.push("Le parcours doit contenir une étape de consentement (ou un accord sur l'écran du prénom)");
   const derniere = etapes[etapes.length - 1];
   if (derniere?.type !== "fin") pb.push("La dernière étape doit être de type « fin »");
   if (pb.length === 0) pb.push(...verifierAtteignabilite(etapes as Etape[]));

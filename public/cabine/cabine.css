@@ -186,6 +186,9 @@ button { font: inherit; color: inherit; }
 @media (orientation: landscape) {
   .deux:has(> .conversation.grandes) { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
 }
+/* Accord sur l'écran du prénom (identification.accord), entre le champ et le bouton. */
+.accord-identification { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+.accord-identification .case { font-size: calc(var(--corps) * 1.05); }
 /* Accord et cadrage sur le même écran (consentement.avecCamera) : l'image sous le titre, à gauche. */
 .ecran-accord-camera .deux { align-items: stretch; }
 .ecran-accord-camera .colonne { min-height: 0; }

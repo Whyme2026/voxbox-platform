@@ -88,17 +88,17 @@
       "type": "identification",
       "fond": "blanc",
       "titre": "On commence simple : ton prénom ?",
-      "texte": "Juste pour t'appeler par ton prénom."
+      "texte": "Juste pour t'appeler par ton prénom.",
+      "accord": true
     },
     {
-      "id": "accord",
-      "type": "consentement",
-      "fond": "lilas",
-      "titre": "Place ton visage dans l'ovale",
+      "id": "cadrage",
+      "type": "cadrage",
+      "fond": "blanc",
       "texte": "Merci {prenom} ! On va te poser 4 questions. Après chaque réponse, tu peux passer à la suivante.",
-      "bouton": "Je suis prêt",
-      "avecCamera": true,
-      "proposerFloutage": true
+      "titre": "Place ton visage dans l'ovale",
+      "proposerFloutage": true,
+      "reperes": false
     },
     {
       "id": "q-visite",
