@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -607,9 +607,13 @@ async function ecranCadrage(/** @type {any} */ e) {
   if (!ok) return ecranErreurCamera();
   activerFlou(v.floutage);
   afficher([
-    h("div", { class: "ecran ecran-cadrage" },
+    h("div", { class: `ecran ecran-cadrage${e.conseils?.length ? " avec-conseils" : ""}` },
       e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
-      h("h1", { class: "bulle marque grande" }, perso(e.titre)),
+      h("div", { class: "texte-cadrage" },
+        h("h1", { class: "bulle marque grande" }, perso(e.titre)),
+        e.conseils?.length ? h("ul", { class: "conseils-cadrage" }, ...e.conseils.map((/** @type {string} */ c, /** @type {number} */ i) =>
+          h("li", { class: "arrive", style: `animation-delay: ${0.15 * (i + 1)}s` }, h("span", { class: "puce", "aria-hidden": "true" }, String(i + 1)), h("span", {}, perso(c))))) : null,
+        e.conclusion ? h("p", { class: "conclusion-cadrage arrive", style: `animation-delay: ${0.15 * ((e.conseils?.length ?? 0) + 1)}s` }, perso(e.conclusion)) : null),
       h("div", { class: "emplacement-camera" }),
       h("div", { class: "actions" },
         e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
@@ -735,7 +739,7 @@ async function ecranQuestion(/** @type {any} */ e) {
           h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
           h("p", { class: "bulle marque grande question", "data-longueur": texte.length > 90 ? "longue" : texte.length > 55 ? "moyenne" : null }, texte)),
         aPistes ? h("div", { class: "aide" },
-          h("span", { class: "intitule" }, "Des idées, si besoin"),
+          e.intitulePistes === "" ? null : h("span", { class: "intitule" }, e.intitulePistes ?? "Des idées, si besoin"),
           e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,
           e.aide ? h("p", { class: "chapo" }, perso(e.aide)) : null) : null,
         e.coupDePouce ? h("div", { class: "coup-de-pouce" },

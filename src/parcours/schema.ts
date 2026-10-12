@@ -74,6 +74,9 @@ export interface EtapeCadrage extends EtapeBase {
   texte?: string;
   /** Repères lumière, son et visage sous l'image (par défaut : oui). */
   reperes?: boolean;
+  /** Conseils affichés sous le titre, à côté de l'image (4 au plus), puis une phrase de conclusion (12/10/2026). */
+  conseils?: string[];
+  conclusion?: string;
 }
 export interface EtapeQuestion extends EtapeBase {
   type: "question";
@@ -89,6 +92,8 @@ export interface EtapeQuestion extends EtapeBase {
   titreCourt?: string;
   /** Pistes de réponse affichées en étiquettes (5 au plus). */
   pistes?: string[];
+  /** Intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; "" : pas d'intitulé. */
+  intitulePistes?: string;
   /** Début de phrase pour lancer la réponse (ex. « Pour moi, c'était… »). */
   coupDePouce?: string;
 }
@@ -240,6 +245,8 @@ export function validerParcours(brut: unknown): string[] {
         txt(ou, "titre", e.titre);
         if (e.texte !== undefined) txt(ou, "texte", e.texte, 160);
         if (e.reperes !== undefined && typeof e.reperes !== "boolean") pb.push(`${ou} : « reperes » vrai ou faux`);
+        if (e.conseils !== undefined) liste(ou, "conseils", e.conseils, 4, 100);
+        if (e.conclusion !== undefined) txt(ou, "conclusion", e.conclusion, 80);
         break;
       case "fin":
         txt(ou, "titre", e.titre);
@@ -262,6 +269,7 @@ export function validerParcours(brut: unknown): string[] {
         if (e.silenceArretSec !== undefined && (typeof e.silenceArretSec !== "number" || e.silenceArretSec < 0 || e.silenceArretSec > 15)) pb.push(`${ou} : arrêt sur silence entre 0 et 15 secondes`);
         if (e.titreCourt !== undefined) txt(ou, "titreCourt", e.titreCourt, 40);
         if (e.pistes !== undefined) liste(ou, "pistes", e.pistes, 5, 40);
+        if (e.intitulePistes !== undefined && (typeof e.intitulePistes !== "string" || e.intitulePistes.length > 40)) pb.push(`${ou} : « intitulePistes » : texte de 40 caractères au plus (vide : pas d'intitulé)`);
         if (e.coupDePouce !== undefined) txt(ou, "coupDePouce", e.coupDePouce, 100);
         break;
       }

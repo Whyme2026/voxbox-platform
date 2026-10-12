@@ -37,7 +37,7 @@ export function textesMentionnentAnalyse(texteInterne: string): boolean {
 export function genererTextes(client: FicheClient, conservationJours: number, opts: { analyse?: boolean } = {}): TextesConsentement {
   const duree = dureeLisible(conservationJours);
   const texte_interne =
-    `En touchant « C'est parti », vous acceptez que ${client.raison_sociale} (${client.nom}) enregistre ` +
+    `En cochant la case d'accord, vous acceptez que ${client.raison_sociale} (${client.nom}) enregistre ` +
     `vos réponses en vidéo pour analyser les avis de ses visiteurs. ` +
     (opts.analyse ? MENTION_ANALYSE : "") +
     `Les vidéos sont réservées à un usage interne, hébergées dans l'Union européenne par WhyMe pour le compte ` +

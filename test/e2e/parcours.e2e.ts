@@ -347,9 +347,11 @@ async function scenarioPfa() {
   await page.waitForTimeout(500);
   await capture("02-identification-accord");
   await bouton("Continuer");
-  // Cadrage : le message des 4 questions, l'image avec l'ovale, sans repères lumière et son.
-  await page.getByText("On va te poser 4 questions").waitFor();
+  // Cadrage : le titre, trois conseils, « Sois sincère », l'image avec l'ovale, sans repères lumière et son.
   await page.getByText("Place ton visage dans l'ovale").waitFor();
+  assert.equal(await page.locator(".conseils-cadrage li").count(), 3, "trois conseils");
+  await page.getByText("Question suivante » sans attendre").waitFor();
+  await page.getByText("Sois sincère, on adore ça !").waitFor();
   assert.equal(await page.locator(".consignes").count(), 0, "plus d'écran de consignes");
   await page.locator(".ecran-cadrage #apercu:not([hidden])").waitFor({ timeout: 10_000 });
   assert.equal(await page.locator("#guide-cadrage").isVisible(), true, "ovale affiché sur l'image");
@@ -362,6 +364,7 @@ async function scenarioPfa() {
   // Disposition centrée : pendant la lecture, « Je suis prêt » démarre la prise sans attendre.
   assert.equal(await page.evaluate(() => document.getElementById("cabine")?.dataset.disposition), "centree");
   assert.equal(await page.locator('.ecran-question[data-phase="lire"]').count(), 1);
+  assert.equal(await page.getByText("Des idées, si besoin").count(), 0, "pas d'intitulé au-dessus des pistes");
   const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
   for (const [i, titre] of titres.entries()) {
     const n = String(i + 1);
@@ -384,7 +387,7 @@ async function scenarioPfa() {
   await touche("L"); await touche("o"); await touche("u");
   await cocher("J'accepte que PFA");
   await bouton("Continuer");
-  await page.getByText("On va te poser 4 questions").waitFor();
+  await page.getByText("Sois sincère, on adore ça !").waitFor();
   await page.waitForTimeout(800);
   await capture("07b-cadrage-portrait");
   await bouton("Je suis prêt");
