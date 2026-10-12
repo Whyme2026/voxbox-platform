@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -166,11 +166,21 @@ function ecranAppairage(message = "") {
   clavier.ouvrir(champ, { mode: "code", max: 6, onChange: (v) => valider.toggleAttribute("disabled", v.length !== 6) });
 }
 
+/** Déploiement de la plateforme au chargement de la page : la cabine se recharge seule quand il change. */
+/** @type {string | null} */ let deploiementCharge = null;
+
 async function chargerConfig() {
   try {
     const res = await api("/api/cabine/config");
     if (res.status === 401) { localStorage.removeItem(CLE_JETON); return "desappairee"; }
     if (!res.ok) throw new Error(String(res.status));
+    // Nouvelle version en ligne : une tablette en mode kiosque ne recharge jamais sa page d'elle-même. Entre deux
+    // visiteurs seulement, on recharge pour prendre le nouveau code (sinon il ne s'applique qu'au prochain redémarrage).
+    const deploiement = res.headers.get("x-parlorama-version");
+    if (deploiement) {
+      if (deploiementCharge && deploiement !== deploiementCharge && !visiteur) { location.reload(); return "ok"; }
+      deploiementCharge ??= deploiement;
+    }
     config = await res.json();
     localStorage.setItem(CLE_CONFIG, JSON.stringify(config));
   } catch {
