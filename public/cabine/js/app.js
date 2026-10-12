@@ -588,6 +588,33 @@ async function ecranCadrage(/** @type {any} */ e) {
         h("span", { style: "flex: 1" }),
         bouton("Je suis prêt", () => { envoyerSession(); suite(e); }))),
   ], "cadrage");
+  suivreCadrage();
+}
+
+/**
+ * Guide de cadrage : l'ovale passe au vert quand un visage est bien placé (détecteur intégré au navigateur,
+ * s'il existe ; sinon l'ovale reste blanc, en simple repère). S'arrête seul en quittant l'écran de cadrage.
+ */
+function suivreCadrage() {
+  const guide = $("guide-cadrage");
+  guide.classList.remove("ok");
+  if (!detectionDisponible()) return;
+  /** @type {any} */ const detecteur = new (/** @type {any} */ (globalThis)).FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+  const tour = async () => {
+    if (!document.querySelector(".ecran-cadrage")) { guide.classList.remove("ok"); return; }
+    try {
+      const [visage] = video.videoWidth ? await detecteur.detect(video) : [];
+      const b = visage?.boundingBox;
+      const bien = Boolean(b) && (() => {
+        const cx = (b.x + b.width / 2) / video.videoWidth;
+        const cy = (b.y + b.height / 2) / video.videoHeight;
+        return Math.abs(cx - 0.5) < 0.15 && cy > 0.25 && cy < 0.6 && b.width / video.videoWidth > 0.14;
+      })();
+      guide.classList.toggle("ok", bien);
+    } catch { guide.classList.remove("ok"); }
+    setTimeout(tour, 300);
+  };
+  tour();
 }
 
 function ecranErreurCamera() {
