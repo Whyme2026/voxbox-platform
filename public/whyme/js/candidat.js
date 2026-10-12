@@ -54,7 +54,10 @@ function appliquerStyle(/** @type {any} */ style) {
   r.setProperty("--fuchsia", k.accent); r.setProperty("--fuchsia-fonce", k.accentFonce); r.setProperty("--rose", k.accentPale);
   r.setProperty("--greige", k.bulle); r.setProperty("--titre", k.titre); r.setProperty("--texte", k.texte); r.setProperty("--fond", k.fond);
   document.documentElement.dataset.style = style.id;
-  if (style.motif) document.documentElement.dataset.motif = style.motif;
+  if (style.motif && /^[a-z0-9-]+$/.test(style.motif)) {
+    document.documentElement.dataset.motif = style.motif;
+    document.documentElement.style.setProperty("--motif", `url("/whyme/motifs/${style.motif}.svg")`);
+  }
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", k.accent);
 }
 
@@ -371,7 +374,7 @@ async function preparerFile() {
 
 // ------------------------------------------------------------------ tournage (plein écran)
 
-const SILHOUETTE = `<svg viewBox="0 0 300 400" aria-hidden="true"><path d="M150 40c-46 0-78 36-78 84 0 34 14 62 36 78-4 14-10 24-20 30-38 12-70 34-80 64v104h284V296c-10-30-42-52-80-64-10-6-16-16-20-30 22-16 36-44 36-78 0-48-32-84-78-84z" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="5" stroke-dasharray="10 10"/></svg>`;
+const SILHOUETTE = `<svg viewBox="0 0 300 400" aria-hidden="true"><path d="M150 40c-46 0-78 36-78 84 0 34 14 62 36 78-4 14-10 24-20 30-38 12-70 34-80 64v104h284V296c-10-30-42-52-80-64-10-6-16-16-20-30 22-16 36-44 36-78 0-48-32-84-78-84z" class="contour" vector-effect="non-scaling-stroke"/></svg>`;
 
 /** @type {HTMLElement | null} */
 let scene = null;
@@ -379,8 +382,8 @@ let scene = null;
 function ouvrirScene() {
   scene = document.createElement("div");
   scene.className = "tournage";
-  scene.innerHTML = `<video class="camera" playsinline muted autoplay></video><video class="relecture" playsinline hidden></video>
-    <div class="voile"></div><div class="silhouette" hidden>${SILHOUETTE}</div>
+  scene.innerHTML = `<div class="cadre-film"><video class="camera" playsinline muted autoplay></video><video class="relecture" playsinline hidden></video>
+    <div class="silhouette" hidden>${SILHOUETTE}</div></div><div class="voile"></div>
     <div class="bandeau" hidden></div><div class="bas"></div>`;
   document.body.append(scene);
   const v = /** @type {HTMLVideoElement} */ ($("video.camera", scene));
@@ -510,6 +513,7 @@ async function cadrage() {
     if (avecVisage) marquer("v-visage", visage);
     const c = $("#conseil");
     c.hidden = !conseil; c.textContent = conseil; c.className = "message";
+    $(".silhouette", s).classList.toggle("ok", lumiere && son && visage);
     if (lumiere && son && visage) {
       okDepuis ||= t;
       if (t - okDepuis > 1200) break;

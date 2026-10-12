@@ -134,21 +134,30 @@ em.accent, .accent { color: var(--fuchsia); font-style: normal; }
 
 /* ---------------------------------------------------------------- tournage (plein écran) */
 .tournage { position: fixed; inset: 0; background: #111; color: #fff; display: flex; flex-direction: column; z-index: 10; }
-.tournage video.camera {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #111;
+/* La caméra s'affiche dans un cadre 9:16 : exactement ce que garde le film monté (le plein écran d'un téléphone,
+   plus étroit, rognait davantage et donnait une impression de zoom). Bandes sombres au-dessus et au-dessous si besoin. */
+.tournage .cadre-film {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 0; overflow: hidden; background: #111;
+  width: min(100vw, calc(100vh * 9 / 16)); height: min(100vh, calc(100vw * 16 / 9));
+  width: min(100vw, calc(100dvh * 9 / 16)); height: min(100dvh, calc(100vw * 16 / 9));
 }
+.tournage video.camera { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #111; }
 .tournage video.relecture { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #111; }
-.tournage .voile { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0) 34%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.55)); pointer-events: none; }
-.tournage .silhouette { position: absolute; left: 50%; top: 47%; width: 62%; aspect-ratio: 3 / 4; transform: translate(-50%, -50%); pointer-events: none; }
-.tournage .silhouette svg { width: 100%; height: 100%; }
+.tournage .voile { position: absolute; inset: 0; z-index: 1; background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0) 34%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.55)); pointer-events: none; }
+/* Repère de cadrage : tête et épaules, au-dessus de la vidéo (z-index explicite : Safari iOS compose la vidéo à part). */
+.tournage .silhouette { position: absolute; z-index: 2; left: 50%; top: 50%; width: 64%; height: 48%; /* 3:4 dans un cadre 9:16 */ transform: translate(-50%, -50%); pointer-events: none; }
+.tournage .silhouette[hidden] { display: none; }
+.tournage .silhouette svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 3px rgba(0,0,0,0.55)); }
+.tournage .silhouette .contour { fill: rgba(255,255,255,0.10); stroke: #fff; stroke-width: 4; stroke-dasharray: 12 8; transition: stroke 0.3s, fill 0.3s; }
+.tournage .silhouette.ok .contour { stroke: var(--vert); fill: rgba(31,138,76,0.16); stroke-dasharray: none; }
 .tournage .bandeau {
-  position: relative; margin: calc(14px + env(safe-area-inset-top)) 14px 0; background: rgba(255,255,255,0.96); color: var(--titre);
+  position: relative; z-index: 3; margin: calc(14px + env(safe-area-inset-top)) 14px 0; background: rgba(255,255,255,0.96); color: var(--titre);
   border-radius: var(--rayon); padding: 14px 16px; box-shadow: var(--ombre);
 }
 .tournage .bandeau .surtitre { margin-bottom: 4px; }
 .tournage .question { font-size: clamp(24px, 6.6vw, 34px); font-weight: 700; line-height: 1.15; color: var(--titre); margin: 0; }
 .tournage .consigne { font-size: 16px; color: var(--texte); margin: 6px 0 0; }
-.tournage .bas { position: relative; margin-top: auto; padding: 0 16px calc(18px + env(safe-area-inset-bottom)); display: grid; gap: 10px; justify-items: center; }
+.tournage .bas { position: relative; z-index: 3; margin-top: auto; padding: 0 16px calc(18px + env(safe-area-inset-bottom)); display: grid; gap: 10px; justify-items: center; }
 .tournage .bas .bouton { max-width: 420px; }
 .tournage .bas .bouton.secondaire { background: rgba(255,255,255,0.96); }
 .tournage .bas .bouton.discret { color: #fff; }
@@ -194,11 +203,12 @@ em.accent, .accent { color: var(--fuchsia); font-style: normal; }
 /* Aperçu depuis l'éditeur RH : rappel permanent que rien n'est enregistré. */
 .bandeau-apercu { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 6px 12px; text-align: center; font: 600 13px/1.2 "Source Sans 3", system-ui, sans-serif; color: #fff; background: #2A2D30; pointer-events: none; }
 
-/* Feuilles de style (src/whyme/styles.ts) : les couleurs arrivent en variables CSS ; le motif s'ajoute ici. */
-[data-motif="piment"] .ecran > .haut::after,
-[data-motif="piment"] .page-video::before {
+/* Feuilles de style (src/whyme/styles.ts et celles créées dans l'espace RH) : couleurs et motif arrivent en variables
+   CSS (--motif : url du dessin dans /whyme/motifs/). */
+[data-motif] .ecran > .haut::after,
+[data-motif] .page-video::before {
   content: ""; width: 46px; height: 46px; flex: none; transform: rotate(16deg);
-  background: url("/whyme/motifs/piment.svg") center / contain no-repeat;
+  background: var(--motif) center / contain no-repeat;
 }
-[data-motif="piment"] .page-video::before { width: 56px; height: 56px; margin-bottom: 4px; }
-[data-motif="piment"] .bulle { border-left: 3px solid var(--fuchsia); }
+[data-motif] .page-video::before { width: 56px; height: 56px; margin-bottom: 4px; }
+[data-motif] .bulle { border-left: 3px solid var(--fuchsia); }

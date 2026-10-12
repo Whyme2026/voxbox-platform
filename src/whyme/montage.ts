@@ -14,7 +14,7 @@ import { lireMiniature, servirVideo } from "../media.ts";
 import { ACCES_RECRUTEURS_MOIS, LIEN_PUBLIC_MOIS, ajouterMois } from "./config.ts";
 import { campagneParId, candidatParId } from "./commun.ts";
 import { courrielVideoPrete, envoyerWhyme } from "./courriels.ts";
-import { styleParId } from "./styles.ts";
+import { chargerStyle } from "./styles.ts";
 import { ENTETE_SIGNATURE, empreinteCourte, signer, verifierSignature } from "../../montage/signature.ts";
 
 export const SERVICE = "service de montage";
@@ -74,7 +74,7 @@ export async function planMontage(env: Env, id: string) {
   const c = await candidatParId(env.DB, id);
   if (!c || c.supprime_le) throw introuvable("Interview introuvable");
   const camp = await campagneParId(env.DB, c.campagne_id);
-  const style = styleParId(camp.config.style);
+  const style = await chargerStyle(env.DB, camp.config.style);
   const prises = new Map((await env.DB.prepare("SELECT question_id, type, duree_ms, son_present FROM wm_prises WHERE candidat_id = ?")
     .bind(id).all<{ question_id: string; type: string; duree_ms: number | null; son_present: number }>()).results.map((p) => [p.question_id, p]));
   const questions = camp.config.questions.map((q, i) => {
@@ -133,7 +133,7 @@ export async function finaliser(env: Env, id: string): Promise<void> {
     lienGestion: `${o}/whyme/gerer/#g=${jetonGestion}`,
     lienConfidentialite: `${o}/whyme/confidentialite/`,
     vous: camp.config.tutoiement === false,
-    accent: styleParId(camp.config.style).couleurs.accent,
+    accent: (await chargerStyle(env.DB, camp.config.style)).couleurs.accent,
   });
   // Émis dans tous les cas : parti chez Brevo, ou gardé dans wm_courriels (environnement de test sans clé).
   await envoyerWhyme(env, c.email, "video_prete", courriel);

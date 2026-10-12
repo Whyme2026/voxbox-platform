@@ -9,7 +9,9 @@ import { ADMIN, client, creerEnv } from "./aide/env.ts";
 import { ajouterMois, validerConfig } from "../src/whyme/config.ts";
 import { tachesWhyme } from "../src/whyme/taches.ts";
 import { couperLignes, bornesParole, texteBulle, bulle, expressionSon, DUREE_QUESTION, DUREE_OUVERTURE, dureeLisible, texteOuverture, rvb } from "../montage/monter.ts";
-import { STYLES, styleParId } from "../src/whyme/styles.ts";
+import { MOTIFS, STYLES, contraste, couleursDepuis, styleParId } from "../src/whyme/styles.ts";
+import { MODELES } from "../src/whyme/modeles.ts";
+import { couleursDepuis as couleursNavigateur, problemesCouleurs } from "../public/rh/js/couleurs.js";
 import { courrielReprise, courrielVideoPrete } from "../src/whyme/courriels.ts";
 import { ENTETE_SIGNATURE, signer } from "../montage/signature.ts";
 
@@ -561,7 +563,8 @@ test("Why me : tutoiement ou vouvoiement, feuilles de style (téléphone, film, 
   assert.equal(c.tutoiement, true);
   assert.equal(c.style, "bulles");
   assert.equal(validerConfig({ ...modele, tutoiement: false, style: "epices" }).style, "epices");
-  assert.throws(() => validerConfig({ ...modele, style: "inconnue" }), /Feuille de style inconnue/);
+  assert.throws(() => validerConfig({ ...modele, style: "inconnue" }, new Set(STYLES.map((x) => x.id))), /Feuille de style inconnue/);
+  assert.throws(() => validerConfig({ ...modele, style: "Pas valide !" }), /Feuille de style inconnue/);
   assert.equal(styleParId("absente").id, "bulles");
   // Chaque feuille a toutes ses couleurs en #RRGGBB, et son motif existe des deux côtés (téléphone et montage).
   for (const st of STYLES) {
@@ -609,4 +612,97 @@ test("Why me : tutoiement ou vouvoiement, feuilles de style (téléphone, film, 
   assert.equal(dureeLisible(1), "1 seconde");
   assert.equal(dureeLisible(65), "1 minute 05");
   assert.equal(dureeLisible(120), "2 minutes");
+});
+
+test("Why me : feuilles de style créées dans l'espace RH (couleurs déduites, motif, campagnes, montage)", async () => {
+  // Couleurs déduites : même calcul côté serveur et dans l'aperçu du navigateur ; les feuilles livrées restent lisibles.
+  for (const b of [{ accent: "#C8102E", fond: "#FFFBF5", titre: "#3B1F12" }, { accent: "#1D4E89", fond: "#F4F8FB", titre: "#13202E" }]) {
+    assert.deepEqual(couleursDepuis(b), couleursNavigateur(b));
+    assert.deepEqual(problemesCouleurs(b), []);
+  }
+  assert.ok(problemesCouleurs({ accent: "#FFE066", fond: "#FFFFFF", titre: "#333333" }).length);
+  for (const st of STYLES) assert.ok(contraste(st.couleurs.accent, "#FFFFFF") >= 3, st.id);
+  for (const m of MOTIFS) {
+    assert.equal(readFileSync(join(import.meta.dirname, `../public/whyme/motifs/${m.id}.svg`), "utf8"), readFileSync(join(import.meta.dirname, `../montage/motifs/${m.id}.svg`), "utf8"));
+  }
+
+  const { api, pfa, verkor, candidat, telephone, monter, db, campagneId } = await preparer();
+  // Couleur trop claire, motif inconnu : refusés avec un message clair.
+  assert.equal((await api("POST", "/api/rh/styles", ADMIN, { nom: "Citron", accent: "#FFE066", fond: "#FFFFFF", titre: "#333333" })).status, 400);
+  assert.equal((await api("POST", "/api/rh/styles", ADMIN, { nom: "Marine", accent: "#1D4E89", fond: "#F4F8FB", titre: "#13202E", motif: "dragon" })).status, 400);
+  const cree = await api("POST", "/api/rh/styles", ADMIN, { nom: "Marine", description: "Bleu marine", accent: "#1D4E89", fond: "#F4F8FB", titre: "#13202E", motif: "etoile" });
+  assert.equal(cree.status, 201, JSON.stringify(cree.corps));
+  assert.equal(cree.corps.style.id, "marine");
+  assert.equal(cree.corps.style.couleurs.accentFonce, couleursDepuis({ accent: "#1D4E89", fond: "#F4F8FB", titre: "#13202E" }).accentFonce);
+  // Les feuilles livrées ne se modifient ni ne se suppriment.
+  assert.equal((await api("PATCH", "/api/rh/styles/bulles", ADMIN, { nom: "X", accent: "#1D4E89", fond: "#FFFFFF", titre: "#000000" })).status, 409);
+  assert.equal((await api("DELETE", "/api/rh/styles/epices", ADMIN)).status, 409);
+
+  // Une campagne habillée « Marine » : le téléphone, la page publique et le montage reçoivent la feuille.
+  const ancienne = await api("GET", "/api/rh/campagnes", ADMIN);
+  const cfg = ancienne.corps.campagnes.find((c: any) => c.id === campagneId).config;
+  assert.equal((await api("POST", `/api/rh/campagnes/${campagneId}/statut`, ADMIN, { statut: "brouillon" })).status, 200);
+  assert.equal((await api("PATCH", `/api/rh/campagnes/${campagneId}`, ADMIN, { config: { ...cfg, style: "fantome" } })).status, 400);
+  assert.equal((await api("PATCH", `/api/rh/campagnes/${campagneId}`, ADMIN, { config: { ...cfg, style: "marine" } })).status, 200);
+  assert.equal((await api("POST", `/api/rh/campagnes/${campagneId}/statut`, ADMIN, { statut: "active" })).status, 200);
+  const pub = (await api("GET", "/api/whyme/campagnes/mondial-2026")).corps;
+  assert.equal(pub.campagne.style.id, "marine");
+  assert.equal(pub.campagne.style.motif, "etoile");
+  const styles = (await api("GET", "/api/rh/styles", ADMIN)).corps;
+  assert.equal(styles.styles.find((s: any) => s.id === "marine").campagnes, 1);
+  assert.deepEqual(styles.motifs.map((m: any) => m.id), MOTIFS.map((m) => m.id));
+  // Utilisée : pas de suppression. Modifiée : la campagne change d'allure.
+  assert.equal((await api("DELETE", "/api/rh/styles/marine", ADMIN)).status, 409);
+  assert.equal((await api("PATCH", "/api/rh/styles/marine", ADMIN, { nom: "Marine", accent: "#0B3D2E", fond: "#F4F8FB", titre: "#13202E", motif: null })).status, 200);
+  const t = await candidat();
+  await telephone("POST", `/api/whyme/candidats/${t.id}/terminer`, t.jeton);
+  const plan = await monter(t.id);
+  assert.equal(plan.style.id, "marine");
+  assert.equal(plan.style.couleurs.accent, "#0B3D2E");
+  assert.equal(plan.style.motif, null);
+  const mail = db.sqlite.prepare("SELECT html FROM wm_courriels WHERE sorte = 'video_prete'").get() as any;
+  assert.ok(mail.html.includes("#0B3D2E"));
+  // Inutilisée : supprimable.
+  const autre = (await api("POST", "/api/rh/styles", ADMIN, { nom: "Marine", accent: "#1D4E89", fond: "#FFFFFF", titre: "#13202E" })).corps.style;
+  assert.equal(autre.id, "marine-2");
+  assert.equal((await api("DELETE", `/api/rh/styles/${autre.id}`, ADMIN)).status, 200);
+  void pfa; void verkor;
+});
+
+test("Why me : questionnaires types (livrés, créés depuis une campagne, appliqués à la création)", async () => {
+  // Les questionnaires livrés sont valides, sans événement, et le « base » est celui du fichier modèle de l'éditeur.
+  const fichier = JSON.parse(readFileSync(join(import.meta.dirname, "../public/whyme/modele-campagne.json"), "utf8"));
+  for (const m of MODELES) {
+    const c = validerConfig({ ...m.config, evenement: "Salon" }, new Set(STYLES.map((x) => x.id)));
+    assert.ok(c.questions.length >= 3 && c.questions.length <= 5, m.id);
+    assert.equal((m.config as any).evenement, undefined);
+  }
+  const { evenement: _e, organisateur: _o, ...baseFichier } = fichier;
+  assert.deepEqual(validerConfig({ ...MODELES[0]!.config, evenement: "x" }).questions, validerConfig({ ...baseFichier, evenement: "x" }).questions);
+  assert.equal(MODELES.find((m) => m.id === "experimentes")!.config.tutoiement, false);
+
+  const { api, pfa } = await preparer();
+  const liste = (await api("GET", "/api/rh/modeles", ADMIN)).corps.modeles;
+  assert.deepEqual(liste.map((m: any) => m.id), MODELES.map((m) => m.id));
+  // Enregistrer le questionnaire d'une campagne : l'événement et l'organisateur ne sont pas gardés.
+  const r = await api("POST", "/api/rh/modeles", ADMIN, { nom: "Salon des épices", config: { ...modele, style: "epices", organisateur: "Raoul" } });
+  assert.equal(r.status, 201, JSON.stringify(r.corps));
+  assert.equal(r.corps.modele.config.evenement, undefined);
+  assert.equal(r.corps.modele.config.organisateur, undefined);
+  assert.equal(r.corps.modele.config.style, "epices");
+  assert.equal((await api("POST", "/api/rh/modeles", ADMIN, { nom: "Vide", config: { ...modele, questions: [] } })).status, 400);
+  // Modifier, puis supprimer ; les livrés sont protégés.
+  const id = r.corps.modele.id;
+  assert.equal((await api("PATCH", `/api/rh/modeles/${id}`, ADMIN, { nom: "Foire aux épices", config: { ...modele, tutoiement: false } })).status, 200);
+  const relu = (await api("GET", "/api/rh/modeles", ADMIN)).corps.modeles.find((m: any) => m.id === id);
+  assert.equal(relu.nom, "Foire aux épices");
+  assert.equal(relu.config.tutoiement, false);
+  assert.equal((await api("PATCH", "/api/rh/modeles/base", ADMIN, { nom: "X" })).status, 409);
+  assert.equal((await api("DELETE", "/api/rh/modeles/gout", ADMIN)).status, 409);
+  // Une campagne créée depuis le questionnaire « goût » (ce que fait l'écran de création).
+  const gout = liste.find((m: any) => m.id === "gout");
+  const cp = await api("POST", "/api/rh/campagnes", ADMIN, { nom: "Raoul Ducros", client_id: pfa, config: { ...gout.config, evenement: "Foire aux épices" }, entreprises: [] });
+  assert.equal(cp.status, 201, JSON.stringify(cp.corps));
+  assert.equal((await api("DELETE", `/api/rh/modeles/${id}`, ADMIN)).status, 200);
+  assert.equal((await api("GET", "/api/rh/modeles", ADMIN)).corps.modeles.length, MODELES.length);
 });

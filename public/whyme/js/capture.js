@@ -43,9 +43,12 @@ export function diagnostic(vous = false) {
   return null;
 }
 
-/** Caméra frontale en portrait (3:4, l'image entière du capteur ; le montage en tire le 9:16) et micro. */
+/**
+ * Caméra frontale en portrait (3:4, l'image entière du capteur ; le montage en tire le 9:16) et micro. Si le
+ * téléphone sait zoomer la caméra (Chrome Android), on se met au plus large : certains appareils démarrent zoomés.
+ */
 export async function ouvrirCamera() {
-  return navigator.mediaDevices.getUserMedia({
+  const flux = await navigator.mediaDevices.getUserMedia({
     video: {
       facingMode: "user",
       width: { ideal: 960 },
@@ -55,6 +58,12 @@ export async function ouvrirCamera() {
     },
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
   });
+  const piste = flux.getVideoTracks()[0];
+  const zoom = /** @type {any} */ (piste?.getCapabilities?.())?.zoom;
+  if (piste && zoom && typeof zoom.min === "number") {
+    try { await piste.applyConstraints(/** @type {any} */ ({ advanced: [{ zoom: zoom.min }] })); } catch { /* facultatif */ }
+  }
+  return flux;
 }
 
 /**

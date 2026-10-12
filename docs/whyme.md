@@ -117,7 +117,26 @@ navigateur et passe pour du silence.
 - **Feuilles de style** (`config.style`, `src/whyme/styles.ts`) : couleurs (variables CSS de `whyme.css` posées par
   le téléphone et la page vidéo publique ; couleurs du film ; accent des e-mails) et motif (`montage/motifs/` et
   `public/whyme/motifs/`, mêmes fichiers). « Bulles » par défaut ; « Épices » (rouge piment, safran, cannelle, fond
-  crème, piment rouge). Ajouter une feuille : une entrée dans `STYLES`, et son motif SVG des deux côtés.
+  crème, piment rouge). Feuilles livrées : une entrée dans `STYLES` ; nouveau motif : une entrée dans `MOTIFS` et
+  son SVG des deux côtés (un test vérifie qu'ils sont identiques).
 - **Ouverture du film** : 3 s avant le premier plan « question », même mécanique (points, bulle, signature sonore)
   et même feuille de style : « Découvrez Laurent en 52 secondes », durée du film entier (ouverture comprise).
   Les motifs SVG sont rendus par ffmpeg (librsvg) ; s'il ne sait pas, le film se monte sans motif.
+
+## Feuilles de style et questionnaires types dans l'espace RH (12/10/2026)
+- **Feuilles de style** (menu « Feuilles de style », table `wm_styles`, migration 0013) : l'équipe choisit trois couleurs
+  (principale, fond, texte) et un motif (piment, feuille, étoile) ; les sept autres teintes en sont déduites
+  (`couleursDepuis`, même calcul dans `public/rh/js/couleurs.js` pour l'aperçu). Refus si la couleur principale est trop
+  claire pour du texte blanc (contraste < 3), si le texte se lit mal sur le fond (< 4,5) ou si le fond est sombre.
+  Une campagne renvoie à sa feuille par identifiant : modifier la feuille change toutes ses campagnes (même ouvertes :
+  seule l'allure change). Feuille utilisée : pas de suppression. Feuille disparue : Bulles.
+- **Questionnaires types** (menu « Questionnaires types », `src/whyme/modeles.ts` pour les livrés, table `wm_modeles`) :
+  accueil, ton, feuille, question d'essai, questions, familles, réglages ; jamais l'événement ni l'organisateur.
+  Livrés : base (= `public/whyme/modele-campagne.json`), goût et alimentation (Épices), alternance et stages, profils
+  expérimentés (vouvoiement). On en choisit un à la création d'une campagne ; dans l'éditeur, « Questionnaires types »
+  permet d'en appliquer un (événement, organisateur et entreprises restent) ou d'enregistrer celui de la campagne.
+  Les livrés sont en lecture seule : on les duplique.
+- **Caméra du candidat** : l'image s'affiche dans un cadre 9:16, exactement ce que garde le film (le plein écran d'un
+  téléphone, plus étroit, rognait davantage : effet de zoom). Zoom minimal demandé quand le téléphone le permet.
+  Silhouette de cadrage au-dessus de la vidéo (z-index explicite pour Safari iOS), contour blanc ombré, verte quand
+  lumière, son (et visage, si le navigateur sait le détecter) sont bons.

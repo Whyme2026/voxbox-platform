@@ -6,7 +6,7 @@ import { HttpError, introuvable, maintenant } from "../http.ts";
 import { empreinteJeton } from "../auth/cabine.ts";
 import { ligneJournal } from "../journal.ts";
 import { genererTextes, validerConfig, type ConfigWhyme } from "./config.ts";
-import { styleParId } from "./styles.ts";
+import type { StyleWhyme } from "./styles.ts";
 
 export const CANDIDAT = "candidat (téléphone)";
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -131,12 +131,12 @@ export async function supprimerCandidat(env: Env, c: CandidatRow, qui: string, m
 }
 
 /** Ce que le téléphone du candidat reçoit d'une campagne (même forme pour l'aperçu de l'éditeur). */
-export function campagnePourCandidat(code: string, cfg: ConfigWhyme) {
+export function campagnePourCandidat(code: string, cfg: ConfigWhyme, style: StyleWhyme) {
   return {
     code, evenement: cfg.evenement, organisateur: cfg.organisateur ?? null, accueil: cfg.accueil,
     familles: cfg.familles, questionEssai: cfg.questionEssai,
     questions: cfg.questions.map((q) => ({ id: q.id, texte: q.texte, dureeSec: q.dureeSec, lectureSec: q.lectureSec })),
     ageAffiche: cfg.ageAffiche, ageMinimum: cfg.ageMinimum, validationAutoSec: cfg.validationAutoSec,
-    tutoiement: cfg.tutoiement, style: styleParId(cfg.style),
+    tutoiement: cfg.tutoiement, style: { id: style.id, couleurs: style.couleurs, motif: style.motif },
   };
 }

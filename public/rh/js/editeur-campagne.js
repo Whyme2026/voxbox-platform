@@ -3,7 +3,8 @@
 // Parlorama. Événement, accueil, question d'essai, questions (3 à 5, à ajouter, déplacer, dupliquer), familles de
 // métiers, entreprises proposées, réglages. Vérification par le serveur (mêmes règles qu'à l'enregistrement),
 // aperçu en direct sur un téléphone (écran du candidat et plan « question » du film), aperçu complet du parcours
-// dans un nouvel onglet sans rien enregistrer, et le fichier JSON en mode expert.
+// dans un nouvel onglet sans rien enregistrer, questionnaires types (appliquer, enregistrer) et le fichier JSON en mode
+// expert. Sert aussi à modifier un questionnaire type (pourModele : ni événement ni entreprises).
 
 import { h } from "../../admin/js/dom.js";
 
@@ -35,8 +36,10 @@ export const texteBulle = (/** @type {{ texte?: string, carton?: string }} */ q)
  *   valider: (config: any) => Promise<string[]>,
  *   enregistrer: (config: any, entreprises: string[]) => Promise<void>,
  *   apercu: (config: any, entreprises: string[]) => Promise<void>,
- *   modele: () => Promise<any>,
  *   styles: { id: string, nom: string, description: string, couleurs: Record<string, string>, motif: string | null }[],
+ *   modeles?: { id: string, nom: string, description: string, config: any }[],
+ *   enregistrerModele?: (nom: string, config: any) => Promise<void>,
+ *   pourModele?: boolean,
  *   apresEnregistrement?: () => void,
  * }} o
  */
@@ -49,6 +52,7 @@ export function editeurCampagne(o) {
   c.questions ??= [];
   c.tutoiement ??= true;
   c.style ??= "bulles";
+  if (o.pourModele) c.evenement ||= "Votre événement";
   const choisies = new Set(o.choisies);
   const lecture = o.lectureSeule;
   /** @type {string[]} */ let problemes = [];
@@ -87,7 +91,7 @@ export function editeurCampagne(o) {
   function dessinerVerification() {
     boutonEnregistrer.disabled = lecture || problemes.length > 0 || !modifie;
     // Les entreprises ne bloquent pas l'enregistrement : elles ne sont exigées qu'à l'ouverture de la campagne.
-    const sansEntreprise = choisies.size ? null : h("p", { class: "detail-verif", style: "margin:4px 0 0" }, "Aucune entreprise cochée : il en faudra au moins une pour ouvrir la campagne.");
+    const sansEntreprise = choisies.size || o.pourModele ? null : h("p", { class: "detail-verif", style: "margin:4px 0 0" }, "Aucune entreprise cochée : il en faudra au moins une pour ouvrir la campagne.");
     verification.replaceChildren(problemes.length
       ? h("div", { class: "pile", style: "gap:6px" }, h("strong", { class: "verif-ko" }, `${problemes.length} point${problemes.length > 1 ? "s" : ""} à corriger`),
         h("ul", { class: "erreurs" }, ...problemes.map((p) => h("li", {}, p))))
@@ -193,19 +197,7 @@ export function editeurCampagne(o) {
   const lisible = (/** @type {number} */ sec) => sec < 60 ? `${sec} secondes` : `${Math.floor(sec / 60)} minute${sec >= 120 ? "s" : ""}${sec % 60 ? ` ${String(sec % 60).padStart(2, "0")}` : ""}`;
   const T = (/** @type {string} */ tu, /** @type {string} */ vous) => (c.tutoiement === false ? vous : tu);
 
-  /** Couleurs et motif de la feuille de style, appliqués aux deux aperçus. */
-  function habiller(/** @type {HTMLElement} */ el, /** @type {"tel" | "film"} */ quoi) {
-    const st = o.styles.find((x) => x.id === c.style) ?? o.styles[0];
-    if (!st) return;
-    const k = st.couleurs;
-    el.style.setProperty("--vox", k.accent);
-    el.style.setProperty("--tel-fond", k.fond);
-    el.style.setProperty("--tel-pale", k.accentPale);
-    el.style.setProperty("--tel-bulle", k.bulle);
-    el.style.setProperty("--film-fond", k.fondFilm);
-    el.style.setProperty("--film-discret", k.discret);
-    if (st.motif) el.append(h("img", { class: `motif-${quoi}`, src: `/whyme/motifs/${st.motif}.svg`, alt: "" }));
-  }
+  const habiller = (/** @type {HTMLElement} */ el, /** @type {"tel" | "film"} */ quoi) => habillerAvec(el, o.styles.find((x) => x.id === c.style) ?? o.styles[0], quoi);
 
   function dessinerTelephone() {
     const marque = h("div", { class: "tel-haut" }, h("span", { class: "tel-marque" }, "why me"), h("span", {}, c.evenement || ""));
@@ -269,6 +261,7 @@ export function editeurCampagne(o) {
   const reprendre = (/** @type {any} */ nouvelle) => {
     c = structuredClone(nouvelle);
     c.accueil ??= { titre: "", message: "" }; c.questionEssai ??= { texte: "", dureeSec: 6 }; c.familles ??= []; c.questions ??= [];
+    c.tutoiement ??= true; c.style ??= "bulles";
     ouverte = null; vue = "accueil";
     dessinerTout(); changer();
   };
@@ -283,8 +276,8 @@ export function editeurCampagne(o) {
   function dessinerTout() {
     dessinerQuestions(); dessinerFamilles(); dessinerTelephone();
     sections.replaceChildren(
-      h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Événement et accueil"),
-        h("div", { class: "grille deux" },
+      h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, o.pourModele ? "Accueil" : "Événement et accueil"),
+        o.pourModele ? h("p", { class: "detail-verif", style: "margin:0" }, "L'événement et l'organisateur viennent de la campagne à laquelle on applique ce questionnaire.") : h("div", { class: "grille deux" },
           champ(c, "evenement", "Événement (affiché au candidat)", { max: 80 }),
           champ(c, "organisateur", "Organisateur (facultatif, ex. « la PFA »)", { max: 80 })),
         champ(c.accueil, "titre", "Titre de l'accueil", { max: 80 }),
@@ -303,9 +296,9 @@ export function editeurCampagne(o) {
             const sel = /** @type {HTMLSelectElement} */ (h("select", { disabled: lecture }, ...o.styles.map((st) => h("option", { value: st.id, selected: st.id === c.style }, st.nom))));
             const desc = h("span", { class: "detail-verif" }, (o.styles.find((x) => x.id === c.style) ?? o.styles[0])?.description ?? "");
             sel.addEventListener("change", () => { c.style = sel.value; desc.textContent = (o.styles.find((x) => x.id === c.style))?.description ?? ""; changer(); });
-            return h("label", { class: "champ" }, "Feuille de style", sel, desc);
+            return h("label", { class: "champ" }, "Feuille de style", sel, desc, h("a", { href: "#/styles", class: "detail-verif" }, "Voir et créer des feuilles de style ›"));
           })())),
-      h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Entreprises proposées au candidat"),
+      o.pourModele ? "" : h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Entreprises proposées au candidat"),
         h("p", { class: "detail-verif", style: "margin:0" }, "Le candidat choisit parmi elles celles qui recevront sa candidature. Au moins une pour ouvrir la campagne."),
         o.entreprises.length ? zoneEntreprises : h("p", { class: "vide" }, h("span", {}, "Aucune entreprise : créez-les d'abord dans "), h("a", { href: "#/entreprises" }, "Entreprises et recruteurs"), ".")),
       h("section", { class: "carte pile" }, h("h2", { style: "margin:0" }, "Question d'essai"),
@@ -340,5 +333,50 @@ export function editeurCampagne(o) {
         boutonEnregistrer),
       etat,
       h("p", { class: "detail-verif", style: "margin:0" }, "« Essayer le parcours » ouvre l'interview complète dans un nouvel onglet, caméra comprise, avec ce brouillon : rien n'y est enregistré."),
-      lecture ? null : h("button", { type: "button", class: "bouton discret petit", style: "justify-content:flex-start", onclick: async () => reprendre(await o.modele()) }, "Repartir du modèle Why me")));
+      lecture || o.pourModele ? null : outilsModeles()));
+
+  /** Questionnaires types : en appliquer un (l'événement et l'organisateur de la campagne restent), ou garder celui-ci. */
+  function outilsModeles() {
+    const liste = o.modeles ?? [];
+    const choix = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Questionnaire type" }, h("option", { value: "" }, "Choisir un questionnaire type…"), ...liste.map((m) => h("option", { value: m.id }, m.nom))));
+    const appliquer = h("button", { type: "button", class: "bouton discret petit", onclick: () => {
+      const m = liste.find((x) => x.id === choix.value);
+      if (!m) return;
+      reprendre({ ...structuredClone(m.config), evenement: c.evenement, organisateur: c.organisateur });
+      etat.textContent = `Questionnaire « ${m.nom} » appliqué : enregistrez pour le garder`;
+    } }, "Appliquer");
+    const nom = /** @type {HTMLInputElement} */ (h("input", { maxlength: 80, placeholder: "ex. Salon de l'alternance", "aria-label": "Nom du questionnaire type" }));
+    const garder = h("button", { type: "button", class: "bouton discret petit", onclick: async () => {
+      if (!nom.value.trim()) { nom.focus(); etat.textContent = "Donnez un nom au questionnaire type."; return; }
+      try { await o.enregistrerModele?.(nom.value.trim(), config()); nom.value = ""; } catch (e) { problemes = [/** @type {Error} */ (e).message]; dessinerVerification(); }
+    } }, "Enregistrer comme questionnaire type");
+    return h("details", { class: "outils-modeles" }, h("summary", {}, "Questionnaires types"),
+      h("p", { class: "detail-verif" }, "Remplacer les questions, l'accueil, le ton et la feuille de style par un questionnaire type (les entreprises cochées restent) :"),
+      h("div", { class: "ligne-outil" }, choix, appliquer),
+      o.enregistrerModele ? h("p", { class: "detail-verif" }, "Ou garder ce questionnaire pour d'autres campagnes :") : null,
+      o.enregistrerModele ? h("div", { class: "ligne-outil colonne" }, nom, garder) : null,
+      h("a", { href: "#/modeles", class: "detail-verif" }, "Voir tous les questionnaires types ›"));
+  }
+}
+
+/**
+ * Couleurs et motif d'une feuille de style sur un aperçu (téléphone ou plan du film), dans l'éditeur et sur la page
+ * des feuilles de style.
+ * @param {HTMLElement} el
+ * @param {{ couleurs: Record<string, string>, motif: string | null } | undefined} st
+ * @param {"tel" | "film"} quoi
+ */
+export function habillerAvec(el, st, quoi) {
+  if (!st) return;
+  const k = st.couleurs;
+  el.style.setProperty("--vox", k.accent);
+  el.style.setProperty("--tel-fond", k.fond);
+  el.style.setProperty("--tel-pale", k.accentPale);
+  el.style.setProperty("--tel-bulle", k.bulle);
+  el.style.setProperty("--tel-titre", k.titre);
+  el.style.setProperty("--tel-texte", k.texte);
+  el.style.setProperty("--film-fond", k.fondFilm);
+  el.style.setProperty("--film-discret", k.discret);
+  el.querySelectorAll(":scope > .motif-tel, :scope > .motif-film").forEach((m) => m.remove());
+  if (st.motif && /^[a-z0-9-]+$/.test(st.motif)) el.append(h("img", { class: `motif-${quoi}`, src: `/whyme/motifs/${st.motif}.svg`, alt: "" }));
 }

@@ -8,6 +8,7 @@ import { empreinteJeton, nouveauJeton } from "../auth/cabine.ts";
 import { ligneJournal } from "../journal.ts";
 import { genererTextes } from "./config.ts";
 import { CANDIDAT, JETON, UUID, campagneParCode, campagneParId, candidatAuthentifie, entreprisesDeCampagne, campagnePourCandidat } from "./commun.ts";
+import { chargerStyle } from "./styles.ts";
 import { declencherMontage } from "./montage.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,7 +33,7 @@ export function routesWhymeCandidat(r: Routeur): void {
     const c = await campagneParCode(ctx.env.DB, ctx.params.code!);
     const entreprises = await entreprisesDeCampagne(ctx.env.DB, c.id);
     return json({
-      campagne: campagnePourCandidat(c.code, c.config),
+      campagne: campagnePourCandidat(c.code, c.config, await chargerStyle(ctx.env.DB, c.config.style)),
       entreprises: entreprises.map((e) => ({ id: e.id, nom: e.nom, logo: e.logo_cle ? `/api/whyme/entreprises/${e.id}/logo` : null })),
       textes: genererTextes(c.config),
       empreinte: c.textes_empreinte,

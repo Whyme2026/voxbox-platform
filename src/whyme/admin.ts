@@ -15,7 +15,8 @@ import { empreinteTextes, genererTextes, validerConfig, type ConfigWhyme } from 
 import { campagneParId, campagnePourCandidat, candidatParId, entreprisesDeCampagne, supprimerCandidat } from "./commun.ts";
 import { declencherMontage, etatServiceMontage, montageConfigure, planMontage } from "./montage.ts";
 import { expediteurWhyme } from "./courriels.ts";
-import { STYLES } from "./styles.ts";
+import { MOTIFS, STYLES, STYLE_DEFAUT, couleursDepuis, idsStyles, chargerStyle, tousLesStyles, verifierCouleurs } from "./styles.ts";
+import { MODELES, tousLesModeles, versModele } from "./modeles.ts";
 import { envoyerCourriel } from "../courriel.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -174,7 +175,7 @@ export function routesWhymeAdmin(r: Routeur): void {
     const d = await lireJson(ctx.request);
     const nom = texte(d, "nom", { requis: true, max: 80 })!;
     const client = await lireClient(ctx, d.client_id);
-    const config = validerConfig(d.config);
+    const config = validerConfig(d.config, await idsStyles(ctx.env.DB));
     const entreprises = await lireEntreprises(ctx, d.entreprises);
     const textes = genererTextes(config);
     const c = { id: nouvelId(), code: slugifier(texte(d, "code", { max: 30 }) ?? `${slugifier(config.evenement).slice(0, 20)}-${codeAleatoire(4).toLowerCase()}`) };
@@ -199,7 +200,7 @@ export function routesWhymeAdmin(r: Routeur): void {
     if (c.statut !== "brouillon" && (d.config !== undefined || d.entreprises !== undefined)) {
       throw conflit("Questionnaire et entreprises ne changent plus une fois la campagne ouverte");
     }
-    const config = d.config === undefined ? c.config : validerConfig(d.config);
+    const config = d.config === undefined ? c.config : validerConfig(d.config, await idsStyles(ctx.env.DB));
     const textes = genererTextes(config);
     // Le client peut changer à tout moment : il ne voit que des statistiques, rien de ce qu'a accepté le candidat.
     const client = d.client_id === undefined ? c.client_id : await lireClient(ctx, d.client_id);
@@ -424,7 +425,7 @@ export function routesWhymeAdmin(r: Routeur): void {
     await whyme(ctx, "gerer");
     const d = await lireJson(ctx.request);
     try {
-      validerConfig(d.config);
+      validerConfig(d.config, await idsStyles(ctx.env.DB));
       return json({ problemes: [] });
     } catch (e) {
       if (e instanceof HttpError && e.status === 400) return json({ problemes: [e.message] });
@@ -436,14 +437,14 @@ export function routesWhymeAdmin(r: Routeur): void {
   r.post("/api/rh/campagnes/apercu", async (ctx) => {
     await whyme(ctx, "gerer");
     const d = await lireJson(ctx.request);
-    const config = validerConfig(d.config);
+    const config = validerConfig(d.config, await idsStyles(ctx.env.DB));
     const ids = Array.isArray(d.entreprises) ? d.entreprises.filter((x: unknown) => typeof x === "string").slice(0, 40) : [];
     const entreprises = [];
     for (const id of ids) {
       const e = await ctx.env.DB.prepare("SELECT id, nom, logo_cle FROM wm_entreprises WHERE id = ?").bind(id).first<{ id: string; nom: string; logo_cle: string | null }>();
       if (e) entreprises.push({ id: e.id, nom: e.nom, logo: e.logo_cle ? `/api/whyme/entreprises/${e.id}/logo` : null });
     }
-    return json({ campagne: campagnePourCandidat("apercu", config), entreprises, textes: genererTextes(config), empreinte: "apercu", apercu: true });
+    return json({ campagne: campagnePourCandidat("apercu", config, await chargerStyle(ctx.env.DB, config.style)), entreprises, textes: genererTextes(config), empreinte: "apercu", apercu: true });
   });
 
   // ------------------------------------------------------------------ vidéos montées
@@ -533,9 +534,121 @@ export function routesWhymeAdmin(r: Routeur): void {
     return json({ ok: true });
   });
 
-  // Feuilles de style disponibles (src/whyme/styles.ts), pour l'éditeur.
+  // ------------------------------------------------------------------ feuilles de style
+  // Intégrées (non modifiables) et créées ici : trois couleurs choisies, le reste déduit, un motif facultatif.
   r.get("/api/rh/styles", async (ctx) => {
     await whyme(ctx, "gerer");
-    return json({ styles: STYLES });
+    const usages = await usagesStyles(ctx);
+    return json({ styles: (await tousLesStyles(ctx.env.DB)).map((st) => ({ ...st, campagnes: usages.get(st.id) ?? 0 })), motifs: MOTIFS });
   });
+
+  r.post("/api/rh/styles", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    const d = await lireJson(ctx.request);
+    const f = lireStyle(d);
+    const pris = await idsStyles(ctx.env.DB);
+    const racine = slugifier(f.nom).slice(0, 34) || "style";
+    let ident = racine;
+    for (let n = 2; pris.has(ident); n++) ident = `${racine}-${n}`;
+    const t = maintenant();
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("INSERT INTO wm_styles (id, nom, description, couleurs, motif, cree_par, cree_le, maj_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(ident, f.nom, f.description, JSON.stringify(f.couleurs), f.motif, id.email, t, t),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.style.creation", cibleType: "wm_style", cibleId: ident, details: { nom: f.nom } }),
+    ]);
+    return json({ style: { id: ident, nom: f.nom, description: f.description, couleurs: f.couleurs, motif: f.motif, integre: false } }, 201);
+  });
+
+  // Modifier une feuille change l'allure de toutes ses campagnes (y compris ouvertes : seule l'apparence change).
+  r.patch("/api/rh/styles/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    if (STYLES.some((st) => st.id === ctx.params.id)) throw conflit("Cette feuille est livrée avec Why me : dupliquez-la pour la modifier");
+    const f = lireStyle(await lireJson(ctx.request));
+    const res = await ctx.env.DB.prepare("UPDATE wm_styles SET nom = ?, description = ?, couleurs = ?, motif = ?, maj_le = ? WHERE id = ?")
+      .bind(f.nom, f.description, JSON.stringify(f.couleurs), f.motif, maintenant(), ctx.params.id!).run();
+    if (!res.meta.changes) throw introuvable("Feuille de style introuvable");
+    await journaliser(ctx.env.DB, id.email, { action: "whyme.style.modification", cibleType: "wm_style", cibleId: ctx.params.id!, details: { nom: f.nom } });
+    return json({ ok: true });
+  });
+
+  r.ajouter("DELETE", "/api/rh/styles/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    if (STYLES.some((st) => st.id === ctx.params.id)) throw conflit("Cette feuille est livrée avec Why me : elle ne se supprime pas");
+    const n = (await usagesStyles(ctx)).get(ctx.params.id!) ?? 0;
+    if (n) throw conflit(`Cette feuille habille encore ${n} campagne${n > 1 ? "s" : ""} : changez-leur de feuille d'abord`);
+    const res = await ctx.env.DB.prepare("DELETE FROM wm_styles WHERE id = ?").bind(ctx.params.id!).run();
+    if (!res.meta.changes) throw introuvable("Feuille de style introuvable");
+    await journaliser(ctx.env.DB, id.email, { action: "whyme.style.suppression", cibleType: "wm_style", cibleId: ctx.params.id! });
+    return json({ ok: true });
+  });
+
+  // ------------------------------------------------------------------ questionnaires types
+  r.get("/api/rh/modeles", async (ctx) => {
+    await whyme(ctx, "gerer");
+    return json({ modeles: await tousLesModeles(ctx.env.DB) });
+  });
+
+  r.post("/api/rh/modeles", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    const d = await lireJson(ctx.request);
+    const m = { id: nouvelId(), nom: texte(d, "nom", { requis: true, max: 80 })!, description: texte(d, "description", { max: 300 }) ?? "", config: await lireConfigModele(ctx, d.config) };
+    const t = maintenant();
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("INSERT INTO wm_modeles (id, nom, description, config, cree_par, cree_le, maj_le) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(m.id, m.nom, m.description, JSON.stringify(m.config), id.email, t, t),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.modele.creation", cibleType: "wm_modele", cibleId: m.id, details: { nom: m.nom } }),
+    ]);
+    return json({ modele: { ...m, integre: false } }, 201);
+  });
+
+  r.patch("/api/rh/modeles/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    if (MODELES.some((m) => m.id === ctx.params.id)) throw conflit("Ce questionnaire est livré avec Why me : dupliquez-le pour le modifier");
+    const avant = await ctx.env.DB.prepare("SELECT nom, description, config FROM wm_modeles WHERE id = ?").bind(ctx.params.id!).first<{ nom: string; description: string; config: string }>();
+    if (!avant) throw introuvable("Questionnaire type introuvable");
+    const d = await lireJson(ctx.request);
+    const nom = texte(d, "nom", { max: 80 }) ?? avant.nom;
+    const description = d.description === undefined ? avant.description : texte(d, "description", { max: 300 }) ?? "";
+    const config = d.config === undefined ? avant.config : JSON.stringify(await lireConfigModele(ctx, d.config));
+    await ctx.env.DB.batch([
+      ctx.env.DB.prepare("UPDATE wm_modeles SET nom = ?, description = ?, config = ?, maj_le = ? WHERE id = ?").bind(nom, description, config, maintenant(), ctx.params.id!),
+      ligneJournal(ctx.env.DB, id.email, { action: "whyme.modele.modification", cibleType: "wm_modele", cibleId: ctx.params.id!, details: { nom } }),
+    ]);
+    return json({ ok: true });
+  });
+
+  r.ajouter("DELETE", "/api/rh/modeles/:id", async (ctx) => {
+    const id = await whyme(ctx, "gerer");
+    if (MODELES.some((m) => m.id === ctx.params.id)) throw conflit("Ce questionnaire est livré avec Why me : il ne se supprime pas");
+    const res = await ctx.env.DB.prepare("DELETE FROM wm_modeles WHERE id = ?").bind(ctx.params.id!).run();
+    if (!res.meta.changes) throw introuvable("Questionnaire type introuvable");
+    await journaliser(ctx.env.DB, id.email, { action: "whyme.modele.suppression", cibleType: "wm_modele", cibleId: ctx.params.id! });
+    return json({ ok: true });
+  });
+}
+
+/** Nombre de campagnes par feuille de style. */
+async function usagesStyles(ctx: Contexte): Promise<Map<string, number>> {
+  const r = await ctx.env.DB.prepare("SELECT config FROM wm_campagnes").all<{ config: string }>();
+  const n = new Map<string, number>();
+  for (const l of r.results) {
+    const st = (JSON.parse(l.config) as { style?: string }).style || STYLE_DEFAUT;
+    n.set(st, (n.get(st) ?? 0) + 1);
+  }
+  return n;
+}
+
+function lireStyle(d: Record<string, unknown>) {
+  const nom = texte(d, "nom", { requis: true, max: 60 })!;
+  const description = texte(d, "description", { max: 200 }) ?? "";
+  const couleurs = couleursDepuis(verifierCouleurs(d));
+  const motif = d.motif === null || d.motif === undefined || d.motif === "" ? null : d.motif;
+  if (motif !== null && !MOTIFS.some((m) => m.id === motif)) throw invalide("Motif inconnu");
+  return { nom, description, couleurs, motif: motif as string | null };
+}
+
+/** Configuration d'un questionnaire type : mêmes règles qu'une campagne, sans événement ni organisateur. */
+async function lireConfigModele(ctx: Contexte, v: unknown) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw invalide("Configuration : objet JSON attendu");
+  return versModele(validerConfig({ ...(v as object), evenement: "Questionnaire type", organisateur: undefined }, await idsStyles(ctx.env.DB)));
 }

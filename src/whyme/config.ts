@@ -67,8 +67,12 @@ function entier(v: unknown, nom: string, min: number, max: number, defaut: numbe
   return v;
 }
 
-/** Valide et normalise une configuration. Lève une erreur 400 lisible au premier problème. */
-export function validerConfig(brut: unknown): ConfigWhyme {
+/**
+ * Valide et normalise une configuration ; lève une erreur 400 lisible au premier problème. stylesConnus : feuilles existantes (intégrées et espace RH), passé à l'enregistrement ;
+ * sans lui (relecture d'une campagne en base), tout identifiant de forme valide passe et une feuille disparue retombe
+ * sur Bulles à l'affichage.
+ */
+export function validerConfig(brut: unknown, stylesConnus?: Set<string>): ConfigWhyme {
   if (!brut || typeof brut !== "object" || Array.isArray(brut)) throw invalide("Configuration : objet JSON attendu");
   const c = brut as Record<string, any>;
   const accueil = c.accueil ?? {};
@@ -123,7 +127,9 @@ export function validerConfig(brut: unknown): ConfigWhyme {
     tutoiement: c.tutoiement === undefined ? true : Boolean(c.tutoiement),
     style: (() => {
       const id = c.style === undefined || c.style === null || c.style === "" ? STYLE_DEFAUT : c.style;
-      if (typeof id !== "string" || !STYLES.some((x) => x.id === id)) throw invalide(`Feuille de style inconnue : ${String(id)}`);
+      if (typeof id !== "string" || !(stylesConnus ? stylesConnus.has(id) : STYLES.some((x) => x.id === id) || /^[a-z0-9][a-z0-9-]{1,39}$/.test(id))) {
+        throw invalide(`Feuille de style inconnue : ${String(id)}`);
+      }
       return id;
     })(),
   };

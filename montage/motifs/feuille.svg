@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400">
+  <!-- Feuille verte (motif de feuille de style Why me : nature, agriculture, environnement). Même fichier dans montage/motifs/. -->
+  <defs>
+    <linearGradient id="limbe" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2F7D32"/>
+      <stop offset="1" stop-color="#7CC243"/>
+    </linearGradient>
+  </defs>
+  <path d="M40 166 C 30 100, 70 40, 168 30 C 172 120, 120 172, 40 166 Z" fill="url(#limbe)"/>
+  <path d="M40 166 C 80 130, 118 88, 150 50" fill="none" stroke="#E9F5DC" stroke-opacity="0.85" stroke-width="6" stroke-linecap="round"/>
+  <path d="M78 124 L 74 96 M 100 100 L 98 74 M 122 78 L 124 58 M 78 124 L 104 126 M 100 100 L 128 102 M 122 78 L 146 80" fill="none" stroke="#E9F5DC" stroke-opacity="0.6" stroke-width="4" stroke-linecap="round"/>
+  <path d="M40 166 C 34 172, 28 178, 22 184" fill="none" stroke="#2F7D32" stroke-width="7" stroke-linecap="round"/>
+</svg>

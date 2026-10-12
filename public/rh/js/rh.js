@@ -2,13 +2,15 @@
 // Espace RH Why me (/rh/), réservé à l'équipe RH (séparée des comptes Parlobox). Organisation :
 // - Campagnes : liste, création guidée (client, nom, événement), puis la page de la campagne avec ses onglets
 //   Questionnaire (éditeur), Interviews et vidéos, Lien et QR code, Statistiques du client ;
-// - Vidéos : toutes les vidéos montées ; Clients : organisations qui commandent, et leurs contacts ;
+// - Vidéos : toutes les vidéos montées ; Questionnaires types (banque de départ) ; Feuilles de style ;
+// - Clients : organisations qui commandent, et leurs contacts ;
 // - Entreprises : sous-clients et leurs recruteurs ; E-mails ; Équipe.
 // Tout le texte venant de la base est inséré en texte (h()).
 
 import { h } from "../../admin/js/dom.js";
 import { genererQR, cheminQR } from "../../cabine/js/qr.js";
-import { editeurCampagne } from "./editeur-campagne.js";
+import { editeurCampagne, habillerAvec } from "./editeur-campagne.js";
+import { couleursDepuis, problemesCouleurs } from "./couleurs.js";
 
 const contenu = /** @type {HTMLElement} */ (document.getElementById("contenu"));
 const toastEl = /** @type {HTMLElement} */ (document.getElementById("toast"));
@@ -87,15 +89,13 @@ function page(/** @type {{ titre: string, sous?: string, fil?: [string, string] 
 
 /** @type {{ email: string, role: string } | null} */
 let moi = null;
-let modele = /** @type {any} */ (null);
-const chargerModele = async () => (modele ??= await fetch("/whyme/modele-campagne.json").then((r) => r.json()));
 
 // ------------------------------------------------------------------ campagnes : liste et création
 
-async function pageCampagnes() {
-  const [{ campagnes }, { clients }] = await Promise.all([api("/api/rh/campagnes"), api("/api/rh/clients")]);
-  const creation = formulaireCreation(clients);
-  creation.hidden = campagnes.length > 0;
+async function pageCampagnes(/** @type {string} */ modeleChoisi = "") {
+  const [{ campagnes }, { clients }, { modeles }] = await Promise.all([api("/api/rh/campagnes"), api("/api/rh/clients"), api("/api/rh/modeles")]);
+  const creation = formulaireCreation(clients, modeles, modeleChoisi);
+  creation.hidden = campagnes.length > 0 && !modeleChoisi;
   const bouton = h("button", { type: "button", class: "bouton action", onclick: () => { creation.hidden = !creation.hidden; if (!creation.hidden) /** @type {HTMLElement | null} */ (creation.querySelector("select, input"))?.focus(); } }, "Nouvelle campagne");
   const liste = campagnes.length
     ? h("div", { class: "defile" }, h("table", { class: "tableau" },
@@ -113,7 +113,16 @@ async function pageCampagnes() {
 }
 
 /** Création en trois questions ; tout le reste (entreprises, questions) se règle sur la page de la campagne. */
-function formulaireCreation(/** @type {any[]} */ clients) {
+function formulaireCreation(/** @type {any[]} */ clients, /** @type {any[]} */ modeles, /** @type {string} */ modeleChoisi) {
+  const choixModele = /** @type {HTMLSelectElement} */ (h("select", { "aria-label": "Questionnaire type" },
+    ...modeles.map((m) => h("option", { value: m.id, selected: m.id === (modeleChoisi || "base") }, m.nom))));
+  const descModele = h("span", { class: "aide-champ" });
+  const decrireModele = () => {
+    const m = modeles.find((x) => x.id === choixModele.value);
+    descModele.textContent = m ? `${m.description} ${m.config.questions.length} questions · ${m.config.tutoiement === false ? "vouvoiement" : "tutoiement"}.` : "";
+  };
+  choixModele.addEventListener("change", decrireModele);
+  decrireModele();
   const choixClient = /** @type {HTMLSelectElement} */ (h("select", { name: "client_id", "aria-label": "Client" },
     h("option", { value: "" }, clients.length ? "Choisir le client…" : "Aucun client : créez-le à droite"),
     ...clients.map((c) => h("option", { value: c.id }, c.nom))));
@@ -144,7 +153,8 @@ function formulaireCreation(/** @type {any[]} */ clients) {
         h("div", { class: "grille deux" },
           champ("Nom de la campagne (pour vous)", nom),
           champ("Événement (vu par le candidat)", evenement, "Affiché sur son téléphone : « JobBox · Mondial de l'Auto »."))),
-      h("li", {}, h("strong", {}, "Et ensuite ?"), h("span", { class: "aide-champ" }, "La campagne est créée en brouillon, avec le questionnaire Why me de base (4 questions). Sur sa page, vous cochez les entreprises, ajustez les questions, l'essayez, puis l'ouvrez aux candidats."))),
+      h("li", {}, h("strong", {}, "Avec quel questionnaire ?"), h("div", { class: "ligne-client" }, choixModele, h("a", { href: "#/modeles", class: "aide-champ" }, "Voir les questionnaires types ›")), descModele),
+      h("li", {}, h("strong", {}, "Et ensuite ?"), h("span", { class: "aide-champ" }, "La campagne est créée en brouillon avec ce questionnaire. Sur sa page, vous cochez les entreprises, ajustez les questions et la feuille de style, l'essayez, puis l'ouvrez aux candidats."))),
     h("details", { class: "avance" }, h("summary", {}, "Option : adresse du QR code"), champ("Code dans l'adresse /i/…", code, "Minuscules, chiffres et tirets. Il ne change plus une fois la campagne ouverte.")),
     erreur,
     h("div", { class: "boutons" }, h("button", { class: "bouton action" }, "Créer la campagne"))));
@@ -156,7 +166,8 @@ function formulaireCreation(/** @type {any[]} */ clients) {
       if (manque.length) { erreur.textContent = `Pour créer la campagne : ${manque.join(", ")}.`; erreur.hidden = false; return; }
       // Le modèle sert de base ; l'organisateur affiché au candidat est le client choisi (modifiable dans l'éditeur).
       const client = choixClient.selectedOptions[0]?.textContent ?? "";
-      const config = { ...structuredClone(await chargerModele()), evenement: evenement.value.trim(), organisateur: client || undefined };
+      const m = modeles.find((x) => x.id === choixModele.value) ?? modeles[0];
+      const config = { ...structuredClone(m.config), evenement: evenement.value.trim(), organisateur: client || undefined };
       const r = await api("/api/rh/campagnes", { methode: "POST", corps: { nom: nom.value.trim(), client_id: choixClient.value, code: code.value.trim() || undefined, config, entreprises: [] } });
       toast("Campagne créée en brouillon : cochez ses entreprises et vérifiez le questionnaire");
       location.hash = `#/campagne/${r.campagne.id}/questionnaire`;
@@ -209,7 +220,10 @@ async function campagne(/** @type {string} */ id, /** @type {string} */ onglet) 
       cle === "interviews" ? `${lib} (${c.candidats})` : lib)));
 
   /** @type {any} */ let corps;
-  if (actif === "questionnaire") corps = ongletQuestionnaire(c, clients, toutes, recharger, (await api("/api/rh/styles")).styles);
+  if (actif === "questionnaire") {
+    const [{ styles }, { modeles }] = await Promise.all([api("/api/rh/styles"), api("/api/rh/modeles")]);
+    corps = ongletQuestionnaire(c, clients, toutes, recharger, styles, modeles);
+  }
   else if (actif === "interviews") corps = await ongletInterviews(c);
   else if (actif === "lien") corps = ongletLien(c);
   else corps = vueStatistiques(await api(`/api/rh/campagnes/${id}/statistiques`), "Ce que voit le client dans son espace : des statistiques, jamais un candidat.");
@@ -218,7 +232,7 @@ async function campagne(/** @type {string} */ id, /** @type {string} */ onglet) 
     bandeau, onglets, corps);
 }
 
-function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients, /** @type {any[]} */ toutes, /** @type {() => void} */ recharger, /** @type {any[]} */ styles) {
+function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients, /** @type {any[]} */ toutes, /** @type {() => void} */ recharger, /** @type {any[]} */ styles, /** @type {any[]} */ modeles) {
   // Identité de la campagne : nom interne et client (modifiables à tout moment).
   const nom = /** @type {HTMLInputElement} */ (h("input", { value: c.nom, maxlength: 80 }));
   const client = /** @type {HTMLSelectElement} */ (h("select", {}, h("option", { value: "" }, "Choisir…"), ...clients.map((x) => h("option", { value: x.id, selected: x.id === c.client_id }, x.nom))));
@@ -237,13 +251,13 @@ function ongletQuestionnaire(/** @type {any} */ c, /** @type {any[]} */ clients,
     valider: async (config) => (await api("/api/rh/campagnes/verifier", { methode: "POST", corps: { config } })).problemes,
     enregistrer: async (config, ents) => { await api(`/api/rh/campagnes/${c.id}`, { methode: "PATCH", corps: { config, entreprises: ents } }); toast("Questionnaire enregistré"); },
     apresEnregistrement: recharger,
-    apercu: async (config, ents) => {
-      const d = await api("/api/rh/campagnes/apercu", { methode: "POST", corps: { config, entreprises: ents } });
-      try { localStorage.setItem("whyme-apercu", JSON.stringify(d)); } catch { throw new Error("Aperçu impossible : le stockage du navigateur est indisponible (navigation privée ?)."); }
-      window.open("/i/apercu", "_blank");
-    },
-    modele: async () => structuredClone(await chargerModele()),
+    apercu: essayerParcours,
     styles,
+    modeles,
+    enregistrerModele: async (nom, config) => {
+      await api("/api/rh/modeles", { methode: "POST", corps: { nom, description: `D'après la campagne « ${c.nom} ».`, config } });
+      toast(`Questionnaire type « ${nom} » enregistré : il est proposé à la création des campagnes`);
+    },
   });
   return h("div", { class: "pile" }, identite, editeur);
 }
@@ -303,6 +317,153 @@ function vueStatistiques(/** @type {any} */ s, /** @type {string} */ titre) {
     h("div", { class: "grille deux" },
       h("div", { class: "carte" }, h("h2", {}, "Candidatures par entreprise"), barres(s.parEntreprise.map((/** @type {any} */ e) => ({ nom: e.nom, n: e.candidatures })))),
       h("div", { class: "carte" }, h("h2", {}, "Candidats par famille de métiers"), barres(s.parFamille.filter((/** @type {any} */ f) => f.candidats).map((/** @type {any} */ f) => ({ nom: f.nom, n: f.candidats }))))));
+}
+
+/** « Essayer le parcours » : l'interview complète dans un nouvel onglet, sur ce brouillon, sans rien enregistrer. */
+async function essayerParcours(/** @type {any} */ config, /** @type {string[]} */ ents) {
+  const d = await api("/api/rh/campagnes/apercu", { methode: "POST", corps: { config, entreprises: ents } });
+  try { localStorage.setItem("whyme-apercu", JSON.stringify(d)); } catch { throw new Error("Aperçu impossible : le stockage du navigateur est indisponible (navigation privée ?)."); }
+  window.open("/i/apercu", "_blank");
+}
+
+// ------------------------------------------------------------------ questionnaires types
+
+const tonDe = (/** @type {any} */ cfg) => (cfg.tutoiement === false ? "Vouvoiement" : "Tutoiement");
+
+async function pageModeles() {
+  const [{ modeles }, { styles }] = await Promise.all([api("/api/rh/modeles"), api("/api/rh/styles")]);
+  const nomStyle = (/** @type {string} */ id) => styles.find((/** @type {any} */ st) => st.id === id)?.nom ?? "Bulles";
+  const dupliquer = async (/** @type {any} */ m) => {
+    const r = await api("/api/rh/modeles", { methode: "POST", corps: { nom: `${m.nom} (copie)`.slice(0, 80), description: m.description, config: m.config } });
+    toast("Copie créée : modifiez-la"); location.hash = `#/modele/${r.modele.id}`;
+  };
+  const fiche = (/** @type {any} */ m) => h("section", { class: "carte pile fiche-modele" },
+    h("div", { class: "tete-fiche" },
+      h("div", {}, h("h2", {}, m.nom),
+        h("div", { class: "pastilles" },
+          m.integre ? h("span", { class: "pastille" }, "Livré avec Why me") : h("span", { class: "pastille", "data-ton": "vox" }, "Créé par l'équipe"),
+          h("span", { class: "pastille" }, tonDe(m.config)), h("span", { class: "pastille" }, `Feuille ${nomStyle(m.config.style)}`),
+          h("span", { class: "pastille" }, pluriel(m.config.questions.length, "question"))))),
+    m.description ? h("p", { class: "sous-ligne", style: "margin:0" }, m.description) : null,
+    h("ol", { class: "questions-modele" }, ...m.config.questions.map((/** @type {any} */ q) => h("li", {}, q.texte))),
+    h("div", { class: "boutons" },
+      h("a", { class: "bouton action petit", href: `#/campagnes/nouvelle/${m.id}` }, "Créer une campagne avec"),
+      h("a", { class: "bouton discret petit", href: `#/modele/${m.id}` }, m.integre ? "Voir en détail" : "Modifier"),
+      h("button", { type: "button", class: "bouton discret petit", onclick: () => essayer(() => dupliquer(m)) }, "Dupliquer"),
+      m.integre ? null : boutonConfirme("Supprimer", "Confirmer la suppression", async () => { await api(`/api/rh/modeles/${m.id}`, { methode: "DELETE" }); toast("Questionnaire type supprimé"); await pageModeles(); }, "bouton danger petit")));
+  const base = modeles.find((/** @type {any} */ m) => m.id === "base") ?? modeles[0];
+  page({ titre: "Questionnaires types", sous: "La banque de départ des campagnes : accueil, ton, feuille de style, questions et familles de métiers. On en choisit un à la création d'une campagne, puis on l'ajuste. Pour en ajouter : dupliquez-en un, ou enregistrez celui d'une campagne (onglet Questionnaire).",
+    droite: h("button", { type: "button", class: "bouton action", onclick: () => essayer(async () => {
+      const r = await api("/api/rh/modeles", { methode: "POST", corps: { nom: "Nouveau questionnaire type", description: "", config: base.config } });
+      location.hash = `#/modele/${r.modele.id}`;
+    }) }, "Nouveau questionnaire type") },
+    h("div", { class: "grille cartes" }, ...modeles.map(fiche)));
+}
+
+async function pageModele(/** @type {string} */ id) {
+  const [{ modeles }, { styles }] = await Promise.all([api("/api/rh/modeles"), api("/api/rh/styles")]);
+  const m = modeles.find((/** @type {any} */ x) => x.id === id);
+  if (!m) { toast("Ce questionnaire type n'existe plus", "erreur"); location.hash = "#/modeles"; return; }
+  const nom = /** @type {HTMLInputElement} */ (h("input", { value: m.nom, maxlength: 80, disabled: m.integre }));
+  const description = /** @type {HTMLInputElement} */ (h("input", { value: m.description, maxlength: 300, disabled: m.integre }));
+  const identite = h("section", { class: "carte formulaire-ligne" }, champ("Nom", nom), champ("Description (pour l'équipe)", description),
+    m.integre ? h("button", { type: "button", class: "bouton action", onclick: () => essayer(async () => {
+      const r = await api("/api/rh/modeles", { methode: "POST", corps: { nom: `${m.nom} (copie)`.slice(0, 80), description: m.description, config: m.config } });
+      toast("Copie créée : vous pouvez la modifier"); location.hash = `#/modele/${r.modele.id}`;
+    }) }, "Dupliquer pour modifier")
+      : h("button", { type: "button", class: "bouton discret", onclick: () => essayer(async () => {
+        await api(`/api/rh/modeles/${m.id}`, { methode: "PATCH", corps: { nom: nom.value.trim(), description: description.value.trim() } }); toast("Nom et description enregistrés");
+      }) }, "Enregistrer"));
+  const editeur = editeurCampagne({
+    config: m.config, entreprises: [], choisies: [], lectureSeule: m.integre, pourModele: true, styles,
+    valider: async (config) => (await api("/api/rh/campagnes/verifier", { methode: "POST", corps: { config } })).problemes,
+    enregistrer: async (config) => { await api(`/api/rh/modeles/${m.id}`, { methode: "PATCH", corps: { config } }); toast("Questionnaire type enregistré"); },
+    apercu: essayerParcours,
+  });
+  page({ titre: m.nom, sous: m.integre ? "Livré avec Why me : lecture seule. Dupliquez-le pour l'adapter." : "Les campagnes déjà créées avec ce questionnaire ne changent pas : il ne sert que de point de départ.",
+    fil: ["Questionnaires types", "#/modeles"], droite: h("a", { class: "bouton action", href: `#/campagnes/nouvelle/${m.id}` }, "Créer une campagne avec") },
+    h("div", { class: "pile" }, identite, editeur));
+}
+
+// ------------------------------------------------------------------ feuilles de style
+
+/** Aperçu d'une feuille : écran d'accueil du téléphone et ouverture du film. */
+function apercuStyle(/** @type {any} */ st) {
+  const tel = h("div", { class: "telephone" },
+    h("div", { class: "tel-haut" }, h("span", { class: "tel-marque" }, "why me"), h("span", {}, "Salon")),
+    h("div", { class: "tel-corps" }, h("h3", {}, "Plus qu'un CV. Quelqu'un."),
+      h("p", { class: "tel-bulle" }, "Sois toi-même : pas de piège, pas de note."),
+      h("div", { class: "tel-chiffres" }, h("span", {}, h("strong", {}, "4"), "questions"), h("span", {}, h("strong", {}, "10 s"), "par réponse")),
+      h("span", { class: "tel-bouton" }, "C'est parti !")));
+  const film = h("div", { class: "film-question" },
+    h("span", { class: "film-num" }, "JobBox · Salon"), h("span", { class: "film-bulle ouverture" }, "Découvrez Camille en 52 secondes"),
+    h("span", { class: "film-logo" }, "why me"));
+  habillerAvec(tel, st, "tel"); habillerAvec(film, st, "film");
+  return h("div", { class: "apercu-style" }, tel, film);
+}
+
+async function pageStyles() {
+  const { styles, motifs } = await api("/api/rh/styles");
+  const zoneEdition = h("div", {});
+  /** Formulaire de création (base : une feuille à dupliquer) ou de modification. */
+  const editer = (/** @type {any} */ base, /** @type {boolean} */ modification, vierge = false) => {
+    const k = base.couleurs;
+    const nom = /** @type {HTMLInputElement} */ (h("input", { maxlength: 60, value: vierge ? "" : modification ? base.nom : `${base.nom.replace(/ \(par défaut\)$/, "")} (copie)`, required: true, placeholder: "ex. Marine, Agroalimentaire" }));
+    const description = /** @type {HTMLInputElement} */ (h("input", { maxlength: 200, value: vierge ? "" : base.description, placeholder: "Pour qui, quelle ambiance" }));
+    const couleur = (/** @type {string} */ v) => /** @type {HTMLInputElement} */ (h("input", { type: "color", value: v.toLowerCase() }));
+    const accent = couleur(k.accent), fond = couleur(k.fond), titre = couleur(k.titre);
+    const motif = /** @type {HTMLSelectElement} */ (h("select", {}, h("option", { value: "" }, "Aucun"), ...motifs.map((/** @type {any} */ m) => h("option", { value: m.id, selected: m.id === base.motif }, m.nom))));
+    const apercu = h("div", {});
+    const alertes = h("ul", { class: "erreurs" });
+    const enregistrer = /** @type {HTMLButtonElement} */ (h("button", { type: "submit", class: "bouton action" }, modification ? "Enregistrer la feuille" : "Créer la feuille"));
+    const valeurs = () => ({ accent: accent.value.toUpperCase(), fond: fond.value.toUpperCase(), titre: titre.value.toUpperCase() });
+    const maj = () => {
+      const v = valeurs();
+      apercu.replaceChildren(apercuStyle({ couleurs: couleursDepuis(v), motif: motif.value || null }));
+      const p = problemesCouleurs(v);
+      alertes.replaceChildren(...p.map((x) => h("li", {}, x)));
+      enregistrer.disabled = p.length > 0;
+    };
+    [accent, fond, titre, motif].forEach((e) => e.addEventListener("input", maj));
+    const form = /** @type {HTMLFormElement} */ (h("form", { class: "carte editeur-style" },
+      h("div", { class: "pile" }, h("h2", { style: "margin:0" }, modification ? `Modifier « ${base.nom} »` : "Nouvelle feuille de style"),
+        champ("Nom", nom), champ("Description", description),
+        h("div", { class: "grille trois" }, champ("Couleur principale", accent, "Boutons, bulle du film."), champ("Fond", fond, "Clair."), champ("Texte", titre, "Foncé.")),
+        champ("Motif", motif, "Petit dessin en haut des écrans et dans le film."),
+        h("p", { class: "aide-champ", style: "margin:0" }, "Les autres teintes (fonds doux, bulles, textes secondaires) se déduisent de ces trois couleurs."),
+        alertes,
+        h("div", { class: "boutons" }, enregistrer, h("button", { type: "button", class: "bouton discret", onclick: () => zoneEdition.replaceChildren() }, "Annuler")),
+        modification && base.campagnes ? h("p", { class: "aide-champ", style: "margin:0" }, `Utilisée par ${pluriel(base.campagnes, "campagne")} : elles changeront toutes d'allure.`) : null),
+      apercu));
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      essayer(async () => {
+        const corps = { nom: nom.value.trim(), description: description.value.trim(), ...valeurs(), motif: motif.value || null };
+        if (modification) await api(`/api/rh/styles/${base.id}`, { methode: "PATCH", corps });
+        else await api("/api/rh/styles", { methode: "POST", corps });
+        toast(modification ? "Feuille de style enregistrée" : "Feuille de style créée : choisissez-la dans le questionnaire d'une campagne");
+        await pageStyles();
+      });
+    });
+    maj();
+    zoneEdition.replaceChildren(form);
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+    nom.focus();
+  };
+  const fiche = (/** @type {any} */ st) => h("section", { class: "carte pile fiche-style" },
+    h("div", {}, h("h2", { style: "margin:0" }, st.nom),
+      h("div", { class: "pastilles" },
+        st.integre ? h("span", { class: "pastille" }, "Livrée avec Why me") : h("span", { class: "pastille", "data-ton": "vox" }, "Créée par l'équipe"),
+        h("span", { class: "pastille" }, st.campagnes ? pluriel(st.campagnes, "campagne") : "aucune campagne"))),
+    st.description ? h("p", { class: "sous-ligne", style: "margin:0" }, st.description) : null,
+    apercuStyle(st),
+    h("div", { class: "boutons" },
+      st.integre ? null : h("button", { type: "button", class: "bouton discret petit", onclick: () => editer(st, true) }, "Modifier"),
+      h("button", { type: "button", class: "bouton discret petit", onclick: () => editer(st, false) }, "Dupliquer"),
+      st.integre || st.campagnes ? null : boutonConfirme("Supprimer", "Confirmer la suppression", async () => { await api(`/api/rh/styles/${st.id}`, { methode: "DELETE" }); toast("Feuille supprimée"); await pageStyles(); }, "bouton danger petit")));
+  page({ titre: "Feuilles de style", sous: "L'allure d'une campagne : le téléphone du candidat, le film monté (ouverture et questions), la page vidéo et les e-mails. On la choisit dans l'onglet Questionnaire de la campagne.",
+    droite: h("button", { type: "button", class: "bouton action", onclick: () => editer(styles[0], false, true) }, "Nouvelle feuille") },
+    zoneEdition, h("div", { class: "grille cartes" }, ...styles.map(fiche)));
 }
 
 // ------------------------------------------------------------------ vidéos montées
@@ -475,12 +636,16 @@ async function pageEquipe() {
 
 async function router() {
   const [, cle = "campagnes", id = "", onglet = ""] = location.hash.replace(/^#/, "").split("/");
-  const rubrique = cle === "campagne" ? "campagnes" : cle === "recruteurs" ? "entreprises" : cle;
+  const rubrique = cle === "campagne" ? "campagnes" : cle === "recruteurs" ? "entreprises" : cle === "modele" ? "modeles" : cle;
   document.querySelectorAll(".menu a").forEach((a) => {
     if (a.getAttribute("href") === `#/${rubrique}`) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
   try {
     if (cle === "campagne" && id) await campagne(id, onglet);
+    else if (cle === "campagnes" && id === "nouvelle") await pageCampagnes(onglet);
+    else if (cle === "modeles") await pageModeles();
+    else if (cle === "modele" && id) await pageModele(id);
+    else if (cle === "styles") await pageStyles();
     else if (cle === "videos") await pageVideos();
     else if (cle === "clients") await pageClients();
     else if (cle === "equipe" && moi?.role === "admin_rh") await pageEquipe();
