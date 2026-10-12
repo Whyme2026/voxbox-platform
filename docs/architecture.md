@@ -94,6 +94,9 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   « Continuer », grisé tant qu'elle n'est pas cochée ; la session part à ce moment. Tient lieu d'étape `consentement`
   pour le schéma (pas de diffusion publique proposée dans ce cas). Retenu pour la PFA à la place de `avecCamera`.
 - Cadrage, `texte` (bulle au-dessus du titre) et `reperes` (`false` : ni lumière, ni son, ni visage ; l'ovale reste).
+- Cadrage, `conseils` (4 au plus, numérotés sous le titre) et `conclusion` (une phrase en couleur du visiteur) : en
+  paysage, titre, conseils et conclusion à gauche, l'image à droite (12/10/2026).
+- Question, `intitulePistes` : intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; `""` : aucun.
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle

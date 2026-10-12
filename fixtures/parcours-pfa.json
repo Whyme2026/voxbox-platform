@@ -95,10 +95,15 @@
       "id": "cadrage",
       "type": "cadrage",
       "fond": "blanc",
-      "texte": "Merci {prenom} ! On va te poser 4 questions. Après chaque réponse, tu peux passer à la suivante.",
       "titre": "Place ton visage dans l'ovale",
       "proposerFloutage": true,
-      "reperes": false
+      "reperes": false,
+      "conseils": [
+        "Fais court : 15 à 25 secondes suffisent, va droit au but.",
+        "Tu as fini de répondre ? Touche « Question suivante » sans attendre.",
+        "Regarde la caméra, en haut de l'écran, et parle normalement."
+      ],
+      "conclusion": "Sois sincère, on adore ça !"
     },
     {
       "id": "q-visite",
@@ -112,8 +117,9 @@
         "Ce que tu diras à tes potes"
       ],
       "dureeMaxSec": 20,
-      "compteARebours": 6,
-      "silenceArretSec": 3
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": ""
     },
     {
       "id": "q-voiture",
@@ -127,8 +133,9 @@
         "Tu la conduirais pour aller où ?"
       ],
       "dureeMaxSec": 15,
-      "compteARebours": 6,
-      "silenceArretSec": 3
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": ""
     },
     {
       "id": "q-innovation",
@@ -142,8 +149,9 @@
         "Une façon de fabriquer"
       ],
       "dureeMaxSec": 20,
-      "compteARebours": 6,
-      "silenceArretSec": 3
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": ""
     },
     {
       "id": "q-fabrique",
@@ -157,8 +165,9 @@
         "Ce qu'on pourrait améliorer"
       ],
       "dureeMaxSec": 25,
-      "compteARebours": 6,
-      "silenceArretSec": 3
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": ""
     },
     {
       "id": "fin",
