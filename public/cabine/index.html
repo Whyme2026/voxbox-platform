@@ -43,6 +43,14 @@
   <!-- Aperçu caméra : un seul élément, déplacé dans l'écran qui en a besoin. Même format que l'enregistrement (4:3). -->
   <div class="apercu" id="apercu" hidden>
     <video id="video" muted playsinline autoplay></video>
+    <!-- Guide de cadrage (écran « cadrage » seulement) : ovale du visage et épaules, le reste de l'image légèrement voilé. -->
+    <div class="guide-cadrage" id="guide-cadrage" aria-hidden="true">
+      <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+        <path class="voile" fill-rule="evenodd" d="M0 0H400V300H0Z M128 134a72 94 0 1 0 144 0a72 94 0 1 0 -144 0Z"/>
+        <ellipse class="contour" cx="200" cy="134" rx="72" ry="94"/>
+        <path class="epaules" d="M84 300C96 246 142 232 200 232C258 232 304 246 316 300"/>
+      </svg>
+    </div>
     <div class="compte" id="compte" aria-live="assertive" hidden>
       <span class="compte-bulle" id="compte-chiffre"></span>
       <span class="compte-texte" id="compte-detail"></span>
