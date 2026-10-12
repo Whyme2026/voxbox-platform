@@ -5,7 +5,7 @@
 // Les coupes sont franches : l'enregistrement est mis en pause pendant chaque recherche dans la vidéo source.
 // Rien n'est chargé depuis internet.
 
-import { composerJingle, enveloppe, segmentsParole, recadrage } from "./plan.js";
+import { composerJingle, composerJingleTurbo, enveloppe, segmentsParole, recadrage } from "./plan.js";
 
 /** @typedef {import("./plan.js").Theme} Theme */
 /** @typedef {ReturnType<typeof import("./plan.js").planParlomix>} Plan */
@@ -387,8 +387,15 @@ export async function fabriquer(o) {
   general.gain.value = 0.9;
   limiteur.connect(general);
   general.connect(sortieSon);
-  const jingle = audio.createBuffer(1, Math.round(1.1 * audio.sampleRate), audio.sampleRate);
-  jingle.copyToChannel(/** @type {Float32Array<ArrayBuffer>} */ (composerJingle(audio.sampleRate)), 0);
+  // Jingle de la campagne : « parlobox » (le même partout) ou « turbo » (3 s à l'ouverture, version courte ensuite).
+  const tampon = (/** @type {Float32Array} */ son) => {
+    const b = audio.createBuffer(1, son.length, audio.sampleRate);
+    b.copyToChannel(/** @type {Float32Array<ArrayBuffer>} */ (son), 0);
+    return b;
+  };
+  const turbo = th.jingle === "turbo";
+  const jingle = tampon(turbo ? composerJingleTurbo(audio.sampleRate, true) : composerJingle(audio.sampleRate));
+  const jingleOuverture = turbo ? tampon(composerJingleTurbo(audio.sampleRate)) : jingle;
   const video = document.createElement("video");
   video.playsInline = true;
   video.preload = "auto";
@@ -418,7 +425,7 @@ export async function fabriquer(o) {
         if (enregistreur.state === "paused") enregistreur.resume();
         if (seq.jingle) {
           const s = audio.createBufferSource();
-          s.buffer = jingle;
+          s.buffer = seq.role === "intro" ? jingleOuverture : jingle;
           s.connect(limiteur);
           s.start();
         }

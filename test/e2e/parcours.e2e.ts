@@ -716,6 +716,41 @@ async function visiteAdminGeely() {
   await admin.close();
 }
 
+/** PFA : Parlomix par personne, ouverture « Le Salon de l'auto de {prénom} » de 3 s au jingle turbo. */
+async function visiteAdminPfa() {
+  const admin = await contexte.newPage();
+  admin.on("pageerror", (e: Error) => erreurs.push(`admin : ${e.message}`));
+  await admin.setViewportSize({ width: 1440, height: 900 });
+  await admin.goto(`http://localhost:${port}/admin/`);
+  await admin.getByRole("heading", { name: "Tableau de bord" }).waitFor();
+  await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
+  await admin.getByRole("link", { name: "Fabrique de l'Innovation — Mondial 2026" }).click();
+  await admin.getByRole("tab", { name: "Parlomix" }).click();
+  await admin.getByRole("heading", { name: "Créer un Parlomix" }).waitFor();
+  await admin.getByRole("button", { name: "Créer le Parlomix" }).click();
+  await admin.locator(".apercu-parlomix").waitFor();
+  await admin.getByText("Parlomix prêts : 16:9 et 9:16.").waitFor({ timeout: 300_000 });
+  const films = await db.prepare("SELECT format, cle, type_mime, duree_ms, plan FROM parlomix WHERE statut = 'pret' ORDER BY cree_le").all<any>();
+  assert.equal(films.results.length, 2, "deux Parlomix prêts");
+  for (const f of films.results) {
+    const plan = JSON.parse(f.plan);
+    assert.match(plan.sequences[0].titre, /^Le Salon de l'auto de \S/, "ouverture de la campagne avec le prénom");
+    assert.equal(plan.sequences[0].dureeMs, 3000, "ouverture de 3 s");
+    assert.equal(plan.theme.jingle, "turbo");
+    const fichier = join(captures, `pfa-parlomix-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);
+    writeFileSync(fichier, objets.get(f.cle)!);
+    for (const t of ["0.4", "1.5", "2.6"]) {
+      spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", t, "-i", fichier, "-frames:v", "1", join(captures, `pfa-parlomix-${f.format.replace(":", "x")}-${t}s.png`)]);
+    }
+    // Le jingle s'entend pendant toute l'ouverture.
+    const vol = spawnSync("ffmpeg", ["-hide_banner", "-t", "2.8", "-i", fichier, "-af", "volumedetect", "-f", "null", "-"]).stderr.toString();
+    const moyen = Number(/mean_volume: (-?[\d.]+) dB/.exec(vol)?.[1] ?? "-99");
+    assert.ok(moyen > -35, `${f.format} : jingle audible à l'ouverture (${moyen} dB)`);
+    bilanParlomix.push({ format: f.format, mime: f.type_mime, prevu_s: f.duree_ms / 1000, ouverture: plan.sequences[0].titre, volume_ouverture_db: moyen });
+  }
+  await admin.close();
+}
+
 try {
   await appairer();
   const attendu = scenario === "auto" ? await scenarioAuto() : scenario === "fabrice" ? await scenarioFabrice()
@@ -750,7 +785,7 @@ try {
     assert.ok(l! * 3 === ht! * 4 && l! >= 960, `${b.etape} : image filmée en 4:3 (paysage), reçu ${b.image}`);
   }
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
-  if (process.env.E2E_ADMIN) await (scenario === "geely" ? visiteAdminGeely() : visiteAdmin());
+  if (process.env.E2E_ADMIN) await (scenario === "geely" ? visiteAdminGeely() : scenario === "pfa" ? visiteAdminPfa() : visiteAdmin());
   if (scenario === "demo" && !process.env.E2E_VIDEO) await visiteRetrait();
   if (scenario === "demo" && process.env.E2E_ADMIN && !process.env.E2E_VIDEO) await visiteSuppressionCampagne();
   if (bilanParlomix.length) console.log(JSON.stringify({ parlomix: bilanParlomix }, null, 2));

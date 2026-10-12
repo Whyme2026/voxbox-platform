@@ -5,7 +5,7 @@
 import { h } from "./dom.js";
 import { editeurParcours } from "./editeur.js";
 import { vueAnalyse } from "./analyse.js";
-import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
+import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, titreOuverture, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
 import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "./montage/rendu.js";
 
 /** @typedef {{ email: string, role: string, client: any, droits: string[], environnement: string }} Moi */
@@ -892,7 +892,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       const question = questions.find((/** @type {any} */ q) => q.id === choixQuestion.value);
       const personne = sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value);
       const cabineNom = cabines.find(([id]) => id === choixCabine.value)?.[1];
-      const titre = type === "personne" ? personne.prenom : question.titre;
+      const titre = type === "personne" ? titreOuverture(theme, personne.prenom) : question.titre;
       const sousTitre = type === "personne" ? c.nom : `${question.texte}${cabineNom ? ` · ${cabineNom}` : ""}`;
 
       // 2. Un film par format.
