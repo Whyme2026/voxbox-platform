@@ -6,6 +6,13 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#F1F2F6">
   <title>Parlobox</title>
+  <!-- Application installable en plein écran (Chrome Android : menu > Installer l'application).
+       use-credentials : en production la cabine est derrière Cloudflare Access, le manifeste doit partir avec le cookie. -->
+  <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icones/icone-apple-180.png">
   <link rel="preload" href="../polices/fredoka.woff" as="font" type="font/woff" crossorigin>
   <link rel="preload" href="../polices/gabarito.woff" as="font" type="font/woff" crossorigin>
   <link rel="stylesheet" href="cabine.css">

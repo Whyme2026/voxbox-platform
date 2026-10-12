@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.7.0";
+const VERSION = "0.7.1";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -962,8 +962,14 @@ async function demarrerApercu() {
   });
 }
 
+/** Rend la cabine installable en application plein écran (voir sw.js). Sans effet si le navigateur ne sait pas. */
+function enregistrerApplication() {
+  try { navigator.serviceWorker?.register("sw.js").catch(() => {}); } catch { /* navigateur sans service worker */ }
+}
+
 async function demarrer() {
   if (APERCU) return demarrerApercu();
+  enregistrerApplication();
   if (!formatEnregistrement()) {
     return afficher([h("div", { class: "ecran" }, h("h1", {}, "Navigateur non compatible"), h("p", { class: "chapo" }, "Ce navigateur ne sait pas enregistrer la vidéo avec le son. Utilisez Chrome à jour."))], "erreur");
   }
