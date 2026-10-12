@@ -70,9 +70,19 @@ versionné et validé par le client comme le reste. Clés (toutes facultatives, 
   (`data:` dans une balise `img` : aucun script n'y tourne) ; le serveur refuse en plus scripts, gestionnaires
   d'événements, liens et ressources externes. Une étape ou une option affiche `visuel` ; la valeur réservée
   `"choix"` affiche le visuel de la dernière option choisie qui en a un (ex. le modèle que le visiteur a désigné).
+- `parlomix` (12/10/2026) : `{ ouverture?, jingle?, fond?, visuel? }`. `ouverture` : titre de la carte d'ouverture
+  du Parlomix par personne, 60 caractères au plus, `{prenom}` remplacé (ex. « Le Salon de l'auto de {prenom} ») ;
+  `jingle` : `parlobox` (par défaut) ou `turbo` ; `fond` et `visuel` : ceux de la carte d'ouverture, parmi les
+  `fonds` et `visuels` de l'habillage. Ne touche que le montage, jamais l'écran de la cabine.
 Sans logo, l'en-tête d'une campagne habillée affiche le nom de la marque dans la police des titres.
-Référence : `fixtures/parcours-geely.json` (première campagne habillée, silhouettes de voitures dessinées par WhyMe,
-à remplacer par les visuels officiels de la marque).
+Références : `fixtures/parcours-geely.json` (première campagne habillée, silhouettes de voitures dessinées par WhyMe,
+à remplacer par les visuels officiels de la marque) ; `fixtures/parcours-pfa.json` (Fabrique de l'Innovation, Mondial
+de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, disposition centrée, Parlomix « turbo »).
+
+## Réglages généraux du parcours
+- `ambiance` : `conversation` (par défaut), `pop` ou `marine` (voir plus bas).
+- `tutoiement` : textes fixes de la cabine au tutoiement ; les textes légaux restent au vouvoiement.
+- `disposition` (12/10/2026) : `cote` (par défaut) ou `centree`, voir « Disposition centrée » plus bas.
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle
@@ -158,8 +168,11 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
 - `public/admin/js/montage/plan.js` (logique pure, testée) : repérage des blancs à partir de l'enveloppe du son
   (début et fin coupés, silences de plus de 0,7 s raccourcis), choix des réponses (par personne ; par question dans
   la campagne ou dans une cabine ; filtre « diffusion acceptée » ; prénoms ou « Avis n° k » ; 20 réponses au plus),
-  plan (ouverture, réponses séparées par une carte animée et le jingle, fin), recadrage 9:16, **jingle composé par
-  le code** (quatre notes de marimba et une bulle, propriété de WhyMe).
+  plan (ouverture, réponses séparées par une carte animée et le jingle, fin), recadrage 9:16, **jingles composés par
+  le code**, propriété de WhyMe : `parlobox` (quatre notes de marimba et une bulle, 1,1 s) et `turbo` (12/10/2026,
+  pour l'automobile : moteur qui monte en régime, souffle, arpège électro sur grosse caisse à 150 bpm, accord final ;
+  3 s à l'ouverture, qui dure alors 3 s, et 0,9 s entre les réponses). Bruit pseudo-aléatoire à graine fixe : le
+  même jingle à chaque montage.
 - `public/admin/js/montage/rendu.js` : canevas + MediaRecorder, MP4 si le navigateur sait (sinon WebM), coupes
   franches (enregistrement en pause pendant les recherches), cartes et bandeaux aux couleurs du client, limiteur
   sur le son, vérification que le film contient du son (sinon nouveau montage en WebM : leçon Geely).
@@ -171,7 +184,8 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   polices, capitales, couleur des bulles, et pour chaque carte le fond de la question qui suit. L'ouverture
   d'un Parlomix par personne montre le visuel de son choix (le modèle désigné) ; dans un Parlomix par question,
   chaque transition montre celui de la personne. Le plan ne garde que les identifiants : les visuels sont chargés
-  depuis l'habillage au moment du rendu.
+  depuis l'habillage au moment du rendu. `habillage.parlomix` peut imposer le titre (`titreOuverture`), le jingle,
+  le fond et le visuel de l'ouverture.
 - Limites : le film se fabrique en temps réel (onglet ouvert et visible), 95 Mo au plus par film.
 
 ## Écran de question V2 : la base de toutes les ambiances (10/10/2026)
@@ -184,6 +198,20 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
 - **Un nouveau thème ne touche pas à la disposition** : il passe par les jetons de couleur, les polices, l'ambiance
   (`conversation`, `pop`, `marine`…) et les visuels de l'habillage. Maquettes : canevas « Parlobox : direction
   artistique », lignes V2.
+
+## Disposition centrée des questions (12/10/2026)
+Option du parcours (`"disposition": "centree"`), en paysage seulement ; le portrait garde la suite empilée.
+- Constat au Mondial de l'Auto : avec la question à gauche et l'image à droite, l'œil fait des allers-retours entre
+  la question, l'image et l'objectif (en haut au centre de la tablette) ; en relisant, le visiteur regarde de côté.
+- La question en haut au centre, juste sous l'objectif ; l'image centrée dessous, le bouton à sa droite.
+  `.ecran-question[data-phase]` : `lire` (question en grand, image voilée avec le compte à rebours), puis `rec`
+  (question resserrée sur une ligne, sans étiquette ni intitulé, image plus grande : environ 575 × 430 au lieu de
+  476 × 357 sur une tablette 1280 × 720). La question ne change pas de place entre les deux phases.
+- Pendant la lecture, le bouton « Je suis prêt » démarre la prise sans attendre la fin du compte à rebours.
+- Largeur de l'image calculée sur la hauteur disponible (`--hors-camera` par phase), pas en pourcentage : une
+  colonne de grille « auto » n'a pas de base pour un pourcentage.
+- Maquettes des trois options étudiées (côte à côte avec lecture allongée, centrée, sous-titre sur l'image) : canevas
+  « Parlobox × Fabrique de l'Innovation PFA ».
 
 ## Purge à échéance (11/10/2026)
 Les textes acceptés par le visiteur promettent la suppression de ses vidéos au bout de la durée de conservation de la
@@ -250,7 +278,9 @@ transcription, Mistral Large 3 pour le classement au lot 2).
   `reponses.lire`, cloisonnement par client, chaque consultation qui montre des propos journalisée :
   - « Par question » : de quoi parlent les gens, tonalité par thème (nombres ; pourcentages à partir de 30 propos),
     verbatims représentatifs (un par tonalité présente, sans doublon, qui ouvrent la vidéo au bon moment).
-    **Ouvert à partir de 100 visiteurs** (`SEUIL_VISITEURS`) ; en dessous, une jauge et l'avancement par question.
+    **Ouvert à partir de 100 visiteurs** par défaut (`SEUIL_VISITEURS`), réglable par campagne entre 20 et 1000
+    (`campagnes.seuil_analyse`, migration `0014_seuil_analyse.sql`, Parlorama > Modifier, journalisé ; modifiable en
+    cours de campagne car absent des textes acceptés) ; en dessous, une jauge et l'avancement par question.
   - « Recherche par thèmes » : propos d'un thème, filtrables par tonalité, question et mots. Dès la première réponse.
   - « Aujourd'hui en direct » (heure de Paris, actualisé chaque minute) : visiteurs du jour et par heure, derniers
     propos, sujets qui montent (mentions du jour contre la moyenne des jours précédents), alertes du jour et alertes
@@ -280,6 +310,15 @@ Page `public/cabine/`, sans compilation ni dépendance :
 - `file-envoi.js` : file IndexedDB strictement ordonnée (session puis vidéos), reprise après coupure ;
 - `app.js` : écrans en bulles (16:9 d'abord, portrait 9:16 géré), pauses avant/après (reprise par le prénom, 12 h max), inactivité 90 s, signal de vie,
   miniature de chaque réponse, rappel du QR code extérieur sur l'écran de fin (retour à l'accueil après 20 s par défaut) ;
+  - **écran de cadrage** (12/10/2026) : ovale du visage et ligne des épaules (`#guide-cadrage`, dans l'aperçu,
+    au-dessus de l'image et du flou), affiché seulement sur cet écran. Repères comme pour Why me : « Lumière »
+    (image assez claire, pas de contre-jour, sur une image réduite à 48 × 36), « Son : dis bonjour » (vumètre), et
+    « Visage dans l'ovale » si le navigateur a `FaceDetector`. Chaque repère passe au vert, l'ovale aussi quand tout
+    est bon. Rien n'est bloquant. (L'ovale annoncé par le texte manquait depuis le passage du prototype Geely.)
+  - **rechargement automatique** (version 0.4.0) : l'API renvoie l'identifiant du déploiement (`x-parlorama-version`) ;
+    quand il change, la cabine se recharge entre deux visiteurs (au plus 5 minutes après la mise en ligne). Une
+    tablette en mode kiosque ne recharge jamais sa page d'elle-même. `VERSION` de `app.js` est envoyée dans le
+    signal de vie : l'augmenter à chaque changement de la cabine ;
 - `qr.js` : générateur de QR code (mode octets, correction M, versions 1 à 10), vérifié par décodage OpenCV dans les tests ;
   plus utilisé par l'écran de fin, gardé pour produire le QR code de l'affiche extérieure.
 La session est créée par la tablette (UUID) pour fonctionner hors ligne ; l'envoi est idempotent.
