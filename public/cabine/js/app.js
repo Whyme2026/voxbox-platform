@@ -228,6 +228,7 @@ function appliquerHabillage() {
   if (texte) racine.setProperty("--police-texte", `${texte}, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`); else racine.removeProperty("--police-texte");
   if (POLICES_LARGES.has(hab.polices?.titres)) cabine.dataset.titres = "large"; else delete cabine.dataset.titres;
   cabine.toggleAttribute("data-majuscules", hab.titresMajuscules === true);
+  if (config?.parcours?.disposition === "centree") cabine.dataset.disposition = "centree"; else delete cabine.dataset.disposition;
   cabine.toggleAttribute("data-habille", Boolean(config?.parcours?.habillage));
   fonds = new Map((hab.fonds ?? []).map((/** @type {any} */ a) => [a.id, a]));
   visuels = new Map((hab.visuels ?? []).map((/** @type {any} */ v) => [v.id, v]));
@@ -687,8 +688,12 @@ async function ecranQuestion(/** @type {any} */ e) {
   const progression = moteur.progression(e.id, v.repondues);
   const derniere = progression.numero >= progression.total;
   /** @type {(() => void) | null} */ let arret = null;
-  const suivant = bouton(derniere ? "J'ai terminé" : "Question suivante", () => arret?.(), "plein");
-  suivant.toggleAttribute("disabled", true);
+  // Disposition centrée : pendant la lecture, le bouton permet de démarrer sans attendre la fin du compte à rebours.
+  const centree = config?.parcours?.disposition === "centree";
+  let enCours = false;
+  const libelleSuivant = derniere ? "J'ai terminé" : "Question suivante";
+  const suivant = bouton(centree ? "Je suis prêt" : libelleSuivant, () => { if (enCours) arret?.(); else if (centree) lancer(); }, "plein");
+  suivant.toggleAttribute("disabled", !centree);
   const remplissage = h("span");
   const barre = h("div", { class: "barre-temps", role: "progressbar", "aria-label": "Temps restant" }, remplissage);
   const secondes = h("span", {}, `${e.dureeMaxSec} s`);
@@ -697,7 +702,7 @@ async function ecranQuestion(/** @type {any} */ e) {
 
   // Disposition V2 : la marque à gauche (question, idées, amorce), le visiteur à droite (temps, image, bouton).
   afficher([
-    h("div", { class: "ecran ecran-question" },
+    h("div", { class: "ecran ecran-question", "data-phase": "lire" },
       h("section", { class: "gauche", "aria-label": "La question" },
         h("div", { class: "tete arrive" },
           h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
@@ -727,14 +732,21 @@ async function ecranQuestion(/** @type {any} */ e) {
 
   // Le temps de lire : compte à rebours sur l'aperçu, puis la caméra tourne.
   let reste = Math.max(0, Number(e.compteARebours ?? 5));
+  /** @type {ReturnType<typeof setTimeout> | undefined} */ let minuterie;
   const decompte = () => {
-    if (annule) return;
-    if (reste > 0) { compte(reste); reste -= 1; setTimeout(decompte, 1000); return; }
+    if (annule || enCours) return;
+    if (reste > 0) { compte(reste); reste -= 1; minuterie = setTimeout(decompte, 1000); return; }
     compte(0);
     lancer();
   };
 
   const lancer = () => {
+    if (enCours) return;
+    enCours = true;
+    clearTimeout(minuterie);
+    compte(0);
+    suivant.textContent = libelleSuivant;
+    document.querySelector(".ecran-question")?.setAttribute("data-phase", "rec");
     $("rec").hidden = false;
     ecoute.dataset.etat = "rec";
     apercu.dataset.rec = "";

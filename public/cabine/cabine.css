@@ -293,6 +293,34 @@ button { font: inherit; color: inherit; }
   .ecran-question .droite { justify-content: flex-end; }
 }
 
+/* Disposition « centrée » (parcours.disposition), en paysage : la question en haut au centre, juste sous l'objectif
+   de la tablette ; l'image centrée dessous, le bouton à sa droite. La question ne bouge pas entre la lecture et la
+   prise : pendant la prise, elle se resserre (sans étiquette ni intitulé) et l'image grandit. */
+@media (orientation: landscape) {
+  [data-disposition="centree"] .ecran-question { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch; row-gap: calc(var(--gouttiere) * .45); --hors-camera: 430px; }
+  [data-disposition="centree"] .ecran-question[data-phase="rec"] { --hors-camera: 290px; }
+  [data-disposition="centree"] .ecran-question .gauche { width: min(100%, 1040px); justify-self: center; align-items: center; text-align: center; gap: 10px; }
+  [data-disposition="centree"] .ecran-question .tete { align-items: center; padding-left: 0; gap: 8px; }
+  [data-disposition="centree"] .ecran-question .question { margin-left: 0; text-align: center; text-wrap: balance; transition: font-size .3s ease; }
+  [data-disposition="centree"] .ecran-question .aide { align-items: center; padding-left: 0; gap: 6px; }
+  [data-disposition="centree"] .ecran-question .pistes { justify-content: center; }
+  [data-disposition="centree"] .ecran-question .visuel-question { display: none; }
+  [data-disposition="centree"] .ecran-question .droite { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-content: start; column-gap: calc(var(--gouttiere) * .6); row-gap: 8px; padding-top: 0; }
+  /* Colonne centrale à largeur fixe (calculée sur la hauteur disponible) : un pourcentage n'a pas de base dans une colonne « auto ». */
+  [data-disposition="centree"] .ecran-question .droite > .temps { grid-column: 2; grid-row: 1; margin-right: 0;
+    width: calc((100dvh - var(--hors-camera)) * var(--format-camera-n)); max-width: 62vw; }
+  [data-disposition="centree"] .ecran-question .droite > .zone-camera { grid-column: 2; grid-row: 2; transition: width .35s ease;
+    width: calc((100dvh - var(--hors-camera)) * var(--format-camera-n)); max-width: 62vw; }
+  [data-disposition="centree"] .ecran-question .droite > .actions { grid-column: 3; grid-row: 2; align-self: end; width: auto; max-width: 240px; }
+  [data-disposition="centree"] .ecran-question[data-phase="rec"] .titre-court,
+  [data-disposition="centree"] .ecran-question[data-phase="rec"] .aide .intitule,
+  [data-disposition="centree"] .ecran-question[data-phase="rec"] .coup-de-pouce { display: none; }
+  [data-disposition="centree"] .ecran-question[data-phase="rec"] .question { font-size: calc(var(--question) * .8); padding-block: .35em; }
+  [data-disposition="centree"] .ecran-question[data-phase="rec"] .pistes span { padding: 5px 12px; font-size: clamp(14px, 2.2vmin, 16px); box-shadow: none; }
+}
+
 /* --------------------------------------------------------------- aperçu caméra : bulle du visiteur */
 .apercu { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); background: var(--camera); transition: box-shadow .2s ease; }
 .apercu[data-rec] { box-shadow: 0 0 0 4px color-mix(in srgb, var(--rec) 30%, #FFFFFF); }

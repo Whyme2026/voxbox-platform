@@ -98,6 +98,8 @@ export type Etape =
  * Les couleurs de la marque cliente restent prioritaires dans les deux cas.
  */
 export type Ambiance = "conversation" | "pop" | "marine";
+export type Disposition = "cote" | "centree";
+export const DISPOSITIONS: readonly Disposition[] = ["cote", "centree"];
 export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop", "marine"];
 
 /**
@@ -132,6 +134,12 @@ export interface Parcours {
   ambiance?: Ambiance;
   /** Textes fixes de la cabine au tutoiement (par défaut : vouvoiement). Les textes légaux restent au vouvoiement. */
   tutoiement?: boolean;
+  /**
+   * Disposition des écrans de question en paysage. « cote » (par défaut) : la question à gauche, l'image à droite.
+   * « centree » : la question en haut au centre, juste sous l'objectif de la tablette, et l'image plus grande, centrée
+   * dessous ; la question ne bouge pas entre la lecture et la prise, elle se resserre seulement pendant la prise.
+   */
+  disposition?: Disposition;
   habillage?: Habillage;
   etapes: Etape[];
 }
@@ -148,6 +156,7 @@ export function validerParcours(brut: unknown): string[] {
   if (typeof p.langue !== "string" || !/^[a-z]{2}(-[A-Z]{2})?$/.test(p.langue)) pb.push("langue : code du type « fr » attendu");
   if (p.ambiance !== undefined && !AMBIANCES.includes(p.ambiance)) pb.push(`ambiance : ${AMBIANCES.join(", ")} attendu`);
   if (p.tutoiement !== undefined && typeof p.tutoiement !== "boolean") pb.push("tutoiement : vrai ou faux");
+  if (p.disposition !== undefined && !DISPOSITIONS.includes(p.disposition)) pb.push(`disposition : ${DISPOSITIONS.join(", ")} attendu`);
   if (!Array.isArray(p.etapes) || p.etapes.length === 0) return [...pb, "etapes : liste non vide attendue"];
 
   const ids = new Set<string>();
