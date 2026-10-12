@@ -2,6 +2,7 @@
   "version": 1,
   "langue": "fr",
   "tutoiement": true,
+  "disposition": "centree",
   "habillage": {
     "polices": {
       "titres": "barlow-condensed",
@@ -115,7 +116,7 @@
         "Ce que tu diras à tes potes"
       ],
       "dureeMaxSec": 20,
-      "compteARebours": 3,
+      "compteARebours": 6,
       "silenceArretSec": 3
     },
     {
@@ -130,7 +131,7 @@
         "Tu la conduirais pour aller où ?"
       ],
       "dureeMaxSec": 15,
-      "compteARebours": 3,
+      "compteARebours": 6,
       "silenceArretSec": 3
     },
     {
@@ -145,7 +146,7 @@
         "Une façon de fabriquer"
       ],
       "dureeMaxSec": 20,
-      "compteARebours": 3,
+      "compteARebours": 6,
       "silenceArretSec": 3
     },
     {
@@ -160,7 +161,7 @@
         "Ce qu'on pourrait améliorer"
       ],
       "dureeMaxSec": 25,
-      "compteARebours": 3,
+      "compteARebours": 6,
       "silenceArretSec": 3
     },
     {

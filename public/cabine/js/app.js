@@ -228,6 +228,7 @@ function appliquerHabillage() {
   if (texte) racine.setProperty("--police-texte", `${texte}, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`); else racine.removeProperty("--police-texte");
   if (POLICES_LARGES.has(hab.polices?.titres)) cabine.dataset.titres = "large"; else delete cabine.dataset.titres;
   cabine.toggleAttribute("data-majuscules", hab.titresMajuscules === true);
+  if (config?.parcours?.disposition === "centree") cabine.dataset.disposition = "centree"; else delete cabine.dataset.disposition;
   cabine.toggleAttribute("data-habille", Boolean(config?.parcours?.habillage));
   fonds = new Map((hab.fonds ?? []).map((/** @type {any} */ a) => [a.id, a]));
   visuels = new Map((hab.visuels ?? []).map((/** @type {any} */ v) => [v.id, v]));
@@ -585,34 +586,79 @@ async function ecranCadrage(/** @type {any} */ e) {
       h("div", { class: "emplacement-camera" }),
       h("div", { class: "actions" },
         e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
+        h("ul", { class: "verifs-cadrage", "aria-live": "polite" },
+          repere("v-lumiere", "Lumière"),
+          repere("v-son", tv("Son : dites « bonjour »", "Son : dis « bonjour »")),
+          detectionDisponible() ? repere("v-visage", "Visage dans l'ovale") : null),
         h("span", { style: "flex: 1" }),
         bouton("Je suis prêt", () => { envoyerSession(); suite(e); }))),
   ], "cadrage");
   suivreCadrage();
 }
 
+/** Repère de l'écran de cadrage : pastille (en attente, ok, à corriger) et libellé. */
+const repere = (/** @type {string} */ id, /** @type {string} */ libelle) => h("li", { id }, h("span", { class: "etat", "aria-hidden": "true" }, "…"), h("span", {}, libelle));
+
+/** Lumière de l'image : moyenne générale, centre (visage) et bords (contre-jour), sur une image réduite. */
+function mesurerImage() {
+  const c = document.createElement("canvas");
+  c.width = 48; c.height = 36;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  if (!g || !video.videoWidth) return null;
+  g.drawImage(video, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height).data;
+  let total = 0, centre = 0, nc = 0, bords = 0, nb = 0;
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      const i = (y * c.width + x) * 4;
+      const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      total += l;
+      if (x > c.width * 0.32 && x < c.width * 0.68 && y > c.height * 0.12 && y < c.height * 0.68) { centre += l; nc++; } else { bords += l; nb++; }
+    }
+  }
+  return { moyenne: total / (c.width * c.height), centre: centre / nc, bords: bords / nb };
+}
+
 /**
- * Guide de cadrage : l'ovale passe au vert quand un visage est bien placé (détecteur intégré au navigateur,
- * s'il existe ; sinon l'ovale reste blanc, en simple repère). S'arrête seul en quittant l'écran de cadrage.
+ * Repères de cadrage, comme pour Why me : lumière (image assez claire, pas de contre-jour), son (la personne a dit
+ * bonjour) et visage bien placé quand le navigateur sait le détecter. Chaque repère passe au vert ; l'ovale aussi
+ * quand tout est bon. Rien n'est bloquant : « Je suis prêt » reste toujours disponible.
+ * S'arrête seul en quittant l'écran de cadrage.
  */
 function suivreCadrage() {
   const guide = $("guide-cadrage");
   guide.classList.remove("ok");
-  if (!detectionDisponible()) return;
-  /** @type {any} */ const detecteur = new (/** @type {any} */ (globalThis)).FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+  /** @type {any} */ const detecteur = detectionDisponible() ? new (/** @type {any} */ (globalThis)).FaceDetector({ fastMode: true, maxDetectedFaces: 1 }) : null;
+  let voixMs = 0, precedent = performance.now(), sonOk = false;
+  vumetre?.reprendre();
+  const marquer = (/** @type {string} */ id, /** @type {boolean | null} */ ok) => {
+    const li = document.getElementById(id);
+    if (!li) return;
+    li.dataset.etat = ok === null ? "" : ok ? "ok" : "ko";
+    /** @type {HTMLElement} */ (li.querySelector(".etat")).textContent = ok === null ? "…" : ok ? "✓" : "!";
+  };
   const tour = async () => {
     if (!document.querySelector(".ecran-cadrage")) { guide.classList.remove("ok"); return; }
-    try {
-      const [visage] = video.videoWidth ? await detecteur.detect(video) : [];
-      const b = visage?.boundingBox;
-      const bien = Boolean(b) && (() => {
-        const cx = (b.x + b.width / 2) / video.videoWidth;
-        const cy = (b.y + b.height / 2) / video.videoHeight;
-        return Math.abs(cx - 0.5) < 0.15 && cy > 0.25 && cy < 0.6 && b.width / video.videoWidth > 0.14;
-      })();
-      guide.classList.toggle("ok", bien);
-    } catch { guide.classList.remove("ok"); }
-    setTimeout(tour, 300);
+    const t = performance.now();
+    if ((vumetre?.niveau() ?? 0) > 0.3) voixMs += t - precedent;
+    precedent = t;
+    sonOk ||= voixMs > 300;
+    const img = mesurerImage();
+    const lumiere = img ? img.moyenne > 50 && img.bords - img.centre < 70 : null;
+    let visage = true;
+    if (detecteur) {
+      try {
+        const [v] = video.videoWidth ? await detecteur.detect(video) : [];
+        const b = v?.boundingBox;
+        visage = Boolean(b) && Math.abs((b.x + b.width / 2) / video.videoWidth - 0.5) < 0.15
+          && (b.y + b.height / 2) / video.videoHeight > 0.25 && (b.y + b.height / 2) / video.videoHeight < 0.6 && b.width / video.videoWidth > 0.14;
+      } catch { visage = false; }
+      marquer("v-visage", visage);
+    }
+    marquer("v-lumiere", lumiere);
+    marquer("v-son", sonOk ? true : null);
+    guide.classList.toggle("ok", Boolean(lumiere) && sonOk && visage);
+    setTimeout(tour, 250);
   };
   tour();
 }
@@ -642,8 +688,12 @@ async function ecranQuestion(/** @type {any} */ e) {
   const progression = moteur.progression(e.id, v.repondues);
   const derniere = progression.numero >= progression.total;
   /** @type {(() => void) | null} */ let arret = null;
-  const suivant = bouton(derniere ? "J'ai terminé" : "Question suivante", () => arret?.(), "plein");
-  suivant.toggleAttribute("disabled", true);
+  // Disposition centrée : pendant la lecture, le bouton permet de démarrer sans attendre la fin du compte à rebours.
+  const centree = config?.parcours?.disposition === "centree";
+  let enCours = false;
+  const libelleSuivant = derniere ? "J'ai terminé" : "Question suivante";
+  const suivant = bouton(centree ? "Je suis prêt" : libelleSuivant, () => { if (enCours) arret?.(); else if (centree) lancer(); }, "plein");
+  suivant.toggleAttribute("disabled", !centree);
   const remplissage = h("span");
   const barre = h("div", { class: "barre-temps", role: "progressbar", "aria-label": "Temps restant" }, remplissage);
   const secondes = h("span", {}, `${e.dureeMaxSec} s`);
@@ -652,7 +702,7 @@ async function ecranQuestion(/** @type {any} */ e) {
 
   // Disposition V2 : la marque à gauche (question, idées, amorce), le visiteur à droite (temps, image, bouton).
   afficher([
-    h("div", { class: "ecran ecran-question" },
+    h("div", { class: "ecran ecran-question", "data-phase": "lire" },
       h("section", { class: "gauche", "aria-label": "La question" },
         h("div", { class: "tete arrive" },
           h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
@@ -682,14 +732,21 @@ async function ecranQuestion(/** @type {any} */ e) {
 
   // Le temps de lire : compte à rebours sur l'aperçu, puis la caméra tourne.
   let reste = Math.max(0, Number(e.compteARebours ?? 5));
+  /** @type {ReturnType<typeof setTimeout> | undefined} */ let minuterie;
   const decompte = () => {
-    if (annule) return;
-    if (reste > 0) { compte(reste); reste -= 1; setTimeout(decompte, 1000); return; }
+    if (annule || enCours) return;
+    if (reste > 0) { compte(reste); reste -= 1; minuterie = setTimeout(decompte, 1000); return; }
     compte(0);
     lancer();
   };
 
   const lancer = () => {
+    if (enCours) return;
+    enCours = true;
+    clearTimeout(minuterie);
+    compte(0);
+    suivant.textContent = libelleSuivant;
+    document.querySelector(".ecran-question")?.setAttribute("data-phase", "rec");
     $("rec").hidden = false;
     ecoute.dataset.etat = "rec";
     apercu.dataset.rec = "";

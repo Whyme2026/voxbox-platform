@@ -352,10 +352,17 @@ async function scenarioPfa() {
   await page.getByText("Place ton visage dans l'ovale").waitFor();
   await page.waitForTimeout(1200);
   assert.equal(await page.locator("#guide-cadrage").isVisible(), true, "ovale de cadrage affiché");
+  // Repères : lumière et son passent au vert (caméra et micro simulés), puis l'ovale aussi.
+  await page.locator('#v-lumiere[data-etat="ok"]').waitFor({ timeout: 10_000 });
+  await page.locator('#v-son[data-etat="ok"]').waitFor({ timeout: 10_000 });
+  if (!(await page.locator("#v-visage").count())) await page.locator("#guide-cadrage.ok").waitFor({ timeout: 5_000 });
   await capture("03b-cadrage");
   await bouton("Je suis prêt");
   await page.locator("#compte:not([hidden])").waitFor({ timeout: 30_000 });
   assert.equal(await page.locator("#guide-cadrage").isVisible(), false, "pas d'ovale pendant les questions");
+  // Disposition centrée : pendant la lecture, « Je suis prêt » démarre la prise sans attendre.
+  assert.equal(await page.evaluate(() => document.getElementById("cabine")?.dataset.disposition), "centree");
+  assert.equal(await page.locator('.ecran-question[data-phase="lire"]').count(), 1);
   const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
   for (const [i, titre] of titres.entries()) {
     const n = String(i + 1);

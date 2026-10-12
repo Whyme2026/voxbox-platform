@@ -80,6 +80,14 @@ test("le parcours de la Fabrique de l'Innovation (PFA) est valide : tutoiement, 
   assert.ok(!pfa.etapes.find((e: any) => e.type === "consentement").proposerDiffusion, "public jeune : pas de diffusion publique");
 });
 
+test("disposition des questions : « cote » par défaut, « centree » pour la PFA, toute autre valeur refusée", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  assert.equal(pfa.disposition, "centree");
+  assert.equal(auto.disposition, undefined);
+  pfa.disposition = "gauche";
+  assert.ok(validerParcours(pfa).some((m) => m.includes("disposition")));
+});
+
 test("une police inconnue est refusée dans l'habillage", () => {
   const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
   pfa.habillage.polices.titres = "comic-sans";
