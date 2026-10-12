@@ -8,8 +8,11 @@
  * @typedef {{
  *   marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string,
  *   habille?: boolean, bulle?: string, surBulle?: string, policeTitres?: string, policeTexte?: string,
- *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>
- * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales et fonds (fonds des cartes)
+ *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>,
+ *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string
+ * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales, fonds (fonds des cartes),
+ *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix)
+ * @typedef {"parlobox" | "turbo"} Jingle
  * @typedef {[number, number]} Segment  début et fin en millisecondes dans la vidéo source
  * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip
  * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string }} SequenceCarte
@@ -80,7 +83,21 @@ export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conv
     fonds[a.id] = { couleur: a.couleur, texte: a.texte, ...(HEX.test(a.couleurBas ?? "") ? { couleurBas: a.couleurBas } : {}) };
   }
   if (Object.keys(fonds).length) theme.fonds = fonds;
+  // Parlomix propre à la campagne : jingle et titre d'ouverture (« Le Salon de l'auto de {prenom} »).
+  const pm = habillage.parlomix;
+  if (pm && typeof pm === "object") {
+    if (pm.jingle === "turbo" || pm.jingle === "parlobox") theme.jingle = pm.jingle;
+    if (typeof pm.ouverture === "string" && pm.ouverture.trim()) theme.ouverture = pm.ouverture.trim();
+    if (typeof pm.fond === "string" && theme.fonds?.[pm.fond]) theme.fondOuverture = pm.fond;
+    if (typeof pm.visuel === "string") theme.visuelOuverture = pm.visuel;
+  }
   return theme;
+}
+
+/** Titre de la carte d'ouverture d'un Parlomix par personne : celui de l'habillage avec son prénom, sinon le prénom. */
+export function titreOuverture(/** @type {Theme} */ theme, /** @type {string} */ prenom) {
+  if (!theme.ouverture) return prenom;
+  return theme.ouverture.replace(/\{prenom\}/g, prenom).replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -237,8 +254,13 @@ export function planParlomix(o) {
   const habit = (/** @type {Clip | undefined} */ c, avecVisuel = true) => ({
     ...(c?.fond ? { fond: c.fond } : {}), ...(avecVisuel && c?.visuel ? { visuel: c.visuel } : {}),
   });
+  // Le jingle « turbo » dure 3 s : l'ouverture dure autant que lui.
+  const intro = o.theme.jingle === "turbo" ? DUREE_TURBO_MS : DUREES.intro;
+  // L'habillage peut imposer le fond et le visuel de l'ouverture (ex. le dégradé et la voiture de la campagne).
+  const ouverture = { ...habit(premier, o.type === "personne"),
+    ...(o.theme.fondOuverture ? { fond: o.theme.fondOuverture } : {}), ...(o.theme.visuelOuverture ? { visuel: o.theme.visuelOuverture } : {}) };
   /** @type {Sequence[]} */
-  const sequences = [{ type: "carte", role: "intro", dureeMs: DUREES.intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true, ...habit(premier, o.type === "personne") }];
+  const sequences = [{ type: "carte", role: "intro", dureeMs: intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true, ...ouverture }];
   o.clips.forEach((c, i) => {
     if (i > 0) {
       sequences.push({
@@ -276,6 +298,93 @@ export function recadrage(largeur, hauteur, centreX = 0.5) {
 }
 
 // ------------------------------------------------------------------ le jingle
+
+/** Durée du jingle « turbo » d'ouverture, en millisecondes. */
+export const DUREE_TURBO_MS = 3000;
+
+/** Bruit blanc reproductible (même jingle à chaque montage). */
+function bruit(graine = 1) {
+  let x = graine >>> 0;
+  return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 2147483648 - 1; };
+}
+
+/**
+ * Jingle « turbo », pour les campagnes automobiles (habillage.parlomix.jingle = "turbo"). Version longue (3 s,
+ * ouverture) : un moteur qui monte en régime, un souffle, un arpège électro sur une grosse caisse à 150 battements
+ * par minute, puis un accord final qui retombe. Version courte (0,9 s, entre les réponses) : souffle, quatre notes,
+ * accord. Fabriqué par le code : il appartient à WhyMe, aucun droit à payer.
+ * @param {number} [frequence] échantillons par seconde
+ * @param {boolean} [court] version courte des transitions
+ * @returns {Float32Array} son mono, crête à 0,6
+ */
+export function composerJingleTurbo(frequence = 48000, court = false) {
+  const duree = court ? 0.9 : DUREE_TURBO_MS / 1000;
+  const n = Math.round(duree * frequence);
+  const son = new Float32Array(n);
+  const ajouter = (/** @type {number} */ i, /** @type {number} */ v) => { if (i >= 0 && i < n) son[i] = /** @type {number} */ (son[i]) + v; };
+  const alea = bruit(7);
+  // Le moteur : dents de scie dont le régime monte (70 → 230 Hz), filtrées de plus en plus clair.
+  const finMoteur = court ? 0 : 0.95;
+  let phase = 0, filtre = 0;
+  for (let i = 0; i < Math.round(finMoteur * frequence); i++) {
+    const t = i / frequence, k = t / finMoteur;
+    const f = 70 * Math.pow(230 / 70, k * k);
+    phase = (phase + f / frequence) % 1;
+    const scie = 2 * phase - 1 + 0.3 * Math.sin(2 * Math.PI * 23 * t); // petit tremblement du moteur
+    const coupure = 0.02 + 0.25 * k;
+    filtre += coupure * (scie - filtre);
+    ajouter(i, 0.55 * Math.min(1, t / 0.05) * (0.4 + 0.6 * k) * filtre);
+  }
+  // Le souffle : bruit filtré qui passe.
+  const souffle = court ? 0 : 0.85;
+  let fs = 0;
+  for (let i = 0; i < Math.round(0.35 * frequence); i++) {
+    const t = i / frequence;
+    fs += 0.25 * (alea() - fs);
+    ajouter(Math.round(souffle * frequence) + i, 0.45 * Math.sin(Math.PI * Math.min(1, t / 0.35)) * fs);
+  }
+  // La grosse caisse : sinus qui plonge (120 → 45 Hz).
+  const caisse = (/** @type {number} */ t0, gain = 0.8) => {
+    let ph = 0;
+    for (let i = 0; i < Math.round(0.22 * frequence); i++) {
+      const t = i / frequence;
+      ph += (2 * Math.PI * (45 + 75 * Math.exp(-t * 30))) / frequence;
+      ajouter(Math.round(t0 * frequence) + i, gain * Math.sin(ph) * Math.exp(-t * 14));
+    }
+  };
+  // Une note d'arpège : onde carrée adoucie, attaque nette, chute rapide.
+  const note = (/** @type {number} */ t0, /** @type {number} */ f, longueur = 0.12, gain = 0.22) => {
+    for (let i = 0; i < Math.round(longueur * frequence); i++) {
+      const t = i / frequence;
+      const v = Math.sin(2 * Math.PI * f * t) + 0.33 * Math.sin(2 * Math.PI * 3 * f * t) + 0.2 * Math.sin(2 * Math.PI * 5 * f * t);
+      ajouter(Math.round(t0 * frequence) + i, gain * Math.min(1, t / 0.003) * Math.exp(-t * 18) * v);
+    }
+  };
+  const charleston = (/** @type {number} */ t0) => {
+    for (let i = 0; i < Math.round(0.04 * frequence); i++) ajouter(Math.round(t0 * frequence) + i, 0.12 * alea() * Math.exp(-i / frequence * 90));
+  };
+  // Arpège mi mineur, en doubles croches à 150 battements par minute (0,1 s), grosse caisse à chaque temps.
+  const arpege = [659.25, 783.99, 987.77, 1318.51];
+  const debutArpege = court ? 0.05 : 1.0;
+  const pas = court ? 4 : 14;
+  for (let k = 0; k < pas; k++) {
+    const t0 = debutArpege + k * 0.1;
+    note(t0, /** @type {number} */ (arpege[k % 4]) * (k >= 8 ? 1.12246 : 1));
+    if (k % 4 === 0) caisse(t0);
+    if (k % 2 === 1) charleston(t0);
+  }
+  // L'accord final (mi majeur), soutenu puis éteint en fondu.
+  const finale = debutArpege + pas * 0.1;
+  caisse(finale, 0.9);
+  for (const f of [329.63, 415.3, 493.88, 659.25]) note(finale, f, duree - finale, 0.16);
+  // Fondu de fin et normalisation.
+  const fondu = Math.round(0.25 * frequence);
+  for (let i = Math.max(0, n - fondu); i < n; i++) son[i] = /** @type {number} */ (son[i]) * ((n - i) / fondu);
+  let crete = 0;
+  for (const v of son) crete = Math.max(crete, Math.abs(v));
+  if (crete > 0) for (let i = 0; i < n; i++) son[i] = (/** @type {number} */ (son[i]) / crete) * 0.6;
+  return son;
+}
 
 /**
  * Jingle Parlobox : quatre notes de marimba qui montent (sol, do, mi, sol), une petite bulle qui éclate,

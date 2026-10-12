@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 // Code navigateur (JavaScript), testé tel quel.
 import {
   segmentsParole, enveloppe, dureeSegments, planParlomix, themeDepuisCouleurs, choixParPersonne, choixParQuestion,
-  recadrage, composerJingle, DUREES, CLIPS_MAX,
+  recadrage, composerJingle, composerJingleTurbo, titreOuverture, DUREE_TURBO_MS, DUREES, CLIPS_MAX,
 } from "../public/admin/js/montage/plan.js";
 
 /** Niveaux par tranche de 20 ms à partir d'une description « silence / parole » en millisecondes. */
@@ -106,6 +106,38 @@ test("le jingle dure un peu plus d'une seconde, sans saturer, et se termine en s
   for (const v of j) crete = Math.max(crete, Math.abs(v));
   assert.ok(Math.abs(crete - 0.6) < 1e-6);
   assert.ok(Math.abs(j[j.length - 1]!) < 0.01);
+});
+
+test("jingle « turbo » : 3 s à l'ouverture, 0,9 s entre les réponses, sans saturer, fin en silence, toujours le même", () => {
+  for (const [court, duree] of [[false, DUREE_TURBO_MS / 1000], [true, 0.9]] as const) {
+    const j = composerJingleTurbo(48000, court);
+    assert.equal(j.length, Math.round(duree * 48000));
+    let crete = 0;
+    for (const v of j) crete = Math.max(crete, Math.abs(v));
+    assert.ok(Math.abs(crete - 0.6) < 1e-6);
+    assert.ok(Math.abs(j[j.length - 1]!) < 0.01);
+    // Du son tout du long : aucune seconde muette.
+    for (let s = 0; s + 48000 <= j.length; s += 48000) assert.ok(j.subarray(s, s + 48000).some((v) => Math.abs(v) > 0.05));
+  }
+  assert.deepEqual(composerJingleTurbo(8000), composerJingleTurbo(8000), "reproductible");
+});
+
+test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouverture de 3 s au jingle turbo", async () => {
+  const { readFileSync } = await import("node:fs");
+  const pfa = JSON.parse(readFileSync(new URL("../fixtures/parcours-pfa.json", import.meta.url), "utf8"));
+  const theme = themeDepuisCouleurs({}, pfa.habillage, pfa.ambiance);
+  assert.equal(theme.jingle, "turbo");
+  assert.equal(titreOuverture(theme, "Inès"), "Le Salon de l'auto de Inès");
+  assert.equal(titreOuverture(themeDepuisCouleurs({}, null), "Inès"), "Inès", "sans habillage : le prénom seul");
+  const plan = planParlomix({ type: "personne", titre: titreOuverture(theme, "Inès"), signature: "PFA", format: "16:9", theme,
+    clips: [{ id: "r1", etiquette: "Ta visite", dureeMs: 4000, segments: [[0, 4000]], sessionId: "s1" }] });
+  const intro = plan.sequences[0] as any;
+  assert.equal(intro.role, "intro");
+  assert.equal(intro.dureeMs, DUREE_TURBO_MS);
+  assert.equal(intro.titre, "Le Salon de l'auto de Inès");
+  assert.equal(intro.jingle, true);
+  assert.equal(intro.fond, "fabrique", "dégradé de la campagne");
+  assert.equal(intro.visuel, "voiture-blanche");
 });
 
 test("habillage : le Parlomix reprend couleurs, bulles, polices, capitales et fonds de la campagne", async () => {

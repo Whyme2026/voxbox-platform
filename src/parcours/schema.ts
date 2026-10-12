@@ -125,6 +125,11 @@ export interface Habillage {
   couleurs?: { marque?: string; bulle?: string; visiteur?: string; fond?: string; texte?: string };
   fonds?: Fond[];
   visuels?: Visuel[];
+  /**
+   * Parlomix de la campagne : titre d'ouverture du film par personne ({prenom} remplacé), jingle, et fond et visuel
+   * de la carte d'ouverture (parmi ceux de l'habillage).
+   */
+  parlomix?: { ouverture?: string; jingle?: "parlobox" | "turbo"; fond?: string; visuel?: string };
 }
 
 export interface Parcours {
@@ -279,7 +284,7 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
   if (brut === undefined) return { fonds, visuels };
   if (!brut || typeof brut !== "object" || Array.isArray(brut)) { pb.push("habillage : objet attendu"); return { fonds, visuels }; }
   const h = brut as Record<string, unknown>;
-  const connues = new Set(["polices", "titresMajuscules", "couleurs", "fonds", "visuels"]);
+  const connues = new Set(["polices", "titresMajuscules", "couleurs", "fonds", "visuels", "parlomix"]);
   for (const k of Object.keys(h)) if (!connues.has(k)) pb.push(`habillage : clé inconnue « ${k} »`);
   const couleur = (ou: string, v: unknown) => { if (typeof v !== "string" || !COULEUR.test(v)) pb.push(`${ou} : couleur au format #RRGGBB attendue`); };
 
@@ -292,6 +297,15 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
     }
   }
   if (h.titresMajuscules !== undefined && typeof h.titresMajuscules !== "boolean") pb.push("habillage.titresMajuscules : vrai ou faux");
+  if (h.parlomix !== undefined) {
+    const pm = h.parlomix as Record<string, unknown>;
+    if (!pm || typeof pm !== "object" || Array.isArray(pm)) pb.push("habillage.parlomix : objet attendu");
+    else {
+      for (const k of Object.keys(pm)) if (!["ouverture", "jingle", "fond", "visuel"].includes(k)) pb.push(`habillage.parlomix : clé inconnue « ${k} »`);
+      if (pm.ouverture !== undefined && (typeof pm.ouverture !== "string" || !pm.ouverture.trim() || pm.ouverture.length > 60)) pb.push("habillage.parlomix.ouverture : texte de 60 caractères au plus");
+      if (pm.jingle !== undefined && pm.jingle !== "parlobox" && pm.jingle !== "turbo") pb.push("habillage.parlomix.jingle : parlobox ou turbo");
+    }
+  }
   if (h.couleurs !== undefined) {
     const c = h.couleurs as Record<string, unknown>;
     if (!c || typeof c !== "object" || Array.isArray(c)) pb.push("habillage.couleurs : objet attendu");
@@ -329,6 +343,11 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
       }
       if (total > VISUELS_MAX_TOTAL) pb.push(`habillage.visuels : ${VISUELS_MAX_TOTAL} caractères au plus en tout`);
     }
+  }
+  const pm = h.parlomix as Record<string, unknown> | undefined;
+  if (pm && typeof pm === "object") {
+    if (pm.fond !== undefined && (typeof pm.fond !== "string" || !fonds.has(pm.fond))) pb.push(`habillage.parlomix : fond inconnu (${String(pm.fond)})`);
+    if (pm.visuel !== undefined && (typeof pm.visuel !== "string" || !visuels.has(pm.visuel))) pb.push(`habillage.parlomix : visuel inconnu (${String(pm.visuel)})`);
   }
   return { fonds, visuels };
 }
