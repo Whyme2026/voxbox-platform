@@ -264,8 +264,8 @@ test("lecture tolérante de la réponse du service (mots ou segments)", () => {
 });
 
 test("vocabulaire : envoyé au service en mots isolés, sans espace ni virgule (refus 400 du 12/10/2026)", () => {
-  assert.deepEqual(termesContexte(["Mondial de l'Auto", "PFA", "Fabrique de l'Innovation", "mondial", "Renault, Peugeot"]),
-    ["Mondial", "l'Auto", "PFA", "Fabrique", "l'Innovation", "Renault", "Peugeot"]);
+  assert.deepEqual(termesContexte(["Mondial de l'Auto", "PFA", "Fabrique de l'Innovation", "mondial", "Renault, Peugeot", "Renault 5 E-Tech", "DS", "MG"]),
+    ["Mondial", "l'Auto", "PFA", "Fabrique", "l'Innovation", "Renault", "Peugeot", "E-Tech", "DS", "MG"]);
   assert.ok(termesContexte(Array.from({ length: 150 }, (_, i) => `terme${i}`)).length === 100);
   assert.ok(termesContexte(["Mondial de l'Auto"]).every((t) => !/[\s,]/u.test(t)));
 });

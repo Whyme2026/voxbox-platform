@@ -54,14 +54,14 @@ export function lireReponse(corps: unknown): Transcription {
 /**
  * Termes d'aide à la reconnaissance (context_bias) : le service n'accepte que des mots isolés, sans espace ni virgule
  * (refus 400 constaté le 12/10/2026 avec « Mondial de l'Auto »). Les expressions du vocabulaire sont donc découpées en mots ;
- * les mots de moins de 3 lettres (de, la, à…) n'aident pas et sont écartés ; doublons retirés, 100 termes au plus.
+ * les petits mots en minuscules (de, la, à…) n'aident pas et sont écartés, les sigles (DS, MG) gardés ; doublons retirés, 100 termes au plus.
  */
 export function termesContexte(vocabulaire: string[]): string[] {
   const vus = new Set<string>();
   const termes: string[] = [];
   for (const expression of vocabulaire) {
     for (const mot of expression.split(/[\s,]+/u)) {
-      if ([...mot].length < 3 || vus.has(mot.toLowerCase())) continue;
+      if (!mot || ([...mot].length < 3 && mot === mot.toLowerCase()) || vus.has(mot.toLowerCase())) continue;
       vus.add(mot.toLowerCase());
       termes.push(mot);
     }
