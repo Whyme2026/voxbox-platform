@@ -279,6 +279,9 @@ button { font: inherit; color: inherit; }
 .ecran-question .question[data-longueur="moyenne"] { font-size: calc(var(--question) * .92); }
 .ecran-question .question[data-longueur="longue"] { font-size: calc(var(--question) * .8); }
 .aide { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; }
+/* Le temps pour réfléchir, sous la question (question.mentionTemps) : discret mais lisible ; il s'efface quand on tourne. */
+.mention-temps { margin: 0 0 0 12px; font-size: clamp(15px, 2.4vmin, 18px); font-weight: 500; line-height: 1.3; color: var(--texte-doux); }
+.ecran-question[data-phase="rec"] .mention-temps { display: none; }
 /* Une question qui a pistes et amorce n'a plus la place d'un visuel sur la cabine (il reste sur les cartes du
    Parlomix) ; sinon le visuel rapetisse s'il manque de place. */
 .ecran-question .gauche > * { flex-shrink: 0; }
@@ -330,7 +333,9 @@ button { font: inherit; color: inherit; }
 @media (orientation: landscape) {
   [data-disposition="centree"] .ecran-question { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
     align-items: stretch; row-gap: calc(var(--gouttiere) * .45); --hors-camera: 430px; }
+  [data-disposition="centree"] .ecran-question:has(.mention-temps) { --hors-camera: 460px; }
   [data-disposition="centree"] .ecran-question[data-phase="rec"] { --hors-camera: 290px; }
+  [data-disposition="centree"] .ecran-question .mention-temps { margin-left: 0; }
   [data-disposition="centree"] .ecran-question .gauche { width: min(100%, 1040px); justify-self: center; align-items: center; text-align: center; gap: 10px; }
   [data-disposition="centree"] .ecran-question .tete { align-items: center; padding-left: 0; gap: 8px; }
   [data-disposition="centree"] .ecran-question .question { margin-left: 0; text-align: center; text-wrap: balance; transition: font-size .3s ease; }

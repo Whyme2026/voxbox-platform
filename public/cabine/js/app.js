@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.7.1";
+const VERSION = "0.7.2";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -737,7 +737,11 @@ async function ecranQuestion(/** @type {any} */ e) {
       h("section", { class: "gauche", "aria-label": "La question" },
         h("div", { class: "tete arrive" },
           h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
-          h("p", { class: "bulle marque grande question", "data-longueur": texte.length > 90 ? "longue" : texte.length > 55 ? "moyenne" : null }, texte)),
+          h("p", { class: "bulle marque grande question", "data-longueur": texte.length > 90 ? "longue" : texte.length > 55 ? "moyenne" : null }, texte),
+          // Le temps pour réfléchir (et répondre), sous la question : valeurs réelles de l'étape.
+          e.mentionTemps ? h("p", { class: "mention-temps" }, perso(e.mentionTemps)
+            .replaceAll("{lecture}", String(Math.max(0, Number(e.compteARebours ?? 5))))
+            .replaceAll("{duree}", String(e.dureeMaxSec))) : null),
         aPistes ? h("div", { class: "aide" },
           e.intitulePistes === "" ? null : h("span", { class: "intitule" }, e.intitulePistes ?? "Des idées, si besoin"),
           e.pistes?.length ? h("div", { class: "pistes" }, ...e.pistes.map((/** @type {string} */ p) => h("span", {}, p))) : null,

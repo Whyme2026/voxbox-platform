@@ -94,6 +94,8 @@ export interface EtapeQuestion extends EtapeBase {
   pistes?: string[];
   /** Intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; "" : pas d'intitulé. */
   intitulePistes?: string;
+  /** Petite ligne sous la question (ex. « Tu as {lecture} secondes pour réfléchir ») ; {lecture} et {duree} : secondes de lecture et de réponse. */
+  mentionTemps?: string;
   /** Début de phrase pour lancer la réponse (ex. « Pour moi, c'était… »). */
   coupDePouce?: string;
 }
@@ -269,6 +271,7 @@ export function validerParcours(brut: unknown): string[] {
         if (e.silenceArretSec !== undefined && (typeof e.silenceArretSec !== "number" || e.silenceArretSec < 0 || e.silenceArretSec > 15)) pb.push(`${ou} : arrêt sur silence entre 0 et 15 secondes`);
         if (e.titreCourt !== undefined) txt(ou, "titreCourt", e.titreCourt, 40);
         if (e.pistes !== undefined) liste(ou, "pistes", e.pistes, 5, 40);
+        if (e.mentionTemps !== undefined && (typeof e.mentionTemps !== "string" || !e.mentionTemps.trim() || e.mentionTemps.length > 100)) pb.push(`${ou} : « mentionTemps » : texte de 1 à 100 caractères ({lecture}, {duree} : secondes)`);
         if (e.intitulePistes !== undefined && (typeof e.intitulePistes !== "string" || e.intitulePistes.length > 40)) pb.push(`${ou} : « intitulePistes » : texte de 40 caractères au plus (vide : pas d'intitulé)`);
         if (e.coupDePouce !== undefined) txt(ou, "coupDePouce", e.coupDePouce, 100);
         break;

@@ -119,7 +119,8 @@
       "dureeMaxSec": 20,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
     },
     {
       "id": "q-voiture",
@@ -135,7 +136,8 @@
       "dureeMaxSec": 15,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
     },
     {
       "id": "q-innovation",
@@ -151,7 +153,8 @@
       "dureeMaxSec": 20,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
     },
     {
       "id": "q-fabrique",
@@ -167,7 +170,8 @@
       "dureeMaxSec": 25,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
     },
     {
       "id": "fin",

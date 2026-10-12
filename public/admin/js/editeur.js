@@ -52,6 +52,7 @@ export const TYPES = /** @type {Record<string, { libelle: string, description: s
     champs: [
       { cle: "titreCourt", libelle: "Nom court (affiché au-dessus, sert aussi dans Parlorama et les Parlomix)", type: "texte", max: 40, defaut: "Nouvelle question" },
       { cle: "texte", libelle: "Question", type: "long", max: 200, defaut: "Qu'avez-vous pensé de votre visite ?" },
+      { cle: "mentionTemps", libelle: "Petite ligne sous la question ({lecture} : secondes pour réfléchir, {duree} : pour répondre)", type: "texte", max: 100 },
       { cle: "pistes", libelle: "Pistes de réponse (5 au plus)", type: "liste", nb: 5, max: 40 },
       { cle: "coupDePouce", libelle: "Début de phrase pour se lancer", type: "texte", max: 100 },
       { cle: "aide", libelle: "Aide (facultatif)", type: "long", max: 300 },
