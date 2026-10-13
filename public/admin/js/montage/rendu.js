@@ -299,6 +299,8 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
     return;
   }
 
+  if (carte.role === "fin" && carte.signature) return dessinerSignature(ctx, carte, t, th, logo, encre);
+
   // Ouverture et fin : décor, grande bulle, visuel, onde (le client et Parlobox sont en filigrane).
   if (!th.habille) decor(ctx, W, H, secondes, th);
   // Ouverture sur un son fourni : chaque image arrive sur un coup du son (carte.temps, en millisecondes).
@@ -343,6 +345,82 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
   ctx.globalAlpha = 1;
   if (rep) eclairs(ctx, W, H, ms, rep.eclats);
   dessinerFiligranes(ctx, th, logo);
+}
+
+/**
+ * Signature finale (habillage.parlomix.signature) : sur le décor de l'ouverture, peu d'éléments, en grand.
+ * Le logo du client dans sa pastille, la ligne de la campagne, puis « Parlobox by whyme » ; une traînée de lumière
+ * rappelle l'ouverture. Les marques sont au centre : pas de filigranes en plus.
+ * @param {CanvasRenderingContext2D} ctx @param {import("./plan.js").SequenceCarte} carte @param {number} t
+ * @param {Theme} th @param {HTMLImageElement | null} logo @param {string} encre couleur du texte sur ce fond
+ */
+function dessinerSignature(ctx, carte, t, th, logo, encre) {
+  const { width: W, height: H } = ctx.canvas;
+  const u = Math.min(W, H);
+  const ms = t * carte.dureeMs;
+  const depuis = (/** @type {number} */ debut, /** @type {number} */ duree) => Math.min(1, Math.max(0, (ms - debut) / duree));
+  // Traînée de lumière, comme pendant le souffle de l'ouverture.
+  if (ms < 900) {
+    const k = ms / 900, x = -W * 0.3 + k * W * 1.6;
+    const g = ctx.createLinearGradient(x - u * 0.25, 0, x + u * 0.25, 0);
+    g.addColorStop(0, "rgba(255, 255, 255, 0)");
+    g.addColorStop(0.5, "rgba(255, 255, 255, .3)");
+    g.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.save();
+    ctx.setTransform(1, 0, -0.35, 1, H * 0.17, 0);
+    ctx.fillStyle = g;
+    ctx.fillRect(x - u * 0.25, 0, u * 0.5, H);
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const cy = H * 0.42;
+  // 1. Le client : son logo dans une pastille blanche, sinon son nom.
+  const a1 = rebond(depuis(0, 320));
+  ctx.save();
+  ctx.translate(W / 2, cy - u * 0.12);
+  ctx.scale(a1, a1);
+  const hp = u * 0.16;
+  if (logo && logo.complete && logo.naturalWidth) {
+    const hl = hp * 0.7, ll = Math.min(W * 0.5, (logo.naturalWidth / logo.naturalHeight) * hl);
+    const lp = ll + hp * 0.5;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath(); ctx.roundRect(-lp / 2, -hp / 2, lp, hp, hp * 0.22); ctx.fill();
+    ctx.drawImage(logo, -ll / 2, -hl / 2, ll, ll / (logo.naturalWidth / logo.naturalHeight));
+  } else {
+    ctx.font = policeTitre(th, hp * 0.55);
+    const nom = casse(th, carte.titre);
+    const lp = ctx.measureText(nom).width + hp * 0.6;
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath(); ctx.roundRect(-lp / 2, -hp / 2, lp, hp, hp * 0.22); ctx.fill();
+    ctx.fillStyle = th.texte;
+    ctx.fillText(nom, 0, 0);
+  }
+  ctx.restore();
+  // 2. La ligne de la campagne (« La Fabrique de l'Innovation »).
+  const a2 = lisse(depuis(350, 300));
+  ctx.globalAlpha = a2;
+  ctx.fillStyle = encre;
+  ctx.font = policeTitre(th, u * 0.075);
+  lignes(ctx, casse(th, carte.sousTitre ?? ""), W * 0.8, 2).forEach((x, i) => ctx.fillText(x, W / 2, cy + u * 0.06 + (1 - a2) * u * 0.03 + i * u * 0.085));
+  // 3. Un trait, puis « Parlobox by whyme », bien en vue.
+  const a3 = lisse(depuis(750, 350));
+  const yp = H * (H > W ? 0.7 : 0.76);
+  ctx.globalAlpha = a3 * 0.6;
+  ctx.fillRect(W / 2 - u * 0.12 * a3, yp - u * 0.075, u * 0.24 * a3, Math.max(2, u * 0.004));
+  ctx.globalAlpha = a3;
+  const gras = `700 ${Math.round(u * 0.078)}px ${th.policeTexte ? `"${th.policeTexte}"` : "Gabarito"}, sans-serif`;
+  const fin = policeTexte(th, u * 0.052, 500);
+  ctx.font = gras; const l1 = ctx.measureText("Parlobox").width;
+  ctx.font = fin; const l2 = ctx.measureText(" by whyme").width;
+  ctx.textAlign = "left";
+  const x0 = W / 2 - (l1 + l2) / 2;
+  ctx.font = gras; ctx.fillText("Parlobox", x0, yp);
+  ctx.font = fin; ctx.globalAlpha = a3 * 0.85; ctx.fillText(" by whyme", x0 + l1, yp + u * 0.006);
+  ctx.globalAlpha = a3;
+  onde(ctx, W / 2, yp + u * 0.1, u * 0.06, ms / 1000, encre, 5);
+  ctx.restore();
 }
 
 /** Petite secousse de l'image sur chaque coup du son (150 ms, amortie). */

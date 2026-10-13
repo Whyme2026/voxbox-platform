@@ -143,6 +143,14 @@ test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouver
   // Les images arrivent dans l'ordre, sur les coups du son, avant la fin de l'ouverture.
   assert.ok(intro.temps.souffle[1] < intro.temps.titre && intro.temps.titre < intro.temps.sousTitre && intro.temps.sousTitre < intro.temps.visuel && intro.temps.visuel < intro.dureeMs - 500);
   assert.ok(SONS.glitch.volumeTransition < 1, "entre les réponses : le jingle Parlobox, adouci");
+  // Fin : signature sur le décor de l'ouverture.
+  const fin = plan.sequences.at(-1) as any;
+  assert.equal(fin.role, "fin");
+  assert.equal(fin.signature, true);
+  assert.equal(fin.sousTitre, "La Fabrique de l'Innovation");
+  assert.equal(fin.fond, "fabrique", "même décor que l'ouverture");
+  assert.equal(fin.dureeMs, DUREES.signature);
+  assert.equal(fin.visuel, undefined, "moins d'informations qu'à l'ouverture");
   assert.equal(intro.titre, "Le Salon de l'auto de Lou");
   assert.equal(intro.jingle, true);
   assert.equal(intro.fond, "fabrique", "dégradé de la campagne");

@@ -108,6 +108,8 @@ arrivent sur les coups du son (`SONS` dans `plan.js` : traînée et lignes « gl
 sous-titre à 2,15 s, visuel à 2,95 s, éclair et secousse à chaque coup) ; entre les réponses, le jingle Parlobox adouci
 (un extrait du son fourni était « trop violent, pas assez complice »).
 Fichier introuvable : le jingle Parlobox le remplace.
+`habillage.parlomix.signature` (ex. « La Fabrique de l'Innovation ») : l'écran de fin devient une signature sur le décor de
+l'ouverture, 3 s : logo du client en pastille, la ligne, puis « Parlobox by whyme » en grand (pas de filigranes en plus).
 
 **Règles permanentes du Parlomix** (13/10/2026) : la question apparaît en bulle, la réponse en vidéo ; sur chaque image,
 le client en filigrane en haut à gauche (son logo, sinon son nom) et « Parlobox by whyme » en haut à droite.

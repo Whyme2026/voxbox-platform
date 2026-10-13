@@ -63,7 +63,8 @@
       "ouverture": "Le Salon de l'auto de {prenom}",
       "jingle": "glitch",
       "fond": "fabrique",
-      "visuel": "voiture-blanche"
+      "visuel": "voiture-blanche",
+      "signature": "La Fabrique de l'Innovation"
     }
   },
   "etapes": [

@@ -154,7 +154,7 @@ export interface Habillage {
    * Parlomix de la campagne : titre d'ouverture du film par personne ({prenom} remplacé), jingle, et fond et visuel
    * de la carte d'ouverture (parmi ceux de l'habillage).
    */
-  parlomix?: { ouverture?: string; jingle?: "parlobox" | "turbo" | "glitch"; fond?: string; visuel?: string };
+  parlomix?: { ouverture?: string; jingle?: "parlobox" | "turbo" | "glitch"; fond?: string; visuel?: string; signature?: string };
 }
 
 export interface Parcours {
@@ -337,8 +337,9 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
     const pm = h.parlomix as Record<string, unknown>;
     if (!pm || typeof pm !== "object" || Array.isArray(pm)) pb.push("habillage.parlomix : objet attendu");
     else {
-      for (const k of Object.keys(pm)) if (!["ouverture", "jingle", "fond", "visuel"].includes(k)) pb.push(`habillage.parlomix : clé inconnue « ${k} »`);
+      for (const k of Object.keys(pm)) if (!["ouverture", "jingle", "fond", "visuel", "signature"].includes(k)) pb.push(`habillage.parlomix : clé inconnue « ${k} »`);
       if (pm.ouverture !== undefined && (typeof pm.ouverture !== "string" || !pm.ouverture.trim() || pm.ouverture.length > 60)) pb.push("habillage.parlomix.ouverture : texte de 60 caractères au plus");
+      if (pm.signature !== undefined && (typeof pm.signature !== "string" || !pm.signature.trim() || pm.signature.length > 60)) pb.push("habillage.parlomix.signature : texte de 60 caractères au plus");
       if (pm.jingle !== undefined && !["parlobox", "turbo", "glitch"].includes(String(pm.jingle))) pb.push("habillage.parlomix.jingle : parlobox, turbo ou glitch");
     }
   }

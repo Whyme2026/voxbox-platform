@@ -9,13 +9,14 @@
  *   marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string,
  *   habille?: boolean, bulle?: string, surBulle?: string, policeTitres?: string, policeTexte?: string,
  *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>,
- *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string, client?: string
+ *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string, client?: string, signature?: string
  * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales, fonds (fonds des cartes),
- *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix) ; client : son nom (filigrane sans logo)
+ *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix) ; client : son nom (filigrane sans logo) ;
+ *   signature : ligne de l'écran de fin « signature » (ex. « La Fabrique de l'Innovation »)
  * @typedef {"parlobox" | "turbo" | "glitch"} Jingle
  * @typedef {[number, number]} Segment  début et fin en millisecondes dans la vidéo source
  * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip
- * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string, temps?: TempsOuverture }} SequenceCarte
+ * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string, temps?: TempsOuverture, signature?: boolean }} SequenceCarte
  * @typedef {{ souffle: [number, number], titre: number, sousTitre: number, visuel: number, eclats: readonly number[] }} TempsOuverture  repères du son (ms)
  * @typedef {{ type: "clip", reponseId: string, sessionId: string, segments: Segment[], bandeau: string | null, dureeMs: number }} SequenceClip
  * @typedef {SequenceCarte | SequenceClip} Sequence
@@ -24,7 +25,7 @@
 
 export const FORMATS = /** @type {const} */ ({ "16:9": { largeur: 1280, hauteur: 720 }, "9:16": { largeur: 720, hauteur: 1280 } });
 /** Durées des cartes (ms) ; « question » : une transition qui porte la question en entier, le temps de la lire. */
-export const DUREES = /** @type {const} */ ({ intro: 2200, transition: 1300, question: 2200, fin: 2000 });
+export const DUREES = /** @type {const} */ ({ intro: 2200, transition: 1300, question: 2200, fin: 2000, signature: 3000 });
 /** Au-delà, le fichier devient trop lourd à envoyer depuis le navigateur (limite d'envoi de la plateforme). */
 export const CLIPS_MAX = 20;
 
@@ -92,6 +93,7 @@ export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conv
     if (typeof pm.ouverture === "string" && pm.ouverture.trim()) theme.ouverture = pm.ouverture.trim();
     if (typeof pm.fond === "string" && theme.fonds?.[pm.fond]) theme.fondOuverture = pm.fond;
     if (typeof pm.visuel === "string") theme.visuelOuverture = pm.visuel;
+    if (typeof pm.signature === "string" && pm.signature.trim()) theme.signature = pm.signature.trim();
   }
   return theme;
 }
@@ -304,7 +306,12 @@ export function planParlomix(o) {
       bandeau: o.bandeaux === false ? null : c.etiquette, dureeMs: dureeSegments(segments),
     });
   });
-  sequences.push({ type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false, ...habit(premier, false) });
+  // Fin : avec une signature d'habillage, le même décor que l'ouverture et une signature finale (logo du client,
+  // la ligne de la campagne, Parlobox by whyme) ; sinon la carte simple.
+  sequences.push(o.theme.signature
+    ? { type: "carte", role: "fin", dureeMs: DUREES.signature, titre: o.signature, sousTitre: o.theme.signature, jingle: false, signature: true,
+      ...(ouverture.fond ? { fond: ouverture.fond } : {}) }
+    : { type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false, ...habit(premier, false) });
   return {
     version: 1,
     type: o.type,
