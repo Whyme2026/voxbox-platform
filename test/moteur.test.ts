@@ -42,6 +42,9 @@ test("option diffusion lue depuis le parcours", () => {
   const sans = structuredClone(auto);
   for (const e of sans.etapes) delete e.proposerDiffusion;
   assert.equal(diffusionProposee(sans), false);
+  // Même règle que le serveur : la case peut aussi être sur l'écran du prénom, sous l'accord (PFA, 14/10/2026).
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  assert.equal(diffusionProposee(pfa), true);
 });
 
 test("le prénom s'insère dans les textes, et disparaît proprement s'il est inconnu", async () => {

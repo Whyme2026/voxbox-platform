@@ -42,9 +42,14 @@ export interface EtapeIdentification extends EtapeBase {
   demanderEmail?: boolean;
   /**
    * L'accord d'usage interne sur le même écran, entre le prénom et le bouton (12/10/2026, débrief PFA) : « Continuer »
-   * reste grisé tant qu'il n'est pas donné. Tient lieu d'étape « consentement » (sans diffusion publique proposée).
+   * reste grisé tant qu'il n'est pas donné. Tient lieu d'étape « consentement ».
    */
   accord?: boolean;
+  /**
+   * Avec « accord » : propose aussi, sous l'accord, la case facultative de diffusion publique (réseaux sociaux, site,
+   * publicité ; débrief PFA, 14/10/2026). Sans « accord », sans effet.
+   */
+  proposerDiffusion?: boolean;
 }
 export interface EtapeConsentement extends EtapeBase {
   type: "consentement";
@@ -244,6 +249,8 @@ export function validerParcours(brut: unknown): string[] {
         if (e.texte !== undefined) txt(ou, "texte", e.texte, 120);
         if (e.accord !== undefined && typeof e.accord !== "boolean") pb.push(`${ou} : « accord » vrai ou faux`);
         if (e.accord === true) consentementVu = true;
+        if (e.proposerDiffusion !== undefined && typeof e.proposerDiffusion !== "boolean") pb.push(`${ou} : « proposerDiffusion » vrai ou faux`);
+        if (e.proposerDiffusion === true && e.accord !== true) pb.push(`${ou} : « proposerDiffusion » demande « accord » sur cet écran`);
         break;
       case "cadrage":
         txt(ou, "titre", e.titre);
@@ -419,7 +426,8 @@ function verifierAtteignabilite(etapes: Etape[]): string[] {
 
 /** La campagne propose-t-elle le consentement facultatif de diffusion publique ? */
 export function diffusionProposee(p: Parcours): boolean {
-  return p.etapes.some((e) => e.type === "consentement" && e.proposerDiffusion === true);
+  return p.etapes.some((e) => (e.type === "consentement" && e.proposerDiffusion === true)
+    || (e.type === "identification" && e.accord === true && e.proposerDiffusion === true));
 }
 
 /** Étapes « choix » d'un parcours (qualification, embranchement), dans l'ordre de la configuration. */

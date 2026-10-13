@@ -69,7 +69,7 @@ test("le parcours de démonstration Parlobox est valide", () => {
   assert.equal(questions(demo).length, 5);
 });
 
-test("le parcours de la Fabrique de l'Innovation (PFA) est valide : tutoiement, Barlow, prénom seul, sans diffusion publique", () => {
+test("le parcours de la Fabrique de l'Innovation (PFA) est valide : tutoiement, Barlow, prénom seul, diffusion facultative sur l'écran du prénom", () => {
   const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
   assert.deepEqual(validerParcours(pfa), []);
   assert.equal(questions(pfa).length, 4);
@@ -77,7 +77,7 @@ test("le parcours de la Fabrique de l'Innovation (PFA) est valide : tutoiement, 
   assert.deepEqual(pfa.habillage.polices, { titres: "barlow-condensed", texte: "barlow" });
   const id = pfa.etapes.find((e: any) => e.type === "identification");
   assert.ok(!id.demanderEmail && !id.demanderNom, "public jeune : le prénom seul");
-  assert.equal(diffusionProposee(pfa), false, "public jeune : pas de diffusion publique");
+  assert.equal(diffusionProposee(pfa), true, "réseaux sociaux : case facultative sous l'accord (14/10/2026)");
 });
 
 test("disposition des questions : « cote » par défaut, « centree » pour la PFA, toute autre valeur refusée", () => {
@@ -93,9 +93,21 @@ test("l'accord peut être donné sur l'écran du prénom ; sans lui ni étape de
   assert.equal(pfa.etapes.find((e: any) => e.type === "identification").accord, true);
   assert.equal(pfa.etapes.some((e: any) => e.type === "consentement"), false);
   assert.deepEqual(validerParcours(pfa), []);
-  assert.equal(diffusionProposee(pfa), false, "pas de diffusion publique sans étape de consentement");
   delete pfa.etapes.find((e: any) => e.type === "identification").accord;
   assert.ok(validerParcours(pfa).some((m) => m.includes("consentement")));
+});
+
+test("diffusion publique proposée sur l'écran du prénom, seulement avec l'accord sur cet écran", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  const toi = pfa.etapes.find((e: any) => e.type === "identification");
+  assert.equal(toi.proposerDiffusion, true);
+  assert.equal(diffusionProposee(pfa), true);
+  delete toi.proposerDiffusion;
+  assert.equal(diffusionProposee(pfa), false);
+  toi.proposerDiffusion = true;
+  delete toi.accord;
+  assert.equal(diffusionProposee(pfa), false, "sans accord sur l'écran, la case n'a pas de sens");
+  assert.ok(validerParcours(pfa).some((m) => m.includes("proposerDiffusion")));
 });
 
 test("une police inconnue est refusée dans l'habillage", () => {

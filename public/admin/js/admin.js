@@ -1047,7 +1047,8 @@ async function vueParcours(/** @type {any} */ c) {
       toast("Nouvelle version du parcours enregistrée. La campagne repasse en brouillon : à faire valider."); router();
     },
     apercu: (config) => {
-      const diffusion = config.etapes.some((/** @type {any} */ e) => e.type === "consentement" && e.proposerDiffusion);
+      const diffusion = config.etapes.some((/** @type {any} */ e) => (e.type === "consentement" && e.proposerDiffusion)
+        || (e.type === "identification" && e.accord && e.proposerDiffusion));
       const apercu = {
         cabine: { id: "apercu", nom: "Aperçu" },
         campagne: { id: "apercu", nom: c.nom, parcours_version_id: "apercu" },

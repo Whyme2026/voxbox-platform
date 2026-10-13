@@ -27,6 +27,8 @@ export const TYPES = /** @type {Record<string, { libelle: string, description: s
       { cle: "texte", libelle: "Petite bulle sous la question", type: "texte", max: 120, defaut: "Juste le prénom, promis." },
       { cle: "demanderNom", libelle: "Demander aussi le nom (facultatif pour le visiteur)", type: "case" },
       { cle: "demanderEmail", libelle: "Proposer l'e-mail, pour être recontacté (facultatif)", type: "case", defaut: true },
+      { cle: "accord", libelle: "Accord d'usage interne sur cet écran (remplace l'étape « Mode d'emploi et accord »)", type: "case" },
+      { cle: "proposerDiffusion", libelle: "Avec l'accord : proposer aussi la diffusion publique (réseaux sociaux, site)", type: "case" },
     ],
   },
   consentement: {

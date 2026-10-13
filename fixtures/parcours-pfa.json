@@ -73,7 +73,7 @@
       "id": "accueil",
       "type": "accueil",
       "fond": "blanc",
-      "visuel": "fabrique",
+      "visuel": "rayons",
       "titre": "Ton avis compte.",
       "texte": "4 questions face caméra, 2 minutes chrono.",
       "bulles": [
@@ -90,7 +90,8 @@
       "fond": "blanc",
       "titre": "On commence simple : ton prénom ?",
       "texte": "Juste pour t'appeler par ton prénom.",
-      "accord": true
+      "accord": true,
+      "proposerDiffusion": true
     },
     {
       "id": "cadrage",
@@ -180,8 +181,8 @@
       "fond": "fabrique",
       "visuel": "voiture-blanche",
       "titre": "Merci {prenom} !",
-      "texte": "Ton avis part chez ceux qui fabriquent les voitures de demain. Qui sait, c'est peut-être toi qui les dessineras.",
-      "sortie": "Rejoins ta classe : la visite continue !",
+      "texte": "Tes réponses sont bien arrivées. Merci pour ta sincérité.",
+      "sortie": "Bonne fin de journée !",
       "retourAccueilSec": 10
     }
   ]

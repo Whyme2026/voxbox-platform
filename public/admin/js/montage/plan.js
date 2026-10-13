@@ -95,6 +95,9 @@ export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conv
     if (typeof pm.visuel === "string") theme.visuelOuverture = pm.visuel;
     if (typeof pm.signature === "string" && pm.signature.trim()) theme.signature = pm.signature.trim();
   }
+  // Sans signature réglée, l'écran de fin prend la ligne de la campagne (habillage.entete) : jamais la carte simple
+  // « nom du client · Parlomix by whyme » sur une campagne habillée (débrief PFA, 14/10/2026).
+  if (!theme.signature && typeof habillage.entete === "string" && habillage.entete.trim()) theme.signature = habillage.entete.trim();
   return theme;
 }
 
@@ -306,11 +309,11 @@ export function planParlomix(o) {
       bandeau: o.bandeaux === false ? null : c.etiquette, dureeMs: dureeSegments(segments),
     });
   });
-  // Fin : avec une signature d'habillage, le même décor que l'ouverture et une signature finale (logo du client,
-  // la ligne de la campagne, Parlobox by whyme) ; sinon la carte simple.
+  // Fin : avec une signature d'habillage (ou la ligne de la campagne), le décor et le visuel de l'ouverture, le client,
+  // l'opération en grand et le logo « parlobox by whyme » ; sinon la carte simple.
   sequences.push(o.theme.signature
     ? { type: "carte", role: "fin", dureeMs: DUREES.signature, titre: o.signature, sousTitre: o.theme.signature, jingle: false, signature: true,
-      ...(ouverture.fond ? { fond: ouverture.fond } : {}) }
+      ...(ouverture.fond ? { fond: ouverture.fond } : {}), ...(o.theme.visuelOuverture ? { visuel: o.theme.visuelOuverture } : {}) }
     : { type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false, ...habit(premier, false) });
   return {
     version: 1,
