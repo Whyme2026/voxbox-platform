@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 // Code navigateur (JavaScript), testé tel quel.
 import {
   segmentsParole, enveloppe, dureeSegments, planParlomix, themeDepuisCouleurs, choixParPersonne, choixParQuestion,
-  recadrage, composerJingle, composerJingleTurbo, titreOuverture, DUREE_TURBO_MS, DUREES, CLIPS_MAX,
+  recadrage, composerJingle, composerJingleTurbo, titreOuverture, DUREE_TURBO_MS, DUREES, CLIPS_MAX, SONS,
 } from "../public/admin/js/montage/plan.js";
 
 /** Niveaux par tranche de 20 ms à partir d'une description « silence / parole » en millisecondes. */
@@ -75,7 +75,7 @@ test("Parlomix par question : dans l'ordre de passage, filtrable par cabine et p
   assert.equal(choixParQuestion(beaucoup, { etape: "q1" }).length, CLIPS_MAX);
 });
 
-test("le plan alterne cartes et réponses, avec jingle entre les réponses", () => {
+test("le plan alterne cartes et réponses : chaque réponse d'une personne annoncée par sa question en bulle", () => {
   const theme = themeDepuisCouleurs({ principale: "#0F6E5A" });
   const plan = planParlomix({
     type: "personne", titre: "Camille", sousTitre: "Démo", signature: "Parlobox", format: "9:16", theme,
@@ -84,8 +84,10 @@ test("le plan alterne cartes et réponses, avec jingle entre les réponses", () 
       { id: "r2", sessionId: "s1", etiquette: "Le coup de cœur", detail: "Tiens ?", dureeMs: 9000, segments: [] },
     ],
   });
-  assert.deepEqual(plan.sequences.map((s) => s.type === "carte" ? s.role : "clip"), ["intro", "clip", "transition", "clip", "fin"]);
-  assert.equal(plan.dureeMs, DUREES.intro + 3000 + DUREES.transition + 9000 + DUREES.fin);
+  assert.deepEqual(plan.sequences.map((s) => s.type === "carte" ? s.role : "clip"), ["intro", "transition", "clip", "transition", "clip", "fin"]);
+  assert.equal((plan.sequences[1] as any).titre, "Le premier mot", "la première question aussi");
+  // La première question n'a pas de texte (transition courte), la seconde en a un (le temps de la lire).
+  assert.equal(plan.dureeMs, DUREES.intro + DUREES.transition + 3000 + DUREES.question + 9000 + DUREES.fin);
   assert.deepEqual(plan.dimensions, { largeur: 720, hauteur: 1280 });
   assert.deepEqual(plan.sessions, ["s1"]);
   assert.equal(theme.marque, "#0F6E5A");
@@ -122,11 +124,11 @@ test("jingle « turbo » : 3 s à l'ouverture, 0,9 s entre les réponses, sans s
   assert.deepEqual(composerJingleTurbo(8000), composerJingleTurbo(8000), "reproductible");
 });
 
-test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouverture de 3 s au jingle turbo", async () => {
+test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouverture de 4 s sur le son « glitch », images sur les coups", async () => {
   const { readFileSync } = await import("node:fs");
   const pfa = JSON.parse(readFileSync(new URL("../fixtures/parcours-pfa.json", import.meta.url), "utf8"));
   const theme = themeDepuisCouleurs({}, pfa.habillage, pfa.ambiance);
-  assert.equal(theme.jingle, "turbo");
+  assert.equal(theme.jingle, "glitch");
   assert.equal(titreOuverture(theme, "Inès"), "Le Salon de l'auto d'Inès", "élision devant une voyelle");
   assert.equal(titreOuverture(theme, "Hugo"), "Le Salon de l'auto d'Hugo", "et devant un h");
   assert.equal(titreOuverture(theme, "Élodie"), "Le Salon de l'auto d'Élodie", "voyelle accentuée");
@@ -136,7 +138,19 @@ test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouver
     clips: [{ id: "r1", etiquette: "Ta visite", dureeMs: 4000, segments: [[0, 4000]], sessionId: "s1" }] });
   const intro = plan.sequences[0] as any;
   assert.equal(intro.role, "intro");
-  assert.equal(intro.dureeMs, DUREE_TURBO_MS);
+  assert.equal(intro.dureeMs, 4000, "4 s au plus pour l'écran de départ");
+  assert.equal(intro.dureeMs, SONS.glitch.dureeMs);
+  // Les images arrivent dans l'ordre, sur les coups du son, avant la fin de l'ouverture.
+  assert.ok(intro.temps.souffle[1] < intro.temps.titre && intro.temps.titre < intro.temps.sousTitre && intro.temps.sousTitre < intro.temps.visuel && intro.temps.visuel < intro.dureeMs - 500);
+  assert.ok(SONS.glitch.volumeTransition < 1, "entre les réponses : le jingle Parlobox, adouci");
+  // Fin : signature sur le décor de l'ouverture.
+  const fin = plan.sequences.at(-1) as any;
+  assert.equal(fin.role, "fin");
+  assert.equal(fin.signature, true);
+  assert.equal(fin.sousTitre, "La Fabrique de l'Innovation");
+  assert.equal(fin.fond, "fabrique", "même décor que l'ouverture");
+  assert.equal(fin.dureeMs, DUREES.signature);
+  assert.equal(fin.visuel, undefined, "moins d'informations qu'à l'ouverture");
   assert.equal(intro.titre, "Le Salon de l'auto de Lou");
   assert.equal(intro.jingle, true);
   assert.equal(intro.fond, "fabrique", "dégradé de la campagne");
@@ -193,8 +207,14 @@ test("habillage : fond de la question et visuel du modèle choisi par la personn
     clips: clips.map((c) => ({ ...c, segments: [] })),
   });
   const cartes = plan.sequences.filter((s) => s.type === "carte");
-  assert.deepEqual(cartes.map((c: any) => [c.role, c.fond, c.visuel]), [["intro", "couchant", "e2"], ["transition", undefined, undefined], ["fin", "couchant", undefined]]);
+  assert.deepEqual(cartes.map((c: any) => [c.role, c.fond, c.visuel]), [["intro", "couchant", "e2"], ["transition", "couchant", "e2"], ["transition", undefined, undefined], ["fin", "couchant", undefined]]);
   // Par question : chaque personne avec son modèle sur sa carte.
   const parQuestion = choixParQuestion([camille], { etape: "q1", question: qs[0], etapesChoix });
   assert.equal(parQuestion[0]!.visuel, "e2");
+});
+
+test("le son fourni « glitch » existe, dure 4 s et n'est servi qu'à Parlorama", async () => {
+  const { statSync } = await import("node:fs");
+  assert.ok(SONS.glitch.fichier.startsWith("/admin/"), "jamais dans la cabine");
+  assert.ok(statSync(new URL(`../public${SONS.glitch.fichier}`, import.meta.url)).size > 10_000);
 });

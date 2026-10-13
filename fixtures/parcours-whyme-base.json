@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "langue": "fr",
+  "tutoiement": true,
+  "disposition": "centree",
+  "habillage": {
+    "polices": {
+      "titres": "inter",
+      "texte": "inter"
+    },
+    "titresMajuscules": false,
+    "couleurs": {
+      "marque": "#242841",
+      "bulle": "#F6F4F5",
+      "visiteur": "#C4007A",
+      "fond": "#FFFFFF",
+      "texte": "#303136"
+    },
+    "fonds": [
+      {
+        "id": "blanc",
+        "nom": "Blanc",
+        "couleur": "#FFFFFF",
+        "texte": "#303136"
+      },
+      {
+        "id": "doux",
+        "nom": "Gris doux",
+        "couleur": "#F6F4F5",
+        "texte": "#303136"
+      },
+      {
+        "id": "nuit",
+        "nom": "Nuit WhyMe",
+        "couleur": "#242841",
+        "couleurBas": "#1A1D30",
+        "texte": "#FFFFFF"
+      },
+      {
+        "id": "geste",
+        "nom": "Geste WhyMe",
+        "couleur": "#C4007A",
+        "couleurBas": "#A3197F",
+        "texte": "#FFFFFF"
+      }
+    ],
+    "parlomix": {
+      "ouverture": "{prenom} a des choses à dire",
+      "jingle": "parlobox",
+      "fond": "geste"
+    }
+  },
+  "etapes": [
+    {
+      "id": "accueil",
+      "type": "accueil",
+      "fond": "blanc",
+      "titre": "Ton avis compte.",
+      "texte": "4 questions face caméra, 2 minutes chrono.",
+      "bulles": [
+        "Salut ! Tu as deux minutes ?",
+        "Dis-nous tout en 4 questions, face caméra.",
+        "Pas de bonne ou de mauvaise réponse : on veut ton vrai avis."
+      ],
+      "bouton": "Je me lance",
+      "bullesGrandes": true
+    },
+    {
+      "id": "toi",
+      "type": "identification",
+      "fond": "blanc",
+      "titre": "On commence simple : ton prénom ?",
+      "texte": "Juste pour t'appeler par ton prénom.",
+      "accord": true
+    },
+    {
+      "id": "cadrage",
+      "type": "cadrage",
+      "fond": "blanc",
+      "titre": "Place ton visage dans l'ovale",
+      "proposerFloutage": true,
+      "reperes": false,
+      "conseils": [
+        "Fais court : 15 à 25 secondes suffisent, va droit au but.",
+        "Tu as fini de répondre ? Touche « Question suivante » sans attendre.",
+        "Regarde la caméra, en haut de l'écran, et parle normalement."
+      ],
+      "conclusion": "Sois sincère, on adore ça !"
+    },
+    {
+      "id": "q-experience",
+      "type": "question",
+      "fond": "blanc",
+      "titreCourt": "Ton expérience",
+      "texte": "Ton expérience aujourd'hui, t'en as pensé quoi ?",
+      "pistes": [
+        "Ce qui t'a surpris",
+        "Ce que tu retiens",
+        "Ce que tu diras à tes potes"
+      ],
+      "dureeMaxSec": 20,
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
+    },
+    {
+      "id": "q-coup-de-coeur",
+      "type": "question",
+      "fond": "blanc",
+      "titreCourt": "Coup de cœur",
+      "texte": "Ton coup de cœur de la journée ?",
+      "pistes": [
+        "Ce que c'est",
+        "Pourquoi ça t'a plu",
+        "À qui tu le conseilles"
+      ],
+      "dureeMaxSec": 15,
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
+    },
+    {
+      "id": "q-bluffe",
+      "type": "question",
+      "fond": "blanc",
+      "titreCourt": "Bluffé",
+      "texte": "Ce qui t'a le plus bluffé ?",
+      "pistes": [
+        "Une idée",
+        "Un produit",
+        "Une rencontre"
+      ],
+      "dureeMaxSec": 20,
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
+    },
+    {
+      "id": "q-idee",
+      "type": "question",
+      "fond": "blanc",
+      "titreCourt": "Ton idée",
+      "texte": "Et si tu devais améliorer une chose ?",
+      "pistes": [
+        "Ce qui manquait",
+        "Ce qui t'a gêné",
+        "Ton idée"
+      ],
+      "dureeMaxSec": 25,
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
+    },
+    {
+      "id": "fin",
+      "type": "fin",
+      "fond": "nuit",
+      "titre": "Merci {prenom} !",
+      "texte": "Ton avis part directement chez ceux qui organisent. Merci de l'avoir dit franchement.",
+      "sortie": "Bonne suite de visite !",
+      "retourAccueilSec": 10
+    }
+  ]
+}

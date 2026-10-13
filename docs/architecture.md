@@ -97,6 +97,30 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - Cadrage, `conseils` (4 au plus, numérotés sous le titre) et `conclusion` (une phrase en couleur du visiteur) : en
   paysage, titre, conseils et conclusion à gauche, l'image à droite (12/10/2026).
 - Question, `intitulePistes` : intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; `""` : aucun.
+- Question, `mentionTemps` : petite ligne sous la question, `{lecture}` et `{duree}` remplacés par les secondes de
+  lecture et de réponse de l'étape (PFA : « Tu as {lecture} s pour réfléchir, {duree} s pour répondre. ») ; masquée pendant la prise.
+- **Thème de base WhyMe** (13/10/2026, `fixtures/parcours-whyme-base.json`, copie dans `public/admin/modeles/`, proposé
+  par l'éditeur) : point de départ des campagnes. Déroulé et réglages d'écran de « Feedbackpost debrief » (accueil aux
+  bulles en grand, accord sur l'écran du prénom, cadrage à 3 conseils, questions centrées, 10 s de lecture, mention du
+  temps, pistes sans intitulé, tutoiement) ; habillage à la charte WhyMe : Inter, marque navy #242841, bulle #F6F4F5,
+  visiteur magenta #C4007A, texte #303136, fond de fin « nuit », ouverture et signature du Parlomix sur « geste »
+  (magenta → prune). Les corps et emplacements restent ceux de la cabine.
+- L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
+
+**Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,
+Pixabay, licence Pixabay : usage commercial sans mention, pas de redistribution du fichier seul ; non enregistré Content ID),
+coupé à 4 s avec fondu, dans `public/admin/sons/` (Parlorama seulement, jamais la cabine). L'ouverture dure 4 s et ses images
+arrivent sur les coups du son (`SONS` dans `plan.js` : traînée et lignes « glitch » pendant le souffle, titre à 1,6 s,
+sous-titre à 2,15 s, visuel à 2,95 s, éclair et secousse à chaque coup) ; entre les réponses, le jingle Parlobox adouci
+(un extrait du son fourni était « trop violent, pas assez complice »).
+Fichier introuvable : le jingle Parlobox le remplace.
+`habillage.parlomix.signature` (ex. « La Fabrique de l'Innovation ») : l'écran de fin devient une signature sur le décor de
+l'ouverture, 3 s : logo du client en pastille, la ligne, puis « Parlobox by whyme » en grand (pas de filigranes en plus).
+
+**Règles permanentes du Parlomix** (13/10/2026) : la question apparaît en bulle, la réponse en vidéo ; sur chaque image,
+le client en filigrane en haut à gauche (son logo, sinon son nom) et « Parlobox by whyme » en haut à droite.
+Par personne, chaque réponse est annoncée par sa question en entier dans une bulle (nom court en étiquette), dès la
+première ; cette carte dure 2,2 s pour laisser le temps de la lire.
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle

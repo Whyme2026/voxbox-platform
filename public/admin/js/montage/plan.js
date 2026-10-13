@@ -9,20 +9,23 @@
  *   marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string,
  *   habille?: boolean, bulle?: string, surBulle?: string, policeTitres?: string, policeTexte?: string,
  *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>,
- *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string
+ *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string, client?: string, signature?: string
  * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales, fonds (fonds des cartes),
- *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix)
- * @typedef {"parlobox" | "turbo"} Jingle
+ *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix) ; client : son nom (filigrane sans logo) ;
+ *   signature : ligne de l'écran de fin « signature » (ex. « La Fabrique de l'Innovation »)
+ * @typedef {"parlobox" | "turbo" | "glitch"} Jingle
  * @typedef {[number, number]} Segment  début et fin en millisecondes dans la vidéo source
  * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip
- * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string }} SequenceCarte
+ * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string, temps?: TempsOuverture, signature?: boolean }} SequenceCarte
+ * @typedef {{ souffle: [number, number], titre: number, sousTitre: number, visuel: number, eclats: readonly number[] }} TempsOuverture  repères du son (ms)
  * @typedef {{ type: "clip", reponseId: string, sessionId: string, segments: Segment[], bandeau: string | null, dureeMs: number }} SequenceClip
  * @typedef {SequenceCarte | SequenceClip} Sequence
  * @typedef {"16:9" | "9:16"} Format
  */
 
 export const FORMATS = /** @type {const} */ ({ "16:9": { largeur: 1280, hauteur: 720 }, "9:16": { largeur: 720, hauteur: 1280 } });
-export const DUREES = /** @type {const} */ ({ intro: 2200, transition: 1300, fin: 2000 });
+/** Durées des cartes (ms) ; « question » : une transition qui porte la question en entier, le temps de la lire. */
+export const DUREES = /** @type {const} */ ({ intro: 2200, transition: 1300, question: 2200, fin: 2000, signature: 3000 });
 /** Au-delà, le fichier devient trop lourd à envoyer depuis le navigateur (limite d'envoi de la plateforme). */
 export const CLIPS_MAX = 20;
 
@@ -86,10 +89,11 @@ export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conv
   // Parlomix propre à la campagne : jingle et titre d'ouverture (« Le Salon de l'auto de {prenom} »).
   const pm = habillage.parlomix;
   if (pm && typeof pm === "object") {
-    if (pm.jingle === "turbo" || pm.jingle === "parlobox") theme.jingle = pm.jingle;
+    if (pm.jingle === "turbo" || pm.jingle === "parlobox" || pm.jingle === "glitch") theme.jingle = pm.jingle;
     if (typeof pm.ouverture === "string" && pm.ouverture.trim()) theme.ouverture = pm.ouverture.trim();
     if (typeof pm.fond === "string" && theme.fonds?.[pm.fond]) theme.fondOuverture = pm.fond;
     if (typeof pm.visuel === "string") theme.visuelOuverture = pm.visuel;
+    if (typeof pm.signature === "string" && pm.signature.trim()) theme.signature = pm.signature.trim();
   }
   return theme;
 }
@@ -248,11 +252,29 @@ export function choixParQuestion(sessions, o) {
   }));
 }
 
+// ------------------------------------------------------------------ les sons fournis
+
+/**
+ * Sons d'ouverture fournis (fichiers servis à Parlorama seulement, jamais à la cabine), avec les repères qui
+ * rythment l'ouverture : les images apparaissent sur les coups du son. Entre les réponses, il serait trop fort :
+ * les transitions jouent le jingle Parlobox (marimba et bulle), plus doux et complice, à volume réduit.
+ * « glitch » : « Tech Glitch Whoosh Logo », Alex_Kizenkov, Pixabay (licence Pixabay : usage commercial, sans
+ * mention ; pas de redistribution du fichier seul). Coupé à 4 s avec un fondu (13/10/2026).
+ */
+export const SONS = /** @type {const} */ ({
+  glitch: {
+    fichier: "/admin/sons/tech-glitch-whoosh.mp3",
+    dureeMs: 4000,
+    volumeTransition: 0.7,
+    temps: { souffle: /** @type {[number, number]} */ ([100, 1550]), titre: 1600, sousTitre: 2150, visuel: 2950, eclats: [1600, 2150, 2950] },
+  },
+});
+
 // ------------------------------------------------------------------ le plan
 
 /**
- * Plan du Parlomix. Une carte d'ouverture (avec jingle), puis les réponses séparées par une animation et le
- * jingle, puis une carte de fin.
+ * Plan du Parlomix. Une carte d'ouverture (avec jingle), puis les réponses, chacune annoncée par sa question en
+ * bulle (par personne ; par question, le prénom à partir de la deuxième) et le jingle, puis une carte de fin.
  * @param {{ type: "personne" | "question", titre: string, sousTitre?: string, signature: string, clips: Clip[], format: Format, theme: Theme, bandeaux?: boolean }} o
  */
 export function planParlomix(o) {
@@ -262,17 +284,19 @@ export function planParlomix(o) {
   const habit = (/** @type {Clip | undefined} */ c, avecVisuel = true) => ({
     ...(c?.fond ? { fond: c.fond } : {}), ...(avecVisuel && c?.visuel ? { visuel: c.visuel } : {}),
   });
-  // Le jingle « turbo » dure 3 s : l'ouverture dure autant que lui.
-  const intro = o.theme.jingle === "turbo" ? DUREE_TURBO_MS : DUREES.intro;
+  // Le jingle « turbo » dure 3 s, un son fourni sa propre durée : l'ouverture dure autant que lui.
+  const son = o.theme.jingle === "glitch" ? SONS.glitch : null;
+  const intro = son ? son.dureeMs : o.theme.jingle === "turbo" ? DUREE_TURBO_MS : DUREES.intro;
   // L'habillage peut imposer le fond et le visuel de l'ouverture (ex. le dégradé et la voiture de la campagne).
   const ouverture = { ...habit(premier, o.type === "personne"),
     ...(o.theme.fondOuverture ? { fond: o.theme.fondOuverture } : {}), ...(o.theme.visuelOuverture ? { visuel: o.theme.visuelOuverture } : {}) };
   /** @type {Sequence[]} */
-  const sequences = [{ type: "carte", role: "intro", dureeMs: intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true, ...ouverture }];
+  const sequences = [{ type: "carte", role: "intro", dureeMs: intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true, ...ouverture, ...(son ? { temps: son.temps } : {}) }];
   o.clips.forEach((c, i) => {
-    if (i > 0) {
+    // La question en bulle avant chaque réponse (règle du 13/10/2026) : pour une personne, dès la première.
+    if (i > 0 || o.type === "personne") {
       sequences.push({
-        type: "carte", role: "transition", dureeMs: DUREES.transition,
+        type: "carte", role: "transition", dureeMs: o.type === "personne" && c.detail ? DUREES.question : DUREES.transition,
         titre: c.etiquette, sousTitre: o.type === "personne" ? c.detail : undefined, jingle: true, ...habit(c),
       });
     }
@@ -282,7 +306,12 @@ export function planParlomix(o) {
       bandeau: o.bandeaux === false ? null : c.etiquette, dureeMs: dureeSegments(segments),
     });
   });
-  sequences.push({ type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false, ...habit(premier, false) });
+  // Fin : avec une signature d'habillage, le même décor que l'ouverture et une signature finale (logo du client,
+  // la ligne de la campagne, Parlobox by whyme) ; sinon la carte simple.
+  sequences.push(o.theme.signature
+    ? { type: "carte", role: "fin", dureeMs: DUREES.signature, titre: o.signature, sousTitre: o.theme.signature, jingle: false, signature: true,
+      ...(ouverture.fond ? { fond: ouverture.fond } : {}) }
+    : { type: "carte", role: "fin", dureeMs: DUREES.fin, titre: o.signature, sousTitre: "Parlomix · by whyme", jingle: false, ...habit(premier, false) });
   return {
     version: 1,
     type: o.type,

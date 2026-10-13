@@ -94,6 +94,8 @@ export interface EtapeQuestion extends EtapeBase {
   pistes?: string[];
   /** Intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; "" : pas d'intitulé. */
   intitulePistes?: string;
+  /** Petite ligne sous la question (ex. « Tu as {lecture} secondes pour réfléchir ») ; {lecture} et {duree} : secondes de lecture et de réponse. */
+  mentionTemps?: string;
   /** Début de phrase pour lancer la réponse (ex. « Pour moi, c'était… »). */
   coupDePouce?: string;
 }
@@ -152,7 +154,7 @@ export interface Habillage {
    * Parlomix de la campagne : titre d'ouverture du film par personne ({prenom} remplacé), jingle, et fond et visuel
    * de la carte d'ouverture (parmi ceux de l'habillage).
    */
-  parlomix?: { ouverture?: string; jingle?: "parlobox" | "turbo"; fond?: string; visuel?: string };
+  parlomix?: { ouverture?: string; jingle?: "parlobox" | "turbo" | "glitch"; fond?: string; visuel?: string; signature?: string };
 }
 
 export interface Parcours {
@@ -269,6 +271,7 @@ export function validerParcours(brut: unknown): string[] {
         if (e.silenceArretSec !== undefined && (typeof e.silenceArretSec !== "number" || e.silenceArretSec < 0 || e.silenceArretSec > 15)) pb.push(`${ou} : arrêt sur silence entre 0 et 15 secondes`);
         if (e.titreCourt !== undefined) txt(ou, "titreCourt", e.titreCourt, 40);
         if (e.pistes !== undefined) liste(ou, "pistes", e.pistes, 5, 40);
+        if (e.mentionTemps !== undefined && (typeof e.mentionTemps !== "string" || !e.mentionTemps.trim() || e.mentionTemps.length > 100)) pb.push(`${ou} : « mentionTemps » : texte de 1 à 100 caractères ({lecture}, {duree} : secondes)`);
         if (e.intitulePistes !== undefined && (typeof e.intitulePistes !== "string" || e.intitulePistes.length > 40)) pb.push(`${ou} : « intitulePistes » : texte de 40 caractères au plus (vide : pas d'intitulé)`);
         if (e.coupDePouce !== undefined) txt(ou, "coupDePouce", e.coupDePouce, 100);
         break;
@@ -334,9 +337,10 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
     const pm = h.parlomix as Record<string, unknown>;
     if (!pm || typeof pm !== "object" || Array.isArray(pm)) pb.push("habillage.parlomix : objet attendu");
     else {
-      for (const k of Object.keys(pm)) if (!["ouverture", "jingle", "fond", "visuel"].includes(k)) pb.push(`habillage.parlomix : clé inconnue « ${k} »`);
+      for (const k of Object.keys(pm)) if (!["ouverture", "jingle", "fond", "visuel", "signature"].includes(k)) pb.push(`habillage.parlomix : clé inconnue « ${k} »`);
       if (pm.ouverture !== undefined && (typeof pm.ouverture !== "string" || !pm.ouverture.trim() || pm.ouverture.length > 60)) pb.push("habillage.parlomix.ouverture : texte de 60 caractères au plus");
-      if (pm.jingle !== undefined && pm.jingle !== "parlobox" && pm.jingle !== "turbo") pb.push("habillage.parlomix.jingle : parlobox ou turbo");
+      if (pm.signature !== undefined && (typeof pm.signature !== "string" || !pm.signature.trim() || pm.signature.length > 60)) pb.push("habillage.parlomix.signature : texte de 60 caractères au plus");
+      if (pm.jingle !== undefined && !["parlobox", "turbo", "glitch"].includes(String(pm.jingle))) pb.push("habillage.parlomix.jingle : parlobox, turbo ou glitch");
     }
   }
   if (h.couleurs !== undefined) {

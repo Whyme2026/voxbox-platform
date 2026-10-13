@@ -61,9 +61,10 @@
     ],
     "parlomix": {
       "ouverture": "Le Salon de l'auto de {prenom}",
-      "jingle": "turbo",
+      "jingle": "glitch",
       "fond": "fabrique",
-      "visuel": "voiture-blanche"
+      "visuel": "voiture-blanche",
+      "signature": "La Fabrique de l'Innovation"
     }
   },
   "etapes": [
@@ -119,7 +120,8 @@
       "dureeMaxSec": 20,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "q-voiture",
@@ -135,7 +137,8 @@
       "dureeMaxSec": 15,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "q-innovation",
@@ -151,7 +154,8 @@
       "dureeMaxSec": 20,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "q-fabrique",
@@ -167,7 +171,8 @@
       "dureeMaxSec": 25,
       "compteARebours": 10,
       "silenceArretSec": 3,
-      "intitulePistes": ""
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "fin",
