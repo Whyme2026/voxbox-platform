@@ -121,6 +121,9 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   « parlobox by whyme » (Inter, « me » fuchsia) en filigrane et à la fin ; écran de fin « signature » refait : décor et
   visuel de l'ouverture (le visuel revient en glissant), client en pastille, opération en grand, logo dans une pastille
   blanche. Sans `parlomix.signature`, la ligne `habillage.entete` en tient lieu.
+  Parlorama, onglet Consentement : le texte de la case de diffusion se modifie par campagne (nouvelle version des
+  textes, usage interne inchangé). PFA : « J'ai 18 ans ou plus et j'accepte que la PFA publie ma vidéo sur ses réseaux
+  sociaux pendant 1 an. Facultatif. » (public jeune : réservée aux majeurs).
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
 **Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,
