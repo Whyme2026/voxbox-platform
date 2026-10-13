@@ -142,6 +142,8 @@ export interface Habillage {
   polices?: { titres?: Police; texte?: Police };
   /** Titres et questions en capitales. */
   titresMajuscules?: boolean;
+  /** Ligne de la campagne, en haut à gauche de chaque écran, à côté du logo du client (ex. « La Fabrique de l'Innovation »). */
+  entete?: string;
   /**
    * marque : boutons secondaires, cases, repères ; bulle : fond des bulles de la marque (par défaut, marque) ;
    * visiteur : bulles du visiteur et actions ; fond et texte : écran sans fond particulier.
@@ -320,7 +322,7 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
   if (brut === undefined) return { fonds, visuels };
   if (!brut || typeof brut !== "object" || Array.isArray(brut)) { pb.push("habillage : objet attendu"); return { fonds, visuels }; }
   const h = brut as Record<string, unknown>;
-  const connues = new Set(["polices", "titresMajuscules", "couleurs", "fonds", "visuels", "parlomix"]);
+  const connues = new Set(["polices", "titresMajuscules", "entete", "couleurs", "fonds", "visuels", "parlomix"]);
   for (const k of Object.keys(h)) if (!connues.has(k)) pb.push(`habillage : clé inconnue « ${k} »`);
   const couleur = (ou: string, v: unknown) => { if (typeof v !== "string" || !COULEUR.test(v)) pb.push(`${ou} : couleur au format #RRGGBB attendue`); };
 
@@ -333,6 +335,7 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
     }
   }
   if (h.titresMajuscules !== undefined && typeof h.titresMajuscules !== "boolean") pb.push("habillage.titresMajuscules : vrai ou faux");
+  if (h.entete !== undefined && (typeof h.entete !== "string" || !h.entete.trim() || h.entete.length > 60)) pb.push("habillage.entete : texte de 60 caractères au plus");
   if (h.parlomix !== undefined) {
     const pm = h.parlomix as Record<string, unknown>;
     if (!pm || typeof pm !== "object" || Array.isArray(pm)) pb.push("habillage.parlomix : objet attendu");

@@ -9,6 +9,7 @@
       "texte": "barlow"
     },
     "titresMajuscules": true,
+    "entete": "La Fabrique de l'Innovation",
     "couleurs": {
       "marque": "#2F3C9E",
       "bulle": "#F2EFFA",
@@ -73,13 +74,12 @@
       "type": "accueil",
       "fond": "blanc",
       "visuel": "fabrique",
-      "surtitre": "La Fabrique de l'Innovation · PFA",
       "titre": "Ton avis compte.",
       "texte": "4 questions face caméra, 2 minutes chrono.",
       "bulles": [
         "Salut ! Tu sors de ta visite du Mondial ?",
         "Dis-nous tout en 4 questions, face caméra.",
-        "Pas de bonne ou de mauvaise réponse : on veut ton vrai avis."
+        "Sois toi-même, les autres sont déjà pris."
       ],
       "bouton": "Je me lance",
       "bullesGrandes": true
