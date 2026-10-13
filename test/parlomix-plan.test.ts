@@ -142,8 +142,7 @@ test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouver
   assert.equal(intro.dureeMs, SONS.glitch.dureeMs);
   // Les images arrivent dans l'ordre, sur les coups du son, avant la fin de l'ouverture.
   assert.ok(intro.temps.souffle[1] < intro.temps.titre && intro.temps.titre < intro.temps.sousTitre && intro.temps.sousTitre < intro.temps.visuel && intro.temps.visuel < intro.dureeMs - 500);
-  const [debut, fin] = SONS.glitch.transition;
-  assert.ok(fin - debut <= DUREES.transition, "l'extrait des transitions tient dans la carte");
+  assert.ok(SONS.glitch.volumeTransition < 1, "entre les réponses : le jingle Parlobox, adouci");
   assert.equal(intro.titre, "Le Salon de l'auto de Lou");
   assert.equal(intro.jingle, true);
   assert.equal(intro.fond, "fabrique", "dégradé de la campagne");

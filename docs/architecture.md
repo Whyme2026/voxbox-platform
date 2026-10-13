@@ -105,7 +105,8 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 Pixabay, licence Pixabay : usage commercial sans mention, pas de redistribution du fichier seul ; non enregistré Content ID),
 coupé à 4 s avec fondu, dans `public/admin/sons/` (Parlorama seulement, jamais la cabine). L'ouverture dure 4 s et ses images
 arrivent sur les coups du son (`SONS` dans `plan.js` : traînée et lignes « glitch » pendant le souffle, titre à 1,6 s,
-sous-titre à 2,15 s, visuel à 2,95 s, éclair et secousse à chaque coup) ; les transitions jouent l'extrait 1,5-2,4 s.
+sous-titre à 2,15 s, visuel à 2,95 s, éclair et secousse à chaque coup) ; entre les réponses, le jingle Parlobox adouci
+(un extrait du son fourni était « trop violent, pas assez complice »).
 Fichier introuvable : le jingle Parlobox le remplace.
 
 **Règles permanentes du Parlomix** (13/10/2026) : la question apparaît en bulle, la réponse en vidéo ; sur chaque image,

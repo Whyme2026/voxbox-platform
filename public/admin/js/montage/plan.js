@@ -254,7 +254,8 @@ export function choixParQuestion(sessions, o) {
 
 /**
  * Sons d'ouverture fournis (fichiers servis à Parlorama seulement, jamais à la cabine), avec les repères qui
- * rythment l'ouverture : les images apparaissent sur les coups du son. Les transitions en jouent un extrait.
+ * rythment l'ouverture : les images apparaissent sur les coups du son. Entre les réponses, il serait trop fort :
+ * les transitions jouent le jingle Parlobox (marimba et bulle), plus doux et complice, à volume réduit.
  * « glitch » : « Tech Glitch Whoosh Logo », Alex_Kizenkov, Pixabay (licence Pixabay : usage commercial, sans
  * mention ; pas de redistribution du fichier seul). Coupé à 4 s avec un fondu (13/10/2026).
  */
@@ -262,7 +263,7 @@ export const SONS = /** @type {const} */ ({
   glitch: {
     fichier: "/admin/sons/tech-glitch-whoosh.mp3",
     dureeMs: 4000,
-    transition: /** @type {[number, number]} */ ([1500, 2400]),
+    volumeTransition: 0.7,
     temps: { souffle: /** @type {[number, number]} */ ([100, 1550]), titre: 1600, sousTitre: 2150, visuel: 2950, eclats: [1600, 2150, 2950] },
   },
 });

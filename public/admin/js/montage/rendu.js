@@ -523,8 +523,9 @@ export async function fabriquer(o) {
   const turbo = th.jingle === "turbo";
   let jingle = tampon(turbo ? composerJingleTurbo(audio.sampleRate, true) : composerJingle(audio.sampleRate));
   let jingleOuverture = turbo ? tampon(composerJingleTurbo(audio.sampleRate)) : jingle;
-  // Son fourni (ex. « glitch ») : le fichier pour l'ouverture, un extrait pour les transitions. S'il ne se charge
-  // pas, le jingle Parlobox le remplace : le montage ne s'arrête pas pour un son.
+  // Son fourni (ex. « glitch ») : le fichier pour l'ouverture ; aux transitions, le jingle Parlobox, adouci
+  // (13/10/2026 : l'extrait du son fourni était trop violent entre les réponses). S'il ne se charge pas, le jingle
+  // Parlobox le remplace : le montage ne s'arrête pas pour un son.
   const fourni = th.jingle === "glitch" ? SONS.glitch : null;
   if (fourni) {
     try {
@@ -532,7 +533,7 @@ export async function fabriquer(o) {
       if (!res.ok) throw new Error(String(res.status));
       const decode = await audio.decodeAudioData(await res.arrayBuffer());
       jingleOuverture = sonFourni(audio, decode, 0, fourni.dureeMs, 0.55);
-      jingle = sonFourni(audio, decode, fourni.transition[0], fourni.transition[1], 0.55);
+      jingle = tampon(composerJingle(audio.sampleRate).map((v) => v * fourni.volumeTransition));
     } catch (e) { console.warn("Son d'ouverture indisponible", e); }
   }
   const video = document.createElement("video");
