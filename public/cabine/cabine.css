@@ -114,14 +114,28 @@ button { font: inherit; color: inherit; }
   position: relative; height: 100dvh; overflow: hidden;
   display: grid; grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  grid-template-areas: "entete" "scene" "clavier" "pied";
+  grid-template-areas: "entete" "scene" "clavier" "sous-clavier";
   padding: calc(var(--gouttiere) * .7) var(--gouttiere) calc(var(--gouttiere) * .5);
   gap: calc(var(--gouttiere) * .45);
 }
 .entete { grid-area: entete; position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; min-height: 44px; }
 .logo { max-height: 48px; max-width: 220px; object-fit: contain; }
-.voxbox { display: inline-flex; align-items: center; gap: 12px; font-family: var(--titres); font-weight: 600; font-size: clamp(20px, 3.6vmin, 28px); }
-.voxbox svg { width: 46px; height: 38px; }
+/* Ligne de la campagne, à côté du logo du client (habillage.entete), séparée par un filet. */
+.entete-texte { padding-left: 14px; border-left: 2px solid var(--trait); font-family: var(--titres); font-weight: 600; font-size: clamp(16px, 2.6vmin, 20px); line-height: 1.15; }
+.cabine[data-majuscules] .entete-texte { text-transform: uppercase; letter-spacing: .04em; }
+/* Signature « parlobox by whyme », en haut à droite de tous les écrans, aux codes whyme : minuscules, magenta,
+   Inter. Fixe : elle ne prend ni les couleurs ni les polices de la campagne, sauf le blanc sur fond sombre. */
+.signature { --magenta-whyme: #C4007A; order: 10; display: inline-flex; align-items: center; gap: 8px; margin-left: 4px; white-space: nowrap;
+  font-family: "Inter", system-ui, sans-serif; color: #242841; line-height: 1; }
+.signature svg { width: 30px; height: 25px; flex: none; }
+.signature .signature-bulle { fill: var(--magenta-whyme); }
+.signature-mot { font-weight: 700; font-size: clamp(17px, 2.8vmin, 21px); letter-spacing: -0.02em; }
+.signature-by { font-weight: 500; font-size: clamp(12px, 1.9vmin, 14px); color: color-mix(in srgb, #242841 70%, #FFFFFF); }
+.signature-by b { font-weight: 700; color: var(--magenta-whyme); }
+.cabine[data-fond-sombre] .signature, .cabine[data-fond-sombre] .signature-by { color: #FFFFFF; }
+.cabine[data-fond-sombre] .signature { --magenta-whyme: #FFFFFF; }
+.cabine[data-fond-sombre] .signature svg g { fill: #242841; }
+:root[data-ambiance="marine"] .signature, :root[data-ambiance="marine"] .signature-by { color: var(--texte); }
 /* Nom de la marque en guise de logo (campagne habillée, sans logo fourni). */
 .nom-marque { font-family: var(--titres); font-size: clamp(18px, 3.2vmin, 24px); letter-spacing: .32em; text-transform: uppercase; }
 .etat-reseau { font-size: 15px; color: var(--texte-doux); }
@@ -136,8 +150,6 @@ button { font: inherit; color: inherit; }
 .points i { width: 34px; height: 10px; border-radius: 5px; background: var(--trait); }
 .points i[data-etat="fait"] { background: var(--accent); }
 .points i[data-etat="en-cours"] { background: var(--parole); }
-.pied { grid-area: pied; position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 16px; font-size: 15px; color: var(--texte-doux); }
-.pied strong { color: var(--texte); font-weight: 700; }
 
 .scene { grid-area: scene; position: relative; z-index: 1; min-height: 0; display: flex; flex-direction: column; }
 .ecran { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: calc(var(--gouttiere) * .55); }
@@ -192,7 +204,8 @@ button { font: inherit; color: inherit; }
   font-size: calc(var(--corps) * 1.05); font-weight: 600; line-height: 1.3; }
 .conseils-cadrage .puce { flex: none; display: grid; place-items: center; width: 1.8em; height: 1.8em; border-radius: 50%; background: var(--accent); color: var(--sur-accent);
   font-family: var(--titres); font-weight: 700; }
-.conclusion-cadrage { margin: 4px 0 0; font-family: var(--titres); font-weight: 700; font-size: calc(var(--corps) * 1.35); color: var(--parole); }
+/* La conclusion s'aligne sur les pastilles numérotées des conseils (même retrait que le texte des bulles). */
+.conclusion-cadrage { margin: 4px 0 0; padding-left: 18px; font-family: var(--titres); font-weight: 700; font-size: calc(var(--corps) * 1.35); color: var(--parole); }
 .texte-cadrage { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 @media (orientation: landscape) {
   .ecran-cadrage.avec-conseils { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); grid-template-rows: minmax(0, 1fr) auto;
@@ -201,9 +214,17 @@ button { font: inherit; color: inherit; }
   .ecran-cadrage.avec-conseils > .emplacement-camera { grid-column: 2; grid-row: 1; height: 100%; min-height: 0; }
   .ecran-cadrage.avec-conseils > .actions { grid-column: 1 / -1; grid-row: 2; }
 }
-/* Accord sur l'écran du prénom (identification.accord), entre le champ et le bouton. */
-.accord-identification { display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
-.accord-identification .case { font-size: calc(var(--corps) * 1.05); }
+/* Accord sur l'écran du prénom (identification.accord) : sous le clavier, en plus petit, « En savoir plus » aligné
+   sur le texte de l'accord ; le bouton juste dessous. */
+.sous-clavier { grid-area: sous-clavier; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 14px; }
+.sous-clavier:empty { display: none; }
+.sous-clavier .actions { margin-top: 2px; }
+.accord-identification { display: flex; flex-direction: column; gap: 4px; padding: 0 calc(var(--gouttiere) * .45); }
+.accord-identification .case { gap: 12px; font-size: clamp(15px, 2.3vmin, 17px); line-height: 1.35; }
+.accord-identification .case .boite { width: 28px; height: 28px; border-radius: 10px; }
+.accord-identification .case small { font-size: 13px; }
+.accord-identification > .lien { margin-left: 40px; font-size: 14px; }
+.accord-identification > .texte-legal { margin-left: 40px; max-height: 16vh; }
 /* Accord et cadrage sur le même écran (consentement.avecCamera) : l'image sous le titre, à gauche. */
 .ecran-accord-camera .deux { align-items: stretch; }
 .ecran-accord-camera .colonne { min-height: 0; }
@@ -240,12 +261,15 @@ button { font: inherit; color: inherit; }
 @media (orientation: landscape) {
   .cabine:has(.clavier:not(:empty)) {
     grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas: "entete entete" "scene clavier" "pied pied";
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "entete entete" "scene clavier" "scene sous-clavier";
     column-gap: calc(var(--gouttiere) * 1.1);
   }
   .cabine:has(.clavier:not(:empty)) .touche { max-width: none; }
-  .cabine:has(.clavier:not(:empty)) .clavier { align-self: center; }
+  /* Le clavier et ce qu'il y a dessous forment un bloc centré dans la hauteur. */
+  .cabine:has(.clavier:not(:empty)) .clavier { align-self: end; }
+  .cabine:has(.clavier:not(:empty)) .sous-clavier { align-self: start; }
+  .cabine:has(.clavier:not(:empty)) .sous-clavier:empty { display: flex; }
 }
 
 /* --------------------------------------------------------------- mode d'emploi et accord */
@@ -304,7 +328,6 @@ button { font: inherit; color: inherit; }
 .ecoute .onde, .ecoute .ecoute-texte { display: none; }
 .ecoute[data-etat="rec"] .onde { display: inline-flex; }
 .ecoute[data-etat="rec"] .ecoute-texte { display: inline; }
-.ecoute[data-etat="rec"] .lire, .ecoute:not([data-etat]) .lire { display: none; }
 .onde { align-items: center; gap: 4px; height: 26px; }
 .onde i { width: 6px; height: 100%; border-radius: 3px; background: var(--parole); transform: scaleY(.22); transform-origin: 50% 50%; transition: transform 70ms linear; }
 
@@ -634,7 +657,6 @@ button { font: inherit; color: inherit; }
 :root[data-ambiance="pop"] .envol { animation-name: envol-pop; }
 @keyframes envol-pop { 0% { opacity: 0; transform: translateY(60px) scale(.7) rotate(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-110vh) scale(1) rotate(200deg); } }
 
-:root[data-ambiance="pop"] .voxbox { font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) {
   :root[data-ambiance="pop"] .decor::before, :root[data-ambiance="pop"] .compte-bulle,
@@ -687,8 +709,6 @@ button { font: inherit; color: inherit; }
   from { -webkit-mask-position: 0 0; mask-position: 0 0; }
   to { -webkit-mask-position: clamp(240px, 42vmin, 420px) 0; mask-position: clamp(240px, 42vmin, 420px) 0; }
 }
-:root[data-ambiance="marine"] .pied { color: color-mix(in srgb, var(--texte) 80%, var(--fond)); }
-:root[data-ambiance="marine"] .pied strong { color: var(--texte); }
 
 /* Titres : écume, avec un sillage orange. */
 :root[data-ambiance="marine"] .ecran h1:not(.bulle) { font-weight: 700; text-shadow: 0 .06em 0 color-mix(in srgb, var(--accent) 70%, transparent); }

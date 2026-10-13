@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.7.2";
+const VERSION = "0.8.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -68,6 +68,10 @@ function afficher(/** @type {(Node|null)[]} */ contenu, /** @type {string} */ ty
   $("cabine").dataset.ecran = type;
   reperes(type);
   scene.replaceChildren(.../** @type {Node[]} */ (contenu.filter(Boolean)));
+  // Ce que l'écran veut sous le clavier (.sous-clavier) quitte la scène pour la zone placée sous le clavier.
+  const sousClavier = $("sous-clavier");
+  sousClavier.replaceChildren(...scene.querySelectorAll(".sous-clavier > *"));
+  scene.querySelectorAll(".sous-clavier").forEach((el) => el.remove());
   // L'aperçu caméra et l'état de la prise sont des éléments uniques, déplacés dans l'écran qui les demande.
   const place = scene.querySelector(".emplacement-camera");
   if (place) { place.append(apercu); apercu.hidden = false; video.play().catch(() => {}); }
@@ -244,19 +248,21 @@ function appliquerHabillage() {
   visuels = new Map((hab.visuels ?? []).map((/** @type {any} */ v) => [v.id, v]));
   appliquerFond(null);
 
-  // En-tête : le logo de la marque ; à défaut, son nom si la campagne est habillée ; sinon la marque Parlobox.
+  // En-tête, à gauche : le logo du client (à défaut, son nom si la campagne est habillée) et la ligne de la campagne
+  // (habillage.entete). À droite, toujours, la signature « parlobox by whyme ».
   const logo = /** @type {HTMLImageElement} */ ($("logo"));
   const nom = $("nom-marque");
   logo.hidden = !client?.logo_url;
   nom.hidden = Boolean(client?.logo_url) || !config?.parcours?.habillage || !client?.nom;
   nom.textContent = nom.hidden ? "" : client.nom;
-  $("voxbox").hidden = !logo.hidden || !nom.hidden;
   if (client?.logo_url) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
+  const ligne = $("entete-texte");
+  ligne.textContent = typeof hab.entete === "string" ? hab.entete.trim() : "";
+  ligne.hidden = !ligne.textContent;
   // Ambiance graphique du parcours (« conversation » par défaut) et textes fixes au vouvoiement ou au tutoiement.
   const ambiance = ["pop", "marine"].includes(config?.parcours?.ambiance) ? config.parcours.ambiance : "conversation";
   document.documentElement.dataset.ambiance = ambiance;
   if (!valide(c.fond)) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", FOND_AMBIANCE[ambiance] ?? "#F1F2F6");
-  $("compte-lire").textContent = tv("Prenez le temps de lire.", "Prends le temps de lire.");
   $("ecoute-texte").textContent = tv("On vous écoute…", "On t'écoute…");
 }
 
@@ -273,6 +279,8 @@ function appliquerFond(/** @type {string | null | undefined} */ id) {
     for (const p of ["--fond", "--texte", "--fond-scene"]) style.removeProperty(p);
   }
   const fond = a?.couleur ?? getComputedStyle(document.documentElement).getPropertyValue("--fond").trim();
+  // Sur un fond sombre ou coloré, la signature « parlobox by whyme » passe en blanc (le magenta n'y serait pas lisible).
+  cabine.toggleAttribute("data-fond-sombre", valide(fond) && contraste(fond) === "#FFFFFF");
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", valide(fond) ? fond : "#F1F2F6");
 }
 
@@ -542,13 +550,15 @@ function ecranIdentification(/** @type {any} */ e) {
     return el;
   });
 
+  // L'accord et le bouton vont sous le clavier : on tape son prénom, on coche, on continue, dans l'ordre de lecture.
   afficher([
     h("div", { class: "ecran" },
       h("div", { class: "colonne" },
         h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
         e.texte ? bulle("marque douce moyenne arrive", perso(e.texte)) : null),
       h("div", { class: "champs" }, ...champs),
-      recontact,
+      recontact),
+    h("div", { class: "sous-clavier" },
       blocAccord,
       h("div", { class: "actions droite" }, continuer)),
   ], "identification");

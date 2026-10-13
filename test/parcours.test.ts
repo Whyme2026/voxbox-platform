@@ -256,3 +256,14 @@ test("question : mention du temps sous la question, texte court contrôlé", () 
     assert.equal(validerParcours(pfa).some((p) => p.includes("mentionTemps")), !ok, String(valeur));
   }
 });
+
+test("habillage.entete : ligne de la campagne à côté du logo du client, 60 caractères au plus", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  assert.equal(pfa.habillage.entete, "La Fabrique de l'Innovation");
+  assert.deepEqual(validerParcours(pfa), []);
+  for (const mauvais of ["", "   ", 12, "x".repeat(61)]) {
+    const p = structuredClone(pfa);
+    p.habillage.entete = mauvais;
+    assert.ok(validerParcours(p).some((m) => m.startsWith("habillage.entete")), `refusé : ${JSON.stringify(mauvais)}`);
+  }
+});

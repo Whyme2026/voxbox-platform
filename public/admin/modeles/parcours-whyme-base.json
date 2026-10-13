@@ -55,12 +55,12 @@
       "id": "accueil",
       "type": "accueil",
       "fond": "blanc",
-      "titre": "Ton avis compte.",
-      "texte": "4 questions face caméra, 2 minutes chrono.",
+      "titre": "À toi la parole.",
+      "texte": "Face caméra, 2 minutes chrono.",
       "bulles": [
-        "Salut ! Tu as deux minutes ?",
-        "Dis-nous tout en 4 questions, face caméra.",
-        "Pas de bonne ou de mauvaise réponse : on veut ton vrai avis."
+        "Salut ! Prêt à jouer le jeu ?",
+        "4 questions, aucune bonne réponse, juste la tienne.",
+        "Sois toi-même, les autres sont déjà pris."
       ],
       "bouton": "Je me lance",
       "bullesGrandes": true
@@ -88,15 +88,15 @@
       "conclusion": "Sois sincère, on adore ça !"
     },
     {
-      "id": "q-experience",
+      "id": "q-coup-de-coeur",
       "type": "question",
       "fond": "blanc",
-      "titreCourt": "Ton expérience",
-      "texte": "Ton expérience aujourd'hui, t'en as pensé quoi ?",
+      "titreCourt": "Coup de cœur",
+      "texte": "Ton dernier achat coup de cœur, c'était quoi ?",
       "pistes": [
-        "Ce qui t'a surpris",
-        "Ce que tu retiens",
-        "Ce que tu diras à tes potes"
+        "Ce que c'est",
+        "Pourquoi tu as craqué",
+        "Tu le referais ?"
       ],
       "dureeMaxSec": 20,
       "compteARebours": 10,
@@ -105,15 +105,32 @@
       "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
-      "id": "q-coup-de-coeur",
+      "id": "q-fan",
       "type": "question",
       "fond": "blanc",
-      "titreCourt": "Coup de cœur",
-      "texte": "Ton coup de cœur de la journée ?",
+      "titreCourt": "Fan",
+      "texte": "Une marque que tu défendrais face à tes potes ?",
       "pistes": [
-        "Ce que c'est",
-        "Pourquoi ça t'a plu",
-        "À qui tu le conseilles"
+        "Laquelle",
+        "Ce qu'elle fait mieux",
+        "Depuis quand"
+      ],
+      "dureeMaxSec": 20,
+      "compteARebours": 10,
+      "silenceArretSec": 3,
+      "intitulePistes": "",
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
+    },
+    {
+      "id": "q-le-pire",
+      "type": "question",
+      "fond": "blanc",
+      "titreCourt": "Le pire",
+      "texte": "Le pire service client de ta vie ?",
+      "pistes": [
+        "Ce qui s'est passé",
+        "Ce qu'ils auraient dû faire",
+        "Tu y es retourné ?"
       ],
       "dureeMaxSec": 15,
       "compteARebours": 10,
@@ -122,34 +139,17 @@
       "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
-      "id": "q-bluffe",
+      "id": "q-incompris",
       "type": "question",
       "fond": "blanc",
-      "titreCourt": "Bluffé",
-      "texte": "Ce qui t'a le plus bluffé ?",
+      "titreCourt": "Incompris",
+      "texte": "Le produit que tu ne comprends pas qu'on vende encore ?",
       "pistes": [
-        "Une idée",
-        "Un produit",
-        "Une rencontre"
+        "Lequel",
+        "Ce qui cloche",
+        "Qui l'achète, selon toi ?"
       ],
       "dureeMaxSec": 20,
-      "compteARebours": 10,
-      "silenceArretSec": 3,
-      "intitulePistes": "",
-      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
-    },
-    {
-      "id": "q-idee",
-      "type": "question",
-      "fond": "blanc",
-      "titreCourt": "Ton idée",
-      "texte": "Et si tu devais améliorer une chose ?",
-      "pistes": [
-        "Ce qui manquait",
-        "Ce qui t'a gêné",
-        "Ton idée"
-      ],
-      "dureeMaxSec": 25,
       "compteARebours": 10,
       "silenceArretSec": 3,
       "intitulePistes": "",
@@ -159,9 +159,9 @@
       "id": "fin",
       "type": "fin",
       "fond": "nuit",
-      "titre": "Merci {prenom} !",
-      "texte": "Ton avis part directement chez ceux qui organisent. Merci de l'avoir dit franchement.",
-      "sortie": "Bonne suite de visite !",
+      "titre": "Merci {prenom}, c'était parfait !",
+      "texte": "Tes réponses sont bien arrivées. Merci de les avoir données sans filtre.",
+      "sortie": "Bonne suite de journée !",
       "retourAccueilSec": 10
     }
   ]

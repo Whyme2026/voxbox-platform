@@ -105,6 +105,14 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   temps, pistes sans intitulé, tutoiement) ; habillage à la charte WhyMe : Inter, marque navy #242841, bulle #F6F4F5,
   visiteur magenta #C4007A, texte #303136, fond de fin « nuit », ouverture et signature du Parlomix sur « geste »
   (magenta → prune). Les corps et emplacements restent ceux de la cabine.
+- **Gabarit commun de la cabine** (débrief « Feedbackpost debrief », 14/10/2026, cabine 0.8.0), valable pour toutes les
+  campagnes : en-tête avec, à gauche, le logo du client et la ligne de la campagne (`habillage.entete`, 60 caractères
+  au plus, ex. « La Fabrique de l'Innovation ») ; à droite, les repères puis la signature fixe « parlobox by whyme »
+  (Inter, minuscules, bulle et « whyme » en magenta #C4007A ; tout en blanc sur fond sombre). Plus de pied de page (ni
+  « Un conseiller est à deux pas », ni « by whyme » en bas). Écran du prénom : l'accord (en plus petit, « En savoir
+  plus » aligné sur son texte) et le bouton « Continuer » sous le clavier (zone `#sous-clavier`, où va tout ce qu'un
+  écran met dans `.sous-clavier`). Cadrage : la conclusion alignée sur les pastilles numérotées. Questions : plus de
+  « Prends le temps de lire » à côté de la barre de temps (la `mentionTemps` sous la question suffit).
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
 **Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,

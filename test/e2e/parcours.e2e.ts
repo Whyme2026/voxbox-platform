@@ -253,7 +253,7 @@ async function scenarioFabrice() {
     await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(350);
-    if (i === 0) assert.equal(await page.locator("#compte-lire").textContent(), "Prends le temps de lire.");
+    if (i === 0) assert.equal(await page.locator("#ecoute").innerText(), "", "rien à côté de la barre de temps pendant la lecture");
     await capture(`05-q${n}-a-lire`);
     await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
     await page.waitForTimeout(1500);
@@ -333,6 +333,13 @@ async function scenarioPfa() {
   await page.evaluate(() => document.fonts.ready);
   assert.equal(await page.evaluate(() => document.fonts.check('700 40px "Barlow Condensed"')), true, "Barlow Condensed chargée");
   assert.equal(await page.evaluate(() => document.fonts.check('400 20px "Barlow"')), true, "Barlow chargée");
+  // En-tête : à gauche le client et la ligne de la campagne, à droite « parlobox by whyme » ; plus de pied de page.
+  assert.equal(await page.locator("#entete-texte").innerText(), "La Fabrique de l'Innovation".toUpperCase(), "ligne de la campagne à côté du client");
+  assert.equal(await page.locator("#signature").isVisible(), true, "signature parlobox by whyme");
+  const [gauche, droite] = await page.evaluate(() => ["entete-texte", "signature"].map((id) => document.getElementById(id)?.getBoundingClientRect().x ?? 0));
+  assert.ok(gauche < 400 && droite > 900, "client à gauche, signature à droite");
+  assert.equal(await page.getByText("Un conseiller").count(), 0, "plus de mention du conseiller");
+  await page.getByText("Sois toi-même, les autres sont déjà pris.").waitFor();
   await page.waitForTimeout(2400);
   await capture("01-accueil");
   await bouton("Je me lance");
@@ -343,6 +350,10 @@ async function scenarioPfa() {
   // L'accord est sur cet écran, entre le prénom et le bouton : « Continuer » reste grisé sans lui.
   assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique proposée");
   assert.equal(await page.getByRole("button", { name: "Continuer" }).isDisabled(), true, "l'accord est obligatoire");
+  // L'accord, son « En savoir plus » et le bouton sont sous le clavier.
+  const yClavier = await page.evaluate(() => document.getElementById("clavier")?.getBoundingClientRect().bottom ?? 0);
+  const yAccord = await page.evaluate(() => document.querySelector("#sous-clavier .accord-identification")?.getBoundingClientRect().top ?? 0);
+  assert.ok(yAccord >= yClavier, "accord sous le clavier");
   await cocher("J'accepte que PFA");
   await page.waitForTimeout(500);
   await capture("02-identification-accord");
