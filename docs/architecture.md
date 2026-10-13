@@ -99,6 +99,12 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - Question, `intitulePistes` : intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; `""` : aucun.
 - Question, `mentionTemps` : petite ligne sous la question, `{lecture}` et `{duree}` remplacés par les secondes de
   lecture et de réponse de l'étape (PFA : « Tu as {lecture} s pour réfléchir, {duree} s pour répondre. ») ; masquée pendant la prise.
+- **Thème de base WhyMe** (13/10/2026, `fixtures/parcours-whyme-base.json`, copie dans `public/admin/modeles/`, proposé
+  par l'éditeur) : point de départ des campagnes. Déroulé et réglages d'écran de « Feedbackpost debrief » (accueil aux
+  bulles en grand, accord sur l'écran du prénom, cadrage à 3 conseils, questions centrées, 10 s de lecture, mention du
+  temps, pistes sans intitulé, tutoiement) ; habillage à la charte WhyMe : Inter, marque navy #242841, bulle #F6F4F5,
+  visiteur magenta #C4007A, texte #303136, fond de fin « nuit », ouverture et signature du Parlomix sur « geste »
+  (magenta → prune). Les corps et emplacements restent ceux de la cabine.
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
 **Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,

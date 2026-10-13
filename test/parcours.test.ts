@@ -128,6 +128,28 @@ test("le modèle « parcours neutre » de l'éditeur est identique au parcours d
   assert.deepEqual(JSON.parse(modele), JSON.parse(demo));
 });
 
+test("thème de base WhyMe : modèle de l'éditeur, valide, déroulé de la campagne PFA et charte WhyMe", () => {
+  const base = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-whyme-base.json"), "utf8"));
+  const modele = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours-whyme-base.json"), "utf8"));
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  assert.deepEqual(modele, base);
+  assert.deepEqual(validerParcours(base), []);
+  // Même déroulé et mêmes réglages d'écran que la campagne de référence.
+  assert.deepEqual(base.etapes.map((e: any) => e.type), pfa.etapes.map((e: any) => e.type));
+  assert.equal(base.disposition, "centree");
+  assert.equal(base.tutoiement, true);
+  const questions = base.etapes.filter((e: any) => e.type === "question");
+  assert.ok(questions.every((q: any) => q.compteARebours === 10 && q.intitulePistes === "" && q.mentionTemps?.includes("{lecture}")));
+  const cadrage = base.etapes.find((e: any) => e.type === "cadrage");
+  assert.equal(cadrage.conseils.length, 3);
+  assert.equal(base.etapes.find((e: any) => e.type === "identification").accord, true);
+  // Charte WhyMe : Inter, navy pour la marque, magenta pour le visiteur, aucune capitale forcée.
+  assert.deepEqual(base.habillage.polices, { titres: "inter", texte: "inter" });
+  assert.equal(base.habillage.couleurs.marque, "#242841");
+  assert.equal(base.habillage.couleurs.visiteur, "#C4007A");
+  assert.equal(base.habillage.titresMajuscules, false);
+});
+
 test("ambiance et tutoiement : facultatifs, valeurs contrôlées", () => {
   const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
   assert.deepEqual(validerParcours({ ...demo, ambiance: "pop", tutoiement: true }), []);

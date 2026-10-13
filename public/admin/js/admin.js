@@ -1022,7 +1022,11 @@ async function vueParcours(/** @type {any} */ c) {
   const p = c.parcours;
   const modifiable = peut("campagnes.gerer") && estWhyme() && c.statut !== "active" && c.statut !== "close";
   /** @type {{ libelle: string, charger: () => Promise<any> }[]} */
-  const modeles = [{ libelle: "Parcours neutre Parlobox (démo)", charger: async () => (await fetch("modeles/parcours-neutre.json")).json() }];
+  const modeles = [
+    { libelle: "Parcours neutre Parlobox (démo)", charger: async () => (await fetch("modeles/parcours-neutre.json")).json() },
+    // Thème de base des campagnes (13/10/2026) : déroulé de « Feedbackpost debrief », charte WhyMe (Inter, navy, magenta).
+    { libelle: "Thème de base WhyMe", charger: async () => (await fetch("modeles/parcours-whyme-base.json")).json() },
+  ];
   if (modifiable) {
     const { campagnes } = await api("/api/admin/campagnes");
     for (const autre of campagnes.filter((/** @type {any} */ x) => x.id !== c.id && x.parcours_version_id).slice(0, 12)) {
