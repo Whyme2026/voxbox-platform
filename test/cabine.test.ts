@@ -102,6 +102,31 @@ test("sans option diffusion, aucun consentement de diffusion n'est accepté", as
   assert.equal((await demarrer(tablette, { consent_diffusion: false })).status, 201);
 });
 
+test("diffusion proposée sur l'écran du prénom : texte envoyé à la cabine, consentement accepté", async () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  const { tablette, db } = await cabinePrete(pfa);
+  const conf = await tablette("GET", "/api/cabine/config");
+  assert.match(conf.corps.consentement.texte_diffusion, /réseaux sociaux/);
+  const r = await demarrer(tablette, { consent_diffusion: true });
+  assert.equal(r.status, 201);
+  const l = await db.prepare("SELECT consent_diffusion FROM sessions WHERE id = ?").bind(r.corps.session.id).first<any>();
+  assert.equal(l.consent_diffusion, 1);
+});
+
+test("texte de diffusion propre à la campagne (réservé aux majeurs) : nouvelle version, texte d'usage interne inchangé, envoyé à la cabine", async () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  const { tablette, api, campagneId } = await cabinePrete(pfa, false);
+  const avant = (await api("GET", `/api/admin/campagnes/${campagneId}`, ADMIN)).corps.campagne.consentement;
+  const texte = "J'ai 18 ans ou plus et j'accepte que la PFA publie ma vidéo sur ses réseaux sociaux pendant 1 an. Facultatif.";
+  const r = await api("POST", `/api/admin/campagnes/${campagneId}/consentement`, ADMIN, { texte_interne: avant.texte_interne, texte_diffusion: texte });
+  assert.equal(r.status, 201);
+  assert.equal(r.corps.consentement_version.texte_interne, avant.texte_interne);
+  await api("POST", `/api/admin/campagnes/${campagneId}/statut`, ADMIN, { statut: "validee" });
+  await api("POST", `/api/admin/campagnes/${campagneId}/statut`, ADMIN, { statut: "active" });
+  const conf = await tablette("GET", "/api/cabine/config");
+  assert.equal(conf.corps.consentement.texte_diffusion, texte);
+});
+
 test("une version inconnue de la campagne est refusée", async () => {
   const { tablette } = await cabinePrete();
   const r = await demarrer(tablette, { parcours_version_id: "ancienne" });

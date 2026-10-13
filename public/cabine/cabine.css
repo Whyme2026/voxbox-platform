@@ -96,7 +96,7 @@ button { font: inherit; color: inherit; }
 
 .carte { background: var(--carte); border-radius: var(--rayon); box-shadow: var(--ombre); }
 /* Surfaces blanches : leur texte reste à l'encre, même sur un fond sombre. */
-.carte, .clavier, .option, .consignes li, .pistes span, .reperes .pas, .bouton.secondaire, .champ.secondaire[aria-pressed="true"] {
+.carte, .clavier, .option, .consignes li, .pistes span, .bouton.secondaire, .champ.secondaire[aria-pressed="true"] {
   --texte: var(--encre);
   --texte-doux: color-mix(in srgb, var(--encre) 70%, #FFFFFF);
   --trait: color-mix(in srgb, var(--encre) 14%, #FFFFFF);
@@ -126,7 +126,7 @@ button { font: inherit; color: inherit; }
 /* Signature « parlobox by whyme », en haut à droite de tous les écrans, aux codes whyme : texte seul, minuscules,
    Inter, « me » en fuchsia (#C4007A). Fixe : elle ne prend ni les couleurs ni les polices de la campagne ; sur fond
    sombre, le texte passe en blanc et « me » en fuchsia clair (#FF6FAE, lisible sur fond sombre). */
-.signature { --fuchsia-whyme: #C4007A; order: 10; display: inline-flex; align-items: baseline; gap: 6px; margin-left: 4px; white-space: nowrap;
+.signature { --fuchsia-whyme: #C4007A; order: 10; display: inline-flex; align-items: baseline; gap: 6px; margin-left: auto; white-space: nowrap;
   font-family: "Inter", system-ui, sans-serif; color: #303136; line-height: 1; }
 .signature-mot { font-weight: 700; font-size: clamp(18px, 3.2vmin, 23px); letter-spacing: -0.03em; }
 .signature-by { font-weight: 500; font-size: clamp(12px, 1.95vmin, 14px); color: color-mix(in srgb, currentColor 62%, transparent); }
@@ -139,10 +139,16 @@ button { font: inherit; color: inherit; }
 .etat-reseau { font-size: 15px; color: var(--texte-doux); }
 .etat-reseau:empty { display: none; }
 .etat-reseau[data-etat="hors-ligne"] { color: var(--rec); }
-.reperes { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: clamp(14px, 2.2vmin, 17px); font-weight: 600; }
-.reperes .pas { padding: 8px 16px; border-radius: 999px; background: var(--carte); color: var(--texte-doux); }
-.reperes .pas[data-etat="fait"] { background: var(--accent-pale); color: var(--texte); }
-.reperes .pas[data-etat="en-cours"] { background: var(--accent); color: var(--sur-accent); }
+/* Progression des questions (ou surtitre de l'accueil) au centre de l'en-tête, sous l'objectif : loin du logo
+   du client à gauche et de la signature à droite (débrief PFA, 14/10/2026). */
+.reperes { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 10px;
+  font-size: clamp(14px, 2.2vmin, 17px); font-weight: 600; white-space: nowrap; pointer-events: none; }
+.reperes:empty { display: none; }
+/* En portrait, l'en-tête est trop étroit : la progression passe sur sa propre ligne, centrée sous le logo et la signature. */
+@media (orientation: portrait) {
+  .entete { flex-wrap: wrap; row-gap: 10px; }
+  .reperes { position: static; transform: none; order: 20; flex-basis: 100%; justify-content: center; }
+}
 .reperes .surtitre { color: var(--texte-doux); }
 .points { display: flex; gap: 6px; }
 .points i { width: 34px; height: 10px; border-radius: 5px; background: var(--trait); }
@@ -573,9 +579,6 @@ button { font: inherit; color: inherit; }
 @keyframes trepigne { 0%, 82%, 100% { transform: none; } 86% { transform: rotate(-3deg) scale(1.04); } 90% { transform: rotate(3deg) scale(1.04); } 94% { transform: rotate(-1.5deg); } }
 
 /* En-tête : repères en étiquettes, surtitre en tampon. */
-:root[data-ambiance="pop"] .reperes .pas { border: 2.5px solid var(--encre); background: #FFFFFF; color: var(--texte); }
-:root[data-ambiance="pop"] .reperes .pas[data-etat="fait"] { background: var(--parole-pale); }
-:root[data-ambiance="pop"] .reperes .pas[data-etat="en-cours"] { background: var(--accent); color: var(--encre); box-shadow: 3px 3px 0 var(--encre); }
 :root[data-ambiance="pop"] .reperes .surtitre {
   padding: 6px 16px; background: var(--encre); color: var(--parole); text-transform: uppercase; letter-spacing: .08em;
   font-family: var(--titres); font-weight: 700; transform: rotate(-3deg); box-shadow: 4px 4px 0 var(--accent);
@@ -726,8 +729,6 @@ button { font: inherit; color: inherit; }
 }
 
 /* En-tête : repères en pavillons, surtitre en fanion. */
-:root[data-ambiance="marine"] .reperes .pas { border-radius: 6px; }
-:root[data-ambiance="marine"] .reperes .pas[data-etat="en-cours"] { background: var(--accent); color: var(--encre); }
 :root[data-ambiance="marine"] .reperes .surtitre {
   padding: 6px 30px 6px 14px; background: var(--accent); color: var(--encre); text-transform: uppercase; letter-spacing: .08em;
   font-family: var(--titres); font-weight: 700; clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 50%, 100% 100%, 0 100%);

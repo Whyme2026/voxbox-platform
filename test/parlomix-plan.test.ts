@@ -150,7 +150,15 @@ test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouver
   assert.equal(fin.sousTitre, "La Fabrique de l'Innovation");
   assert.equal(fin.fond, "fabrique", "même décor que l'ouverture");
   assert.equal(fin.dureeMs, DUREES.signature);
-  assert.equal(fin.visuel, undefined, "moins d'informations qu'à l'ouverture");
+  assert.equal(fin.visuel, "voiture-blanche", "le visuel de l'ouverture revient : le film boucle (14/10/2026)");
+  // Sans signature réglée, la ligne de la campagne (habillage.entete) en tient lieu : jamais la carte simple.
+  const sansSignature = structuredClone(pfa.habillage);
+  delete sansSignature.parlomix.signature;
+  const th2 = themeDepuisCouleurs({}, sansSignature, pfa.ambiance);
+  assert.equal(th2.signature, "La Fabrique de l'Innovation");
+  const fin2 = planParlomix({ type: "personne", titre: "x", signature: "PFA", format: "9:16", theme: th2,
+    clips: [{ id: "r1", etiquette: "Ta visite", dureeMs: 4000, segments: [[0, 4000]], sessionId: "s1" }] }).sequences.at(-1) as any;
+  assert.equal(fin2.signature, true);
   assert.equal(intro.titre, "Le Salon de l'auto de Lou");
   assert.equal(intro.jingle, true);
   assert.equal(intro.fond, "fabrique", "dégradé de la campagne");

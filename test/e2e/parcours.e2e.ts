@@ -348,8 +348,13 @@ async function scenarioPfa() {
   await touche("I");
   for (const c of "nès") await touche(c);
   // L'accord est sur cet écran, entre le prénom et le bouton : « Continuer » reste grisé sans lui.
-  assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 0, "pas de diffusion publique proposée");
+  // Dessous, la diffusion sur les réseaux sociaux, facultative (14/10/2026).
+  assert.equal(await page.getByRole("checkbox", { name: /^J'accepte aussi/ }).count(), 1, "diffusion publique proposée sous l'accord");
   assert.equal(await page.getByRole("button", { name: "Continuer" }).isDisabled(), true, "l'accord est obligatoire");
+  await cocher("J'accepte aussi");
+  assert.equal(await page.getByRole("button", { name: "Continuer" }).isDisabled(), true, "la diffusion ne remplace pas l'accord");
+  // Plus d'étapes « Toi · Questions · Merci » dans l'en-tête.
+  assert.equal(await page.locator("#reperes").innerText(), "", "pas de repères d'étapes");
   // L'accord, son « En savoir plus » et le bouton sont sous le clavier.
   const yClavier = await page.evaluate(() => document.getElementById("clavier")?.getBoundingClientRect().bottom ?? 0);
   const yAccord = await page.evaluate(() => document.querySelector("#sous-clavier .accord-identification")?.getBoundingClientRect().top ?? 0);
@@ -382,12 +387,19 @@ async function scenarioPfa() {
     await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(400);
+    // « Question n sur 4 » au centre de l'en-tête, loin de la signature « parlobox by whyme ».
+    if (i === 0) {
+      const [rep, sig] = await page.evaluate(() => ["reperes", "signature"].map((id) => { const r = document.getElementById(id)!.getBoundingClientRect(); return { g: r.left, d: r.right, c: r.left + r.width / 2 }; }));
+      assert.ok(Math.abs(rep!.c - 640) < 4, `progression centrée (${rep!.c})`);
+      assert.ok(sig!.g - rep!.d > 120, "de l'air entre la progression et la signature");
+    }
     await capture(`04-q${n}-a-lire`);
     await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
     await page.waitForTimeout(1500);
     await capture(`05-q${n}-on-tourne`);
   }
   await page.getByText("Merci Inès !").waitFor({ timeout: 90_000 });
+  assert.equal(await page.getByText("classe").count(), 0, "fin neutre");
   await page.waitForTimeout(2500);
   await capture("06-fin");
   await page.setViewportSize({ width: 720, height: 1280 });
@@ -405,7 +417,7 @@ async function scenarioPfa() {
   await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
   await page.waitForTimeout(800);
   await capture("08-question-portrait");
-  return { sessions: 2, consentDiffusion: 0, prenom: "Inès" };
+  return { sessions: 2, consentDiffusion: 1, prenom: "Inès" };
 }
 
 async function scenarioGeely() {
@@ -757,7 +769,9 @@ async function visiteAdminPfa() {
     assert.equal(plan.sequences[1].role, "transition", "la première question en bulle");
     const fichier = join(captures, `pfa-parlomix-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);
     writeFileSync(fichier, objets.get(f.cle)!);
-    for (const t of ["0.8", "1.7", "2.3", "3.2"]) {
+    // Et l'écran de fin « signature », juste avant la fin du film (tout est en place).
+    const fin = (f.duree_ms / 1000 - 0.4).toFixed(1);
+    for (const t of ["0.8", "1.7", "2.3", "3.2", "5.0", fin]) {
       spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", t, "-i", fichier, "-frames:v", "1", join(captures, `pfa-parlomix-${f.format.replace(":", "x")}-${t}s.png`)]);
     }
     // Le jingle s'entend pendant toute l'ouverture.

@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.8.1";
+const VERSION = "0.9.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -90,9 +90,11 @@ const tv = (/** @type {string} */ vous, /** @type {string} */ tu) => (config?.pa
 /** Texte du parcours avec le prénom du visiteur. */
 const perso = (/** @type {string | undefined} */ t) => personnaliser(t ?? "", visiteur?.prenom ?? "");
 
-/** Repères de l'en-tête : étapes du parcours (Vous, Mode d'emploi, Questions, Merci) ou progression des questions. */
-const ETAPES_REPERES = /** @type {const} */ ([["identification", "@vous"], ["consentement", "Mode d'emploi"], ["question", "Questions"], ["fin", "Merci"]]);
-function reperes(/** @type {string} */ type, /** @type {{ numero: number, total: number } | null} */ progression = null, /** @type {string} */ surtitre = "") {
+/**
+ * Repères de l'en-tête, au centre (sous l'objectif) : la progression des questions, ou le surtitre de l'accueil.
+ * Plus d'étapes « Toi · Questions · Merci » (débrief PFA, 14/10/2026) : la signature « parlobox by whyme » reste seule à droite.
+ */
+function reperes(/** @type {string} */ _type, /** @type {{ numero: number, total: number } | null} */ progression = null, /** @type {string} */ surtitre = "") {
   const el = $("reperes");
   if (progression) {
     el.replaceChildren(
@@ -102,12 +104,7 @@ function reperes(/** @type {string} */ type, /** @type {{ numero: number, total:
     return;
   }
   if (surtitre) { el.replaceChildren(h("span", { class: "surtitre" }, surtitre)); return; }
-  const presents = new Set(config?.parcours?.etapes?.map((/** @type {any} */ e) => e.type) ?? []);
-  const liste = ETAPES_REPERES.filter(([t]) => presents.has(t));
-  const ici = liste.findIndex(([t]) => t === type);
-  if (ici < 0 || type === "accueil") { el.replaceChildren(); return; }
-  el.replaceChildren(h("nav", { "aria-label": "Étapes", class: "reperes" },
-    ...liste.map(([, nom], i) => h("span", { class: "pas", "data-etat": i < ici ? "fait" : i === ici ? "en-cours" : "a-venir" }, nom === "@vous" ? tv("Vous", "Toi") : nom))));
+  el.replaceChildren();
 }
 
 const bulle = (/** @type {string} */ classe, /** @type {(Node|string|null)[]} */ ...enfants) => h("p", { class: `bulle ${classe}` }, ...enfants);
@@ -520,13 +517,17 @@ function ecranIdentification(/** @type {any} */ e) {
 
   // Accord sur cet écran (identification.accord) : entre le prénom et le bouton, obligatoire pour continuer.
   let accord = !e.accord;
-  const continuer = bouton("Continuer", () => { if (!accord) return; if (e.accord) { v.diffusion = false; envoyerSession(); } suite(e); });
+  // Diffusion publique (réseaux sociaux…) sous l'accord, facultative, si la campagne la propose (débrief PFA, 14/10/2026).
+  const diffusion = Boolean(e.accord && e.proposerDiffusion) && diffusionProposee(config.parcours) && Boolean(config.consentement?.texte_diffusion);
+  if (!diffusion) v.diffusion = false;
+  const continuer = bouton("Continuer", () => { if (!accord) return; if (e.accord) { if (!diffusion) v.diffusion = false; envoyerSession(); } suite(e); });
   const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1 || !accord);
   const marque = config.client?.nom ?? "la marque";
   const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_interne ?? "");
   const blocAccord = e.accord ? h("div", { class: "accord-identification" },
     caseACocher(`J'accepte que ${marque} consulte mes réponses pour mieux comprendre l'avis de ses visiteurs.`, false,
       (x) => { accord = x; majBouton(); }, "Obligatoire pour commencer."),
+    diffusion ? caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }) : null,
     h("button", { type: "button", class: "lien", onclick: () => { details.hidden = !details.hidden; } }, tv("En savoir plus sur vos données", "En savoir plus sur tes données")),
     details) : null;
   const recontact = h("button", { type: "button", class: "case", role: "checkbox", "aria-checked": String(v.recontact), hidden: !v.email,

@@ -1047,7 +1047,8 @@ async function vueParcours(/** @type {any} */ c) {
       toast("Nouvelle version du parcours enregistrée. La campagne repasse en brouillon : à faire valider."); router();
     },
     apercu: (config) => {
-      const diffusion = config.etapes.some((/** @type {any} */ e) => e.type === "consentement" && e.proposerDiffusion);
+      const diffusion = config.etapes.some((/** @type {any} */ e) => (e.type === "consentement" && e.proposerDiffusion)
+        || (e.type === "identification" && e.accord && e.proposerDiffusion));
       const apercu = {
         cabine: { id: "apercu", nom: "Aperçu" },
         campagne: { id: "apercu", nom: c.nom, parcours_version_id: "apercu" },
@@ -1079,6 +1080,21 @@ function vueConsentement(/** @type {any} */ c) {
       await api(`/api/admin/campagnes/${c.id}/consentement`, { methode: "POST", corps: {} });
       toast("Textes générés : à faire valider par le client."); router();
     })));
+    // Texte de la case « diffusion publique », modifiable (débrief PFA, 14/10/2026 : public jeune, réservée aux 18 ans
+    // et plus). Le texte d'usage interne est conservé tel quel ; une nouvelle version des textes est créée.
+    if (t) {
+      const zone = /** @type {HTMLTextAreaElement} */ (h("textarea", { name: "texte_diffusion", rows: 3, maxlength: 1000, required: true, style: "min-height: 80px" }, t.texte_diffusion));
+      const f = /** @type {HTMLFormElement} */ (h("form", { class: "pile", style: "gap: 8px" },
+        champ("Texte de la case « diffusion publique » (réseaux sociaux…)", zone, "large"),
+        h("p", { style: "margin: 0; font-size: 13px; color: var(--doux)" }, "Public jeune : réservez la case aux majeurs, ex. « J'ai 18 ans ou plus et j'accepte que… ». Le texte d'usage interne ne change pas."),
+        h("div", { class: "boutons" }, h("button", { type: "submit", class: "bouton discret" }, "Enregistrer ce texte"))));
+      f.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        await api(`/api/admin/campagnes/${c.id}/consentement`, { methode: "POST", corps: { texte_interne: t.texte_interne, texte_diffusion: zone.value.trim() } });
+        toast("Nouvelle version des textes : à faire valider par le client."); router();
+      });
+      carte.append(f);
+    }
   }
   return carte;
 }

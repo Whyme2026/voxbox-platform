@@ -113,6 +113,17 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   plus » aligné sur son texte) et le bouton « Continuer » sous le clavier (zone `#sous-clavier`, où va tout ce qu'un
   écran met dans `.sous-clavier`). Cadrage : la conclusion alignée sur les pastilles numérotées. Questions : plus de
   « Prends le temps de lire » à côté de la barre de temps (la `mentionTemps` sous la question suffit).
+- **Débrief PFA** (14/10/2026, cabine 0.9.0), pour toutes les campagnes : plus de repères d'étapes « Toi · Questions ·
+  Merci » dans l'en-tête ; la progression « Question n sur N » est au centre de l'en-tête, sous l'objectif (en portrait,
+  sur sa propre ligne), loin du logo du client et de la signature. Identification, `proposerDiffusion` (avec `accord`) :
+  la case facultative de diffusion publique (réseaux sociaux, site, publicité ; texte `texte_diffusion` de la campagne)
+  sous l'accord. Parlomix : questions en plus grand corps dans les transitions (4 lignes au plus) ; logo
+  « parlobox by whyme » (Inter, « me » fuchsia) en filigrane et à la fin ; écran de fin « signature » refait : décor et
+  visuel de l'ouverture (le visuel revient en glissant), client en pastille, opération en grand, logo dans une pastille
+  blanche. Sans `parlomix.signature`, la ligne `habillage.entete` en tient lieu.
+  Parlorama, onglet Consentement : le texte de la case de diffusion se modifie par campagne (nouvelle version des
+  textes, usage interne inchangé). PFA : « J'ai 18 ans ou plus et j'accepte que la PFA publie ma vidéo sur ses réseaux
+  sociaux pendant 1 an. Facultatif. » (public jeune : réservée aux majeurs).
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
 **Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,
