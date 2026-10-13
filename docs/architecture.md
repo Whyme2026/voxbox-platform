@@ -97,6 +97,12 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - Cadrage, `conseils` (4 au plus, numérotés sous le titre) et `conclusion` (une phrase en couleur du visiteur) : en
   paysage, titre, conseils et conclusion à gauche, l'image à droite (12/10/2026).
 - Question, `intitulePistes` : intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; `""` : aucun.
+- Question, `mentionTemps` : petite ligne sous la question, `{lecture}` et `{duree}` remplacés par les secondes de
+  lecture et de réponse de l'étape (PFA : « Tu as {lecture} s pour réfléchir, {duree} s pour répondre. ») ; masquée pendant la prise.
+- L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
+
+**Règles permanentes du Parlomix** (13/10/2026) : la question apparaît en bulle, la réponse en vidéo ; sur chaque image,
+le client en filigrane en haut à gauche (son logo, sinon son nom) et « Parlobox by whyme » en haut à droite.
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle
