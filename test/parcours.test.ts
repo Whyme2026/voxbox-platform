@@ -227,7 +227,7 @@ test("habillage : un visuel ne peut contenir ni script ni ressource externe", ()
 
 test("question : mention du temps sous la question, texte court contrôlé", () => {
   const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
-  assert.ok(questions(pfa).every((q: any) => q.mentionTemps === "Tu as {lecture} secondes pour réfléchir."));
+  assert.ok(questions(pfa).every((q: any) => q.mentionTemps === "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."));
   const q = pfa.etapes.find((e: any) => e.type === "question");
   for (const [valeur, ok] of [["", false], ["   ", false], [42, false], ["x".repeat(101), false], ["{lecture} s pour réfléchir, {duree} s pour répondre", true]] as const) {
     q.mentionTemps = valeur;

@@ -9,9 +9,9 @@
  *   marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string,
  *   habille?: boolean, bulle?: string, surBulle?: string, policeTitres?: string, policeTexte?: string,
  *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>,
- *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string
+ *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string, client?: string
  * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales, fonds (fonds des cartes),
- *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix)
+ *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix) ; client : son nom (filigrane sans logo)
  * @typedef {"parlobox" | "turbo"} Jingle
  * @typedef {[number, number]} Segment  début et fin en millisecondes dans la vidéo source
  * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip

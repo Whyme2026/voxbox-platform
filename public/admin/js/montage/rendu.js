@@ -186,6 +186,60 @@ function dessinerVisuel(/** @type {CanvasRenderingContext2D} */ ctx, /** @type {
 }
 
 /**
+ * Filigranes, sur chaque image du film (règle du 13/10/2026) : le client en haut à gauche (son logo, sinon son nom),
+ * « Parlobox by whyme » en haut à droite. Pastilles blanches translucides : lisibles sur la vidéo comme sur les cartes.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Theme} th
+ * @param {HTMLImageElement | null} logo
+ */
+export function dessinerFiligranes(ctx, th, logo) {
+  const { width: W, height: H } = ctx.canvas;
+  const u = Math.min(W, H);
+  const marge = u * 0.035;
+  const h = u * 0.062;
+  const pad = h * 0.28;
+  const pastille = (/** @type {number} */ x, /** @type {number} */ l) => {
+    ctx.fillStyle = "rgba(255, 255, 255, .86)";
+    ctx.beginPath();
+    ctx.roundRect(x, marge, l, h, h * 0.28);
+    ctx.fill();
+  };
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  // Le client.
+  if (logo && logo.complete && logo.naturalWidth) {
+    const hl = h - 2 * pad;
+    const ll = Math.min(u * 0.3, (logo.naturalWidth / logo.naturalHeight) * hl);
+    pastille(marge, ll + 2 * pad);
+    ctx.drawImage(logo, marge + pad, marge + pad, ll, ll / (logo.naturalWidth / logo.naturalHeight));
+  } else if (th.client) {
+    ctx.font = policeTitre(th, h * 0.5);
+    const nom = casse(th, th.client);
+    pastille(marge, ctx.measureText(nom).width + 2 * pad);
+    ctx.fillStyle = th.texte;
+    ctx.fillText(nom, marge + pad, marge + h / 2);
+  }
+  // La plateforme.
+  const gras = `700 ${Math.round(h * 0.42)}px ${th.policeTexte ? `"${th.policeTexte}"` : "Gabarito"}, sans-serif`;
+  const fin = policeTexte(th, h * 0.36, 500);
+  ctx.font = gras;
+  const l1 = ctx.measureText("Parlobox").width;
+  ctx.font = fin;
+  const l2 = ctx.measureText(" by whyme").width;
+  const x = W - marge - (l1 + l2 + 2 * pad);
+  pastille(x, l1 + l2 + 2 * pad);
+  ctx.fillStyle = "#23263F";
+  ctx.font = gras;
+  ctx.fillText("Parlobox", x + pad, marge + h / 2);
+  ctx.font = fin;
+  ctx.globalAlpha = 0.75;
+  ctx.fillText(" by whyme", x + pad + l1, marge + h / 2);
+  ctx.restore();
+}
+
+/**
  * Carte animée (ouverture, transition, fin).
  * @param {CanvasRenderingContext2D} ctx
  * @param {import("./plan.js").SequenceCarte} carte
@@ -232,10 +286,11 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
     if (visuel) dessinerVisuel(ctx, visuel, W / 2, H * (portrait ? 0.66 : 0.7), Math.min(W * (portrait ? 0.8 : 0.42), u * 0.95), rebond(Math.min(1, Math.max(0, (t - 0.08) / 0.35))));
     onde(ctx, W / 2, visuel ? H * (portrait ? 0.86 : 0.9) : H / 2 + u * 0.27, u * 0.12, secondes, th.parole);
     ctx.globalAlpha = 1;
+    dessinerFiligranes(ctx, th, logo);
     return;
   }
 
-  // Ouverture et fin : décor, logo ou pastille « Parlomix », grande bulle, visuel, onde.
+  // Ouverture et fin : décor, grande bulle, visuel, onde (le client et Parlobox sont en filigrane).
   if (!th.habille) decor(ctx, W, H, secondes, th);
   const apparition = rebond(Math.min(1, t / 0.25));
   const disparition = carte.role === "fin" ? 0 : t > 0.85 ? lisse((t - 0.85) / 0.15) : 0;
@@ -244,24 +299,6 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const cy = visuel ? H * (portrait ? 0.32 : 0.34) : H * (portrait ? 0.45 : 0.47);
-
-  if (logo && logo.complete && logo.naturalWidth) {
-    const hLogo = u * 0.09;
-    const lLogo = (logo.naturalWidth / logo.naturalHeight) * hLogo;
-    ctx.drawImage(logo, W / 2 - lLogo / 2, H * (visuel ? 0.08 : 0.12), lLogo, hLogo);
-  } else {
-    // Pastille « Parlomix ».
-    ctx.font = policeTexte(th, u * 0.032, 600);
-    const lp = ctx.measureText("Parlomix").width + u * 0.06;
-    const yp = H * (visuel ? 0.08 : 0.14);
-    ctx.fillStyle = encre;
-    ctx.globalAlpha = (1 - disparition) * 0.14;
-    ctx.beginPath();
-    ctx.roundRect(W / 2 - lp / 2, yp, lp, u * 0.06, u * 0.03);
-    ctx.fill();
-    ctx.globalAlpha = 1 - disparition;
-    ctx.fillText("Parlomix", W / 2, yp + u * 0.031);
-  }
 
   ctx.translate(W / 2, cy);
   ctx.scale(apparition, apparition);
@@ -288,6 +325,7 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
   if (visuel) dessinerVisuel(ctx, visuel, W / 2, H * (portrait ? 0.62 : 0.68), Math.min(W * (portrait ? 0.8 : 0.42), u * 0.95), rebond(Math.min(1, Math.max(0, (t - 0.12) / 0.3))));
   onde(ctx, W / 2, H * (portrait ? 0.8 : 0.86), u * 0.1, secondes, th.parole, 7);
   ctx.globalAlpha = 1;
+  dessinerFiligranes(ctx, th, logo);
 }
 
 /**
@@ -297,8 +335,9 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
  * @param {string | null} bandeau
  * @param {number} ecouleMs temps écoulé depuis le début de la réponse dans le film
  * @param {Theme} th
+ * @param {HTMLImageElement | null} [logo] logo du client (filigrane)
  */
-export function dessinerReponse(ctx, video, bandeau, ecouleMs, th) {
+export function dessinerReponse(ctx, video, bandeau, ecouleMs, th, logo = null) {
   const { width: W, height: H } = ctx.canvas;
   const vw = video.videoWidth || 16;
   const vh = video.videoHeight || 9;
@@ -311,6 +350,7 @@ export function dessinerReponse(ctx, video, bandeau, ecouleMs, th) {
   else if (W / H > vw / vh) { sh = Math.round((vw * H) / W); sy = Math.round((vh - sh) * 0.3); }
   // Image non inversée, comme l'enregistrement (seul l'aperçu de la cabine est en miroir).
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+  dessinerFiligranes(ctx, th, logo);
 
   if (!bandeau) return;
   const t = ecouleMs / 1000;
@@ -456,13 +496,13 @@ export async function fabriquer(o) {
         volumeReponse.gain.setValueAtTime(0, audio.currentTime);
         volumeReponse.gain.linearRampToValueAtTime(1, audio.currentTime + 0.04);
         await video.play();
-        dessinerReponse(ctx, video, seq.bandeau, dansReponse, th);
+        dessinerReponse(ctx, video, seq.bandeau, dansReponse, th, o.logo ?? null);
         enregistreur.resume();
         const depart = performance.now();
         const fin = b / 1000;
         for (;;) {
           const ecoule = performance.now() - depart;
-          dessinerReponse(ctx, video, seq.bandeau, dansReponse + ecoule, th);
+          dessinerReponse(ctx, video, seq.bandeau, dansReponse + ecoule, th, o.logo ?? null);
           progression(dansReponse + ecoule);
           if (video.ended || video.currentTime >= fin - 0.02) break;
           // Sécurité : jamais plus longtemps que le passage prévu (+1 s).

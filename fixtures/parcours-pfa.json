@@ -120,7 +120,7 @@
       "compteARebours": 10,
       "silenceArretSec": 3,
       "intitulePistes": "",
-      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "q-voiture",
@@ -137,7 +137,7 @@
       "compteARebours": 10,
       "silenceArretSec": 3,
       "intitulePistes": "",
-      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "q-innovation",
@@ -154,7 +154,7 @@
       "compteARebours": 10,
       "silenceArretSec": 3,
       "intitulePistes": "",
-      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "q-fabrique",
@@ -171,7 +171,7 @@
       "compteARebours": 10,
       "silenceArretSec": 3,
       "intitulePistes": "",
-      "mentionTemps": "Tu as {lecture} secondes pour réfléchir."
+      "mentionTemps": "Tu as {lecture} s pour réfléchir, {duree} s pour répondre."
     },
     {
       "id": "fin",

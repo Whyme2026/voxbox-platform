@@ -887,6 +887,7 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       const apres = clips.reduce((n, x) => n + dureeSegments(x.segments), 0);
       // Habillage de la campagne : le Parlomix reprend polices, couleurs, ambiances et visuels de la cabine.
       const theme = themeDepuisCouleurs(c.client?.couleurs, donnees.habillage, donnees.ambiance);
+      if (c.client?.nom) theme.client = c.client.nom;
       const logo = await chargerLogo(c.client?.logo_url);
       const visuels = await chargerVisuels(donnees.habillage);
       const question = questions.find((/** @type {any} */ q) => q.id === choixQuestion.value);
