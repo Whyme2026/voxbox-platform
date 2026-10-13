@@ -108,7 +108,7 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - **Gabarit commun de la cabine** (débrief « Feedbackpost debrief », 14/10/2026, cabine 0.8.0), valable pour toutes les
   campagnes : en-tête avec, à gauche, le logo du client et la ligne de la campagne (`habillage.entete`, 60 caractères
   au plus, ex. « La Fabrique de l'Innovation ») ; à droite, les repères puis la signature fixe « parlobox by whyme »
-  (Inter, minuscules, bulle et « whyme » en magenta #C4007A ; tout en blanc sur fond sombre). Plus de pied de page (ni
+  (texte seul, Inter, minuscules, « me » de « whyme » en fuchsia #C4007A, cabine 0.8.1 ; sur fond sombre, texte blanc et « me » en #FF6FAE). Plus de pied de page (ni
   « Un conseiller est à deux pas », ni « by whyme » en bas). Écran du prénom : l'accord (en plus petit, « En savoir
   plus » aligné sur son texte) et le bouton « Continuer » sous le clavier (zone `#sous-clavier`, où va tout ce qu'un
   écran met dans `.sous-clavier`). Cadrage : la conclusion alignée sur les pastilles numérotées. Questions : plus de
