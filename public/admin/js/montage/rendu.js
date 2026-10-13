@@ -5,7 +5,7 @@
 // Les coupes sont franches : l'enregistrement est mis en pause pendant chaque recherche dans la vidéo source.
 // Rien n'est chargé depuis internet.
 
-import { composerJingle, composerJingleTurbo, enveloppe, segmentsParole, recadrage } from "./plan.js";
+import { composerJingle, composerJingleTurbo, enveloppe, segmentsParole, recadrage, SONS } from "./plan.js";
 
 /** @typedef {import("./plan.js").Theme} Theme */
 /** @typedef {ReturnType<typeof import("./plan.js").planParlomix>} Plan */
@@ -267,19 +267,28 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
     ctx.globalAlpha = 1 - sortie;
     ctx.translate(W / 2, cy);
     ctx.scale(echelle, echelle);
-    ctx.font = policeTitre(th, u * 0.085);
-    const textes = lignes(ctx, casse(th, carte.titre), W * 0.7, 2);
-    const hl = u * 0.1;
-    const lb = Math.min(W * 0.84, Math.max(...textes.map((x) => ctx.measureText(x).width)) + u * 0.14);
-    const hb = textes.length * hl + u * 0.12 + (carte.sousTitre ? u * 0.07 : 0);
+    // La question en entier dans la bulle (3 lignes au plus), son nom court en étiquette au-dessus ;
+    // sans question (Parlomix par question : un prénom), le titre seul, en grand.
+    const question = carte.sousTitre;
+    ctx.font = policeTitre(th, u * (question ? 0.068 : 0.085));
+    const textes = lignes(ctx, casse(th, question ?? carte.titre), W * 0.74, question ? 3 : 2);
+    const hl = u * (question ? 0.08 : 0.1);
+    const lb = Math.min(W * 0.86, Math.max(...textes.map((x) => ctx.measureText(x).width)) + u * 0.14);
+    const hb = textes.length * hl + u * 0.12;
     ctx.fillStyle = bulleMarque(ctx, th, -lb / 2, -hb / 2, lb, hb, u * 0.07);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     textes.forEach((x, i) => ctx.fillText(x, 0, -hb / 2 + u * 0.06 + hl * (i + 0.5)));
-    if (carte.sousTitre) {
-      ctx.font = policeTexte(th, u * 0.034);
-      ctx.globalAlpha = (1 - sortie) * 0.85;
-      ctx.fillText(lignes(ctx, carte.sousTitre, lb - u * 0.1, 1)[0] ?? "", 0, hb / 2 - u * 0.065);
+    if (question) {
+      ctx.font = policeTexte(th, u * 0.034, 700);
+      const etiquette = casse(th, carte.titre);
+      const le = ctx.measureText(etiquette).width + u * 0.06;
+      ctx.fillStyle = th.marque;
+      ctx.beginPath();
+      ctx.roundRect(-le / 2, -hb / 2 - u * 0.075, le, u * 0.055, u * 0.0275);
+      ctx.fill();
+      ctx.fillStyle = th.surMarque;
+      ctx.fillText(etiquette, 0, -hb / 2 - u * 0.047);
     }
     ctx.restore();
     ctx.globalAlpha = 1 - sortie;
@@ -292,9 +301,15 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
 
   // Ouverture et fin : décor, grande bulle, visuel, onde (le client et Parlobox sont en filigrane).
   if (!th.habille) decor(ctx, W, H, secondes, th);
-  const apparition = rebond(Math.min(1, t / 0.25));
-  const disparition = carte.role === "fin" ? 0 : t > 0.85 ? lisse((t - 0.85) / 0.15) : 0;
+  // Ouverture sur un son fourni : chaque image arrive sur un coup du son (carte.temps, en millisecondes).
+  const rep = carte.role === "intro" ? carte.temps : undefined;
+  const ms = secondes * 1000;
+  const depuis = (/** @type {number} */ debut, /** @type {number} */ duree) => Math.min(1, Math.max(0, (ms - debut) / duree));
+  if (rep) effetsSon(ctx, W, H, u, ms, rep);
+  const apparition = rep ? rebond(depuis(rep.titre, 260)) : rebond(Math.min(1, t / 0.25));
+  const disparition = carte.role === "fin" ? 0 : rep ? lisse(depuis(carte.dureeMs - 450, 450)) : t > 0.85 ? lisse((t - 0.85) / 0.15) : 0;
   ctx.save();
+  if (rep) ctx.translate(...secousse(ms, rep.eclats, u));
   ctx.globalAlpha = 1 - disparition;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -313,7 +328,8 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
 
   if (carte.sousTitre) {
     ctx.save();
-    ctx.globalAlpha = Math.min(1, Math.max(0, (t - 0.15) / 0.2)) * (1 - disparition);
+    ctx.globalAlpha = (rep ? lisse(depuis(rep.sousTitre, 220)) : Math.min(1, Math.max(0, (t - 0.15) / 0.2))) * (1 - disparition);
+    if (rep) ctx.translate(0, (1 - lisse(depuis(rep.sousTitre, 220))) * u * 0.03);
     ctx.fillStyle = encre;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -322,10 +338,63 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
     ctx.restore();
   }
   ctx.globalAlpha = 1 - disparition;
-  if (visuel) dessinerVisuel(ctx, visuel, W / 2, H * (portrait ? 0.62 : 0.68), Math.min(W * (portrait ? 0.8 : 0.42), u * 0.95), rebond(Math.min(1, Math.max(0, (t - 0.12) / 0.3))));
-  onde(ctx, W / 2, H * (portrait ? 0.8 : 0.86), u * 0.1, secondes, th.parole, 7);
+  if (visuel) dessinerVisuel(ctx, visuel, W / 2, H * (portrait ? 0.62 : 0.68), Math.min(W * (portrait ? 0.8 : 0.42), u * 0.95), rep ? rebond(depuis(rep.visuel, 320)) : rebond(Math.min(1, Math.max(0, (t - 0.12) / 0.3))));
+  if (!rep || ms >= rep.titre) onde(ctx, W / 2, H * (portrait ? 0.8 : 0.86), u * 0.1, secondes, th.parole, 7);
   ctx.globalAlpha = 1;
+  if (rep) eclairs(ctx, W, H, ms, rep.eclats);
   dessinerFiligranes(ctx, th, logo);
+}
+
+/** Petite secousse de l'image sur chaque coup du son (150 ms, amortie). */
+function secousse(/** @type {number} */ ms, /** @type {readonly number[]} */ eclats, /** @type {number} */ u) {
+  for (const e of eclats) {
+    const d = ms - e;
+    if (d >= 0 && d < 150) { const a = u * 0.012 * Math.exp(-d / 50); return /** @type {[number, number]} */ ([a * Math.sin(d * 0.9), a * Math.cos(d * 1.3)]); }
+  }
+  return /** @type {[number, number]} */ ([0, 0]);
+}
+
+/** Éclair blanc qui retombe sur chaque coup du son. */
+function eclairs(/** @type {CanvasRenderingContext2D} */ ctx, /** @type {number} */ W, /** @type {number} */ H, /** @type {number} */ ms, /** @type {readonly number[]} */ eclats) {
+  let a = 0;
+  for (const e of eclats) if (ms >= e) a = Math.max(a, 0.55 * Math.exp(-(ms - e) / 90));
+  if (a < 0.01) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 255, 255, ${a.toFixed(3)})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+/**
+ * Pendant le souffle du son (avant le premier coup) : une traînée de lumière traverse l'écran et des lignes
+ * « glitch » scintillent, de plus en plus serrées jusqu'à l'impact. Déterministe (même film à chaque rendu).
+ */
+function effetsSon(/** @type {CanvasRenderingContext2D} */ ctx, /** @type {number} */ W, /** @type {number} */ H, /** @type {number} */ u, /** @type {number} */ ms, /** @type {import("./plan.js").TempsOuverture} */ rep) {
+  const [a, b] = rep.souffle;
+  if (ms < a || ms > b + 120) return;
+  const k = Math.min(1, (ms - a) / (b - a));
+  ctx.save();
+  // La traînée : bande claire inclinée qui balaie de gauche à droite.
+  const x = -W * 0.3 + k * W * 1.6;
+  const g = ctx.createLinearGradient(x - u * 0.25, 0, x + u * 0.25, 0);
+  g.addColorStop(0, "rgba(255, 255, 255, 0)");
+  g.addColorStop(0.5, `rgba(255, 255, 255, ${(0.18 + 0.25 * k).toFixed(3)})`);
+  g.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = g;
+  ctx.setTransform(1, 0, -0.35, 1, H * 0.17, 0);
+  ctx.fillRect(x - u * 0.25, 0, u * 0.5, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // Les lignes « glitch » : quelques bandes horizontales, renouvelées toutes les 60 ms.
+  const pas = Math.floor(ms / 60);
+  let x0 = (pas * 2654435761) >>> 0;
+  const alea = () => { x0 = (x0 * 1664525 + 1013904223) >>> 0; return x0 / 4294967296; };
+  const nb = 2 + Math.round(k * 6);
+  for (let i = 0; i < nb; i++) {
+    const y = alea() * H, h = u * (0.004 + alea() * 0.012), l = W * (0.15 + alea() * 0.5);
+    ctx.fillStyle = `rgba(255, 255, 255, ${(0.12 + 0.3 * alea() * k).toFixed(3)})`;
+    ctx.fillRect(alea() * (W - l), y, l, h);
+  }
+  ctx.restore();
 }
 
 /**
@@ -382,6 +451,24 @@ const attendre = (/** @type {EventTarget} */ cible, /** @type {string} */ evenem
   cible.addEventListener("error", erreur);
 });
 
+/** Extrait d'un son fourni, en mono, au volume donné, avec une attaque et une fin en fondu (aucun clic). */
+function sonFourni(/** @type {AudioContext} */ audio, /** @type {AudioBuffer} */ source, /** @type {number} */ debutMs, /** @type {number} */ finMs, /** @type {number} */ volume) {
+  const fe = source.sampleRate;
+  const a = Math.round((debutMs / 1000) * fe), b = Math.min(source.length, Math.round((finMs / 1000) * fe));
+  const n = Math.max(1, b - a);
+  const sortie = audio.createBuffer(1, n, fe);
+  const d = sortie.getChannelData(0);
+  const canaux = Array.from({ length: source.numberOfChannels }, (_, c) => source.getChannelData(c));
+  const entree = debutMs > 0 ? Math.round(0.03 * fe) : 0, fin = Math.round(0.15 * fe);
+  for (let i = 0; i < n; i++) {
+    let v = 0;
+    for (const c of canaux) v += /** @type {number} */ (c[a + i]);
+    const env = Math.min(1, entree ? i / entree : 1, (n - i) / fin);
+    d[i] = (v / canaux.length) * volume * env;
+  }
+  return sortie;
+}
+
 /**
  * Fabrique le film d'un plan de montage.
  * @param {{
@@ -434,8 +521,20 @@ export async function fabriquer(o) {
     return b;
   };
   const turbo = th.jingle === "turbo";
-  const jingle = tampon(turbo ? composerJingleTurbo(audio.sampleRate, true) : composerJingle(audio.sampleRate));
-  const jingleOuverture = turbo ? tampon(composerJingleTurbo(audio.sampleRate)) : jingle;
+  let jingle = tampon(turbo ? composerJingleTurbo(audio.sampleRate, true) : composerJingle(audio.sampleRate));
+  let jingleOuverture = turbo ? tampon(composerJingleTurbo(audio.sampleRate)) : jingle;
+  // Son fourni (ex. « glitch ») : le fichier pour l'ouverture, un extrait pour les transitions. S'il ne se charge
+  // pas, le jingle Parlobox le remplace : le montage ne s'arrête pas pour un son.
+  const fourni = th.jingle === "glitch" ? SONS.glitch : null;
+  if (fourni) {
+    try {
+      const res = await fetch(fourni.fichier, { credentials: "same-origin" });
+      if (!res.ok) throw new Error(String(res.status));
+      const decode = await audio.decodeAudioData(await res.arrayBuffer());
+      jingleOuverture = sonFourni(audio, decode, 0, fourni.dureeMs, 0.55);
+      jingle = sonFourni(audio, decode, fourni.transition[0], fourni.transition[1], 0.55);
+    } catch (e) { console.warn("Son d'ouverture indisponible", e); }
+  }
   const video = document.createElement("video");
   video.playsInline = true;
   video.preload = "auto";

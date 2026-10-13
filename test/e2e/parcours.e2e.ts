@@ -720,10 +720,12 @@ async function visiteAdminGeely() {
   await admin.close();
 }
 
-/** PFA : Parlomix par personne, ouverture « Le Salon de l'auto de {prénom} » de 3 s au jingle turbo. */
+/** PFA : Parlomix par personne, ouverture « Le Salon de l'auto de {prénom} » de 4 s sur le son fourni « glitch ». */
 async function visiteAdminPfa() {
   const admin = await contexte.newPage();
   admin.on("pageerror", (e: Error) => erreurs.push(`admin : ${e.message}`));
+  // Le son fourni doit vraiment se charger (sinon le montage retombe sur le jingle Parlobox).
+  admin.on("console", (m) => { if (m.text().includes("Son d'ouverture indisponible")) erreurs.push(`admin : ${m.text()}`); });
   await admin.setViewportSize({ width: 1440, height: 900 });
   await admin.goto(`http://localhost:${port}/admin/`);
   await admin.getByRole("heading", { name: "Tableau de bord" }).waitFor();
@@ -739,17 +741,18 @@ async function visiteAdminPfa() {
   for (const f of films.results) {
     const plan = JSON.parse(f.plan);
     assert.equal(plan.sequences[0].titre, "Le Salon de l'auto d'Inès", "ouverture de la campagne avec le prénom (élision)");
-    assert.equal(plan.sequences[0].dureeMs, 3000, "ouverture de 3 s");
-    assert.equal(plan.theme.jingle, "turbo");
+    assert.equal(plan.sequences[0].dureeMs, 4000, "ouverture de 4 s");
+    assert.equal(plan.theme.jingle, "glitch");
+    assert.equal(plan.sequences[1].role, "transition", "la première question en bulle");
     const fichier = join(captures, `pfa-parlomix-${f.format.replace(":", "x")}.${f.type_mime === "video/mp4" ? "mp4" : "webm"}`);
     writeFileSync(fichier, objets.get(f.cle)!);
-    for (const t of ["0.4", "1.5", "2.6"]) {
+    for (const t of ["0.8", "1.7", "2.3", "3.2"]) {
       spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", t, "-i", fichier, "-frames:v", "1", join(captures, `pfa-parlomix-${f.format.replace(":", "x")}-${t}s.png`)]);
     }
     // Le jingle s'entend pendant toute l'ouverture.
-    const vol = spawnSync("ffmpeg", ["-hide_banner", "-t", "2.8", "-i", fichier, "-af", "volumedetect", "-f", "null", "-"]).stderr.toString();
+    const vol = spawnSync("ffmpeg", ["-hide_banner", "-ss", "0.2", "-t", "3.2", "-i", fichier, "-af", "volumedetect", "-f", "null", "-"]).stderr.toString();
     const moyen = Number(/mean_volume: (-?[\d.]+) dB/.exec(vol)?.[1] ?? "-99");
-    assert.ok(moyen > -35, `${f.format} : jingle audible à l'ouverture (${moyen} dB)`);
+    assert.ok(moyen > -30, `${f.format} : son d'ouverture audible de bout en bout (${moyen} dB)`);
     bilanParlomix.push({ format: f.format, mime: f.type_mime, prevu_s: f.duree_ms / 1000, ouverture: plan.sequences[0].titre, volume_ouverture_db: moyen });
   }
   await admin.close();

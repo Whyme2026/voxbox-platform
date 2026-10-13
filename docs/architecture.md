@@ -101,8 +101,17 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   lecture et de réponse de l'étape (PFA : « Tu as {lecture} s pour réfléchir, {duree} s pour répondre. ») ; masquée pendant la prise.
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
+**Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,
+Pixabay, licence Pixabay : usage commercial sans mention, pas de redistribution du fichier seul ; non enregistré Content ID),
+coupé à 4 s avec fondu, dans `public/admin/sons/` (Parlorama seulement, jamais la cabine). L'ouverture dure 4 s et ses images
+arrivent sur les coups du son (`SONS` dans `plan.js` : traînée et lignes « glitch » pendant le souffle, titre à 1,6 s,
+sous-titre à 2,15 s, visuel à 2,95 s, éclair et secousse à chaque coup) ; les transitions jouent l'extrait 1,5-2,4 s.
+Fichier introuvable : le jingle Parlobox le remplace.
+
 **Règles permanentes du Parlomix** (13/10/2026) : la question apparaît en bulle, la réponse en vidéo ; sur chaque image,
 le client en filigrane en haut à gauche (son logo, sinon son nom) et « Parlobox by whyme » en haut à droite.
+Par personne, chaque réponse est annoncée par sa question en entier dans une bulle (nom court en étiquette), dès la
+première ; cette carte dure 2,2 s pour laisser le temps de la lire.
 
 ## Choix des visiteurs (migration `0005_choix.sql`)
 Les étapes `choix` servent d'embranchement **et** de qualification (« vous connaissiez la marque ? », modèle
