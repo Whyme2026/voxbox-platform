@@ -123,19 +123,17 @@ button { font: inherit; color: inherit; }
 /* Ligne de la campagne, à côté du logo du client (habillage.entete), séparée par un filet. */
 .entete-texte { padding-left: 14px; border-left: 2px solid var(--trait); font-family: var(--titres); font-weight: 600; font-size: clamp(16px, 2.6vmin, 20px); line-height: 1.15; }
 .cabine[data-majuscules] .entete-texte { text-transform: uppercase; letter-spacing: .04em; }
-/* Signature « parlobox by whyme », en haut à droite de tous les écrans, aux codes whyme : minuscules, magenta,
-   Inter. Fixe : elle ne prend ni les couleurs ni les polices de la campagne, sauf le blanc sur fond sombre. */
-.signature { --magenta-whyme: #C4007A; order: 10; display: inline-flex; align-items: center; gap: 8px; margin-left: 4px; white-space: nowrap;
-  font-family: "Inter", system-ui, sans-serif; color: #242841; line-height: 1; }
-.signature svg { width: 30px; height: 25px; flex: none; }
-.signature .signature-bulle { fill: var(--magenta-whyme); }
-.signature-mot { font-weight: 700; font-size: clamp(17px, 2.8vmin, 21px); letter-spacing: -0.02em; }
-.signature-by { font-weight: 500; font-size: clamp(12px, 1.9vmin, 14px); color: color-mix(in srgb, #242841 70%, #FFFFFF); }
-.signature-by b { font-weight: 700; color: var(--magenta-whyme); }
-.cabine[data-fond-sombre] .signature, .cabine[data-fond-sombre] .signature-by { color: #FFFFFF; }
-.cabine[data-fond-sombre] .signature { --magenta-whyme: #FFFFFF; }
-.cabine[data-fond-sombre] .signature svg g { fill: #242841; }
-:root[data-ambiance="marine"] .signature, :root[data-ambiance="marine"] .signature-by { color: var(--texte); }
+/* Signature « parlobox by whyme », en haut à droite de tous les écrans, aux codes whyme : texte seul, minuscules,
+   Inter, « me » en fuchsia (#C4007A). Fixe : elle ne prend ni les couleurs ni les polices de la campagne ; sur fond
+   sombre, le texte passe en blanc et « me » en fuchsia clair (#FF6FAE, lisible sur fond sombre). */
+.signature { --fuchsia-whyme: #C4007A; order: 10; display: inline-flex; align-items: baseline; gap: 6px; margin-left: 4px; white-space: nowrap;
+  font-family: "Inter", system-ui, sans-serif; color: #303136; line-height: 1; }
+.signature-mot { font-weight: 700; font-size: clamp(18px, 3.2vmin, 23px); letter-spacing: -0.03em; }
+.signature-by { font-weight: 500; font-size: clamp(12px, 1.95vmin, 14px); color: color-mix(in srgb, currentColor 62%, transparent); }
+.signature-whyme { font-weight: 700; font-size: clamp(15px, 2.65vmin, 19px); letter-spacing: -0.02em; }
+.signature-me { color: var(--fuchsia-whyme); }
+.cabine[data-fond-sombre] .signature { color: #FFFFFF; --fuchsia-whyme: #FF6FAE; }
+:root[data-ambiance="marine"] .signature { color: var(--texte); --fuchsia-whyme: #FF6FAE; }
 /* Nom de la marque en guise de logo (campagne habillée, sans logo fourni). */
 .nom-marque { font-family: var(--titres); font-size: clamp(18px, 3.2vmin, 24px); letter-spacing: .32em; text-transform: uppercase; }
 .etat-reseau { font-size: 15px; color: var(--texte-doux); }

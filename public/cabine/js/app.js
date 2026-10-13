@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.8.0";
+const VERSION = "0.8.1";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
