@@ -80,10 +80,14 @@ test("le plan alterne cartes et réponses : chaque réponse d'une personne annon
   const plan = planParlomix({
     type: "personne", titre: "Camille", sousTitre: "Démo", signature: "Parlobox", format: "9:16", theme,
     clips: [
-      { id: "r1", sessionId: "s1", etiquette: "Le premier mot", dureeMs: 8000, segments: [[1000, 4000]] },
-      { id: "r2", sessionId: "s1", etiquette: "Le coup de cœur", detail: "Tiens ?", dureeMs: 9000, segments: [] },
+      { id: "r1", sessionId: "s1", etiquette: "Le premier mot", prenom: "Camille", dureeMs: 8000, segments: [[1000, 4000]] },
+      { id: "r2", sessionId: "s1", etiquette: "Le coup de cœur", detail: "Tiens ?", prenom: "Camille", dureeMs: 9000, segments: [] },
     ],
   });
+  // Le nom court n'apparaît jamais dans le film : la question en entier sur la carte, le prénom dans le bandeau.
+  assert.equal((plan.sequences[3] as any).titre, "Tiens ?");
+  assert.deepEqual(plan.sequences.filter((s) => s.type === "clip").map((s: any) => s.bandeau), ["Camille", "Camille"]);
+  assert.ok(!JSON.stringify(plan.sequences.filter((s: any) => s.type === "clip" || s.sousTitre)).includes("Le coup de cœur"), "nom court absent du film");
   assert.deepEqual(plan.sequences.map((s) => s.type === "carte" ? s.role : "clip"), ["intro", "transition", "clip", "transition", "clip", "fin"]);
   assert.equal((plan.sequences[1] as any).titre, "Le premier mot", "la première question aussi");
   // La première question n'a pas de texte (transition courte), la seconde en a un (le temps de la lire).

@@ -896,14 +896,17 @@ async function vueParlomix(/** @type {any} */ c, /** @type {URLSearchParams} */ 
       const question = questions.find((/** @type {any} */ q) => q.id === choixQuestion.value);
       const personne = sessions.find((/** @type {any} */ s) => s.id === choixPersonne.value);
       const cabineNom = cabines.find(([id]) => id === choixCabine.value)?.[1];
+      // Dans le film, jamais le nom court de la question : la question en entier en ouverture (par question).
+      // Le nom court reste le nom du Parlomix dans Parlorama.
       const titre = type === "personne" ? titreOuverture(theme, personne.prenom) : question.titre;
-      const sousTitre = type === "personne" ? c.nom : `${question.texte}${cabineNom ? ` · ${cabineNom}` : ""}`;
+      const titreFilm = type === "personne" ? titre : (question.texte || question.titre);
+      const sousTitre = type === "personne" ? c.nom : (cabineNom ?? c.nom);
 
       // 2. Un film par format.
       for (const format of formats) {
         etape.textContent = `Montage ${format}`;
         detail.textContent = `${clips.length} réponse${clips.length > 1 ? "s" : ""}, ${Math.round((avant - apres) / 1000)} s de blancs coupés`;
-        const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre, sousTitre, signature: c.client?.nom ?? "Parlobox", clips, format, theme });
+        const plan = planParlomix({ type: /** @type {"personne" | "question"} */ (type), titre: titreFilm, sousTitre, signature: c.client?.nom ?? "Parlobox", clips, format, theme });
         let film = await fabriquer({ plan, videos, apercu, logo, visuels, surProgression: avancer });
         if (!(await contientDuSon(film.blob)) && film.type === "video/mp4") {
           // Leçon Geely : un MP4 peut perdre le son sans erreur. On refait le film en WebM.
