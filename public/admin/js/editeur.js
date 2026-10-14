@@ -192,6 +192,9 @@ export function editeurParcours(o) {
   let ouverte = /** @type {string | null} */ (null);
   let modifie = false;
   let minuterie = 0;
+  /** Emplacements des problèmes de chaque étape affichée : mis à jour sans redessiner les champs (voir verifier). */
+  /** @type {Map<string, { pastille: HTMLElement, erreurs: HTMLElement | null }>} */
+  const emplacements = new Map();
 
   /** Réglages du parcours que l'éditeur ne montre pas (disposition…) : conservés tels quels à l'enregistrement. */
   /** @type {Record<string, any>} */ let autres = autresReglages(o.config);
@@ -282,7 +285,9 @@ export function editeurParcours(o) {
         problemes = [/** @type {any} */ (e)?.corps?.erreur === "parlorama_perime" ? /** @type {Error} */ (e).message : "Vérification impossible pour l'instant (connexion)."];
       }
       dessinerVerification();
-      dessiner();
+      // Surtout pas dessiner() : la vérification tombe pendant la saisie, et redessiner remplacerait le champ en
+      // cours d'écriture, qui perdait alors la main au bout de quelques caractères (incident du 14/10/2026).
+      dessinerProblemes();
     }, 400);
   };
   const changer = () => { modifie = true; etat.textContent = "Modifications non enregistrées"; verifier(); };
@@ -380,12 +385,15 @@ export function editeurParcours(o) {
     const def = TYPES[e.type];
     const pb = problemesDe(e.id, problemes);
     const lecture = o.lectureSeule === true;
+    const pastille = h("span", { class: "pastille", "data-ton": "rouge", hidden: !pb.length }, `${pb.length} à corriger`);
+    const erreursEtape = ouverte === e.id ? h("div", {}, pb.length ? h("ul", { class: "erreurs" }, ...pb.map((p) => h("li", {}, p))) : null) : null;
+    emplacements.set(e.id, { pastille, erreurs: erreursEtape });
     const deplacer = (/** @type {number} */ d) => { const j = i + d; if (j < 0 || j >= etapes.length) return; [etapes[i], etapes[j]] = [/** @type {any} */ (etapes[j]), /** @type {any} */ (etapes[i])]; dessiner(); changer(); };
     const tete = h("div", { class: "tete-etape" },
       h("button", { type: "button", class: "ouvrir-etape", "aria-expanded": String(ouverte === e.id), onclick: () => { ouverte = ouverte === e.id ? null : e.id; dessiner(); } },
         h("span", { class: `num${e.type === "question" ? " question" : ""}` }, String(i + 1)),
         h("span", { class: "texte" }, h("strong", { id: `titre-${e.id}` }, resume(e)), h("span", {}, `${def?.libelle ?? e.type} · ${e.id}`)),
-        pb.length ? h("span", { class: "pastille", "data-ton": "rouge" }, `${pb.length} à corriger`) : null),
+        pastille),
       lecture ? null : h("span", { class: "actions-etape" },
         h("button", { type: "button", class: "bouton discret petit", "aria-label": "Monter", disabled: i === 0, onclick: () => deplacer(-1) }, "↑"),
         h("button", { type: "button", class: "bouton discret petit", "aria-label": "Descendre", disabled: i === etapes.length - 1, onclick: () => deplacer(1) }, "↓"),
@@ -405,7 +413,7 @@ export function editeurParcours(o) {
         suite.addEventListener("change", () => { e.suite = suite.value || undefined; changer(); });
         return h("label", { class: "champ" }, "Ensuite", suite);
       })() : null,
-      pb.length ? h("ul", { class: "erreurs" }, ...pb.map((p) => h("li", {}, p))) : null) : null;
+      erreursEtape) : null;
     return h("li", { class: `etape-editeur${ouverte === e.id ? " ouverte" : ""}` }, tete, corps);
   }
 
@@ -422,7 +430,18 @@ export function editeurParcours(o) {
       } }, h("strong", {}, d.libelle), h("span", {}, d.description))))));
   }
 
+  /** Met à jour pastilles et listes d'erreurs des étapes affichées, sans toucher aux champs de saisie. */
+  function dessinerProblemes() {
+    for (const [id, { pastille, erreurs }] of emplacements) {
+      const pb = problemesDe(id, problemes);
+      pastille.hidden = !pb.length;
+      pastille.textContent = `${pb.length} à corriger`;
+      erreurs?.replaceChildren(...(pb.length ? [h("ul", { class: "erreurs" }, ...pb.map((p) => h("li", {}, p)))] : []));
+    }
+  }
+
   function dessiner() {
+    emplacements.clear();
     liste.replaceChildren(...(etapes.length ? etapes.map(carte) : [h("li", { class: "vide" }, "Aucune étape : partez d'un modèle ou ajoutez une étape.")]));
     dessinerAjout();
   }
@@ -443,7 +462,7 @@ export function editeurParcours(o) {
   enregistrer.addEventListener("click", async () => {
     enregistrer.disabled = true;
     try { await o.enregistrer(config()); modifie = false; etat.textContent = "Version enregistrée"; }
-    catch (e) { problemes = /** @type {any} */ (e).corps?.problemes ?? [/** @type {Error} */ (e).message]; dessinerVerification(); dessiner(); }
+    catch (e) { problemes = /** @type {any} */ (e).corps?.problemes ?? [/** @type {Error} */ (e).message]; dessinerVerification(); dessinerProblemes(); }
   });
 
   dessinerTheme();
