@@ -413,17 +413,25 @@ async function scenarioPfa() {
   // Cadrage : le titre, trois conseils, « Sois sincère », l'image avec l'ovale, sans repères lumière et son.
   await page.getByText("Place ton visage dans l'ovale").waitFor();
   assert.equal(await page.locator(".conseils-cadrage li").count(), 3, "trois conseils");
-  await page.getByText("Question suivante » sans attendre").waitFor();
+  await page.getByText("15 à 25 s pour répondre selon les questions").waitFor();
   await page.getByText("Sois sincère, on adore ça !").waitFor();
+  // Gabarit de la question (14/10/2026) : repère caméra au centre de l'en-tête, image centrée, « Je suis prêt » à droite.
+  await page.getByText("Regarde ici : la caméra").waitFor();
   assert.equal(await page.locator(".consignes").count(), 0, "plus d'écran de consignes");
   await page.locator(".ecran-cadrage #apercu:not([hidden])").waitFor({ timeout: 10_000 });
   assert.equal(await page.locator("#guide-cadrage").isVisible(), true, "ovale affiché sur l'image");
   assert.equal(await page.locator(".verifs-cadrage").count(), 0, "pas de repères lumière et son");
   await page.waitForTimeout(1200);
   await capture("03-cadrage");
+  const boite = () => page.evaluate(() => { const r = document.getElementById("apercu")!.getBoundingClientRect(); return { x: r.x + r.width / 2, w: r.width, h: r.height, haut: r.top }; });
+  const imageCadrage = await boite();
+  assert.ok(Math.abs(imageCadrage.x - 640) < 4, `image centrée au cadrage (${imageCadrage.x})`);
   await bouton("Je suis prêt");
   await page.locator("#compte:not([hidden])").waitFor({ timeout: 30_000 });
   assert.equal(await page.locator("#guide-cadrage").isVisible(), false, "pas d'ovale pendant les questions");
+  const imageQuestion = await boite();
+  assert.ok(Math.abs(imageQuestion.x - imageCadrage.x) < 4 && Math.abs(imageQuestion.w - imageCadrage.w) < 4 && Math.abs(imageQuestion.h - imageCadrage.h) < 4 && Math.abs(imageQuestion.haut - imageCadrage.haut) < 6, `même colonne, même taille (${JSON.stringify([imageCadrage, imageQuestion])})`);
+  assert.equal(await page.getByText("Regarde ici : la caméra").count(), 0, "le repère caméra laisse la place à la progression");
   // Disposition centrée : pendant la lecture, « Je suis prêt » démarre la prise sans attendre.
   assert.equal(await page.evaluate(() => document.getElementById("cabine")?.dataset.disposition), "centree");
   assert.equal(await page.locator('.ecran-question[data-phase="lire"]').count(), 1);

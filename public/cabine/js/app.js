@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.10.2";
+const VERSION = "0.11.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -105,6 +105,15 @@ function reperes(/** @type {string} */ _type, /** @type {{ numero: number, total
   }
   if (surtitre) { el.replaceChildren(h("span", { class: "surtitre" }, surtitre)); return; }
   el.replaceChildren();
+}
+
+/** Repère « la caméra est ici », au centre de l'en-tête, juste sous l'objectif (cadrage en disposition centrée). */
+function repereCamera() {
+  const fleche = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  fleche.setAttribute("viewBox", "0 0 24 24");
+  fleche.setAttribute("aria-hidden", "true");
+  fleche.innerHTML = '<path d="M12 20V5M5 11l7-7 7 7"/>';
+  $("reperes").replaceChildren(h("span", { class: "repere-camera" }, fleche, h("span", {}, tv("Regardez ici : la caméra", "Regarde ici : la caméra"))));
 }
 
 const bulle = (/** @type {string} */ classe, /** @type {(Node|string|null)[]} */ ...enfants) => h("p", { class: `bulle ${classe}` }, ...enfants);
@@ -677,6 +686,7 @@ async function ecranCadrage(/** @type {any} */ e) {
   const ok = await preparerCamera();
   if (!ok) return ecranErreurCamera();
   activerFlou(v.floutage);
+  if (config?.parcours?.disposition === "centree") return ecranCadrageCentre(e, v);
   afficher([
     h("div", { class: `ecran ecran-cadrage${e.conseils?.length ? " avec-conseils" : ""}` },
       e.texte ? bulle("marque moyenne arrive", perso(e.texte)) : null,
@@ -695,6 +705,38 @@ async function ecranCadrage(/** @type {any} */ e) {
         h("span", { style: "flex: 1" }),
         bouton("Je suis prêt", () => { envoyerSession(); suite(e); }))),
   ], "cadrage");
+  if (e.reperes !== false) suivreCadrage(); else $("guide-cadrage").classList.remove("ok");
+}
+
+/**
+ * Cadrage dans le gabarit de la question (disposition centrée, 14/10/2026) : la consigne à la place de la question,
+ * la conclusion à la place de la mention du temps, les conseils (sur une ligne) à la place des pistes, l'image centrée sous l'objectif
+ * à la taille de la question et « Je suis prêt » à sa droite. En passant à la première question, l'image ne bouge pas.
+ */
+function ecranCadrageCentre(/** @type {any} */ e, /** @type {any} */ v) {
+  afficher([
+    h("div", { class: "ecran ecran-question ecran-cadrage cadrage-gabarit", "data-phase": "lire" },
+      h("section", { class: "gauche", "aria-label": "Consigne" },
+        h("div", { class: "tete arrive" },
+          e.texte ? bulle("marque moyenne", perso(e.texte)) : null,
+          h("h1", { class: "bulle marque grande question" }, perso(e.titre)),
+          e.conclusion ? h("p", { class: "conclusion-cadrage arrive" }, perso(e.conclusion)) : null),
+        e.conseils?.length ? h("div", { class: "aide" },
+          h("ol", { class: "conseils-cadrage" }, ...e.conseils.map((/** @type {string} */ c, /** @type {number} */ i) =>
+            h("li", { class: "arrive", style: `animation-delay: ${0.12 * (i + 1)}s` }, h("span", { class: "puce", "aria-hidden": "true" }, String(i + 1)), h("span", {}, perso(c)))))) : null),
+      h("section", { class: "droite", "aria-label": tv("Votre image", "Ton image") },
+        // La ligne du temps reste vide au cadrage : l'image est à la même hauteur qu'à la question.
+        h("div", { class: "temps", "aria-hidden": "true" }),
+        h("div", { class: "zone-camera" }, h("div", { class: "emplacement-camera" })),
+        h("div", { class: "options-cadrage" },
+          e.proposerFloutage ? h("div", { class: "cases" }, caseACocher("Flouter mon visage", v.floutage, (x) => { v.floutage = x; activerFlou(x); })) : null,
+          e.reperes === false ? null : h("ul", { class: "verifs-cadrage", "aria-live": "polite" },
+            repere("v-lumiere", "Lumière"),
+            repere("v-son", tv("Son : dites « bonjour »", "Son : dis « bonjour »")),
+            detectionDisponible() ? repere("v-visage", "Visage dans l'ovale") : null)),
+        h("div", { class: "actions" }, bouton("Je suis prêt", () => { envoyerSession(); suite(e); }, "plein")))),
+  ], "cadrage");
+  repereCamera();
   if (e.reperes !== false) suivreCadrage(); else $("guide-cadrage").classList.remove("ok");
 }
 
