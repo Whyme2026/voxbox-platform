@@ -379,7 +379,6 @@ button { font: inherit; color: inherit; }
   [data-disposition="centree"] .ecran-question .droite > .actions { grid-column: 3; grid-row: 2; align-self: end; width: auto; max-width: none; }
   /* Sur une ligne (« Je suis prêt », « Question suivante ») : la taille suit la largeur de l'écran pour tenir à côté de l'image. */
   [data-disposition="centree"] .ecran-question .droite > .actions .bouton { white-space: nowrap; font-size: min(var(--bouton), 2.05vw); padding: 0 1.1em; }
-  [data-disposition="centree"] .ecran-question[data-phase="rec"] .titre-court,
   [data-disposition="centree"] .ecran-question[data-phase="rec"] .aide .intitule,
   [data-disposition="centree"] .ecran-question[data-phase="rec"] .coup-de-pouce { display: none; }
   [data-disposition="centree"] .ecran-question[data-phase="rec"] .question { font-size: calc(var(--question) * .8); padding-block: .35em; }
@@ -480,8 +479,7 @@ button { font: inherit; color: inherit; }
 .cabine[data-titres="large"] .texte-retrait strong { font-family: var(--police-texte); font-weight: 700; }
 /* Campagne habillée : pas de bulles décoratives Parlobox en fond, le fond et les visuels suffisent. */
 .cabine[data-habille] .decor { display: none; }
-.cabine[data-majuscules] :is(.ecran h1, .bulle.grande, .sortie, .option, .titre-court, .conversation .bulle.marque:first-child) { text-transform: uppercase; }
-.cabine[data-majuscules] .titre-court { letter-spacing: .12em; }
+.cabine[data-majuscules] :is(.ecran h1, .bulle.grande, .sortie, .option, .conversation .bulle.marque:first-child) { text-transform: uppercase; }
 
 @media (prefers-reduced-motion: reduce) {
   .arrive, .ecrit i, .rec-point, .compte-bulle, .decor svg, .retour .barre span, .champ .valeur::after { animation: none !important; }
@@ -864,11 +862,6 @@ button { font: inherit; color: inherit; }
   box-shadow: var(--vive-ombre); padding: .5em .95em .55em; letter-spacing: -0.01em;
 }
 :root[data-ambiance="vive"] :is(.ecran-question .question, .ecran-cadrage .texte-cadrage > h1.bulle)::after { background: var(--vive-bulle-bas); }
-/* L'étiquette de la question : pastille du visiteur, en capitales espacées. */
-:root[data-ambiance="vive"] .ecran-question .titre-court {
-  background: var(--parole); color: var(--sur-parole); text-transform: uppercase; letter-spacing: .1em;
-  font-size: clamp(12px, 1.9vmin, 14px); font-weight: 700; padding: 6px 14px 5px; box-shadow: 0 6px 14px -8px var(--parole);
-}
 :root[data-ambiance="vive"] .mention-temps { color: color-mix(in srgb, var(--accent) 70%, var(--fond)); font-weight: 600; }
 /* Pistes : petites bulles teintées du visiteur, avec une puce. */
 :root[data-ambiance="vive"] .pistes { gap: 10px 12px; }
