@@ -753,7 +753,19 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   await admin.locator(".nom-theme", { hasText: "WhyMe" }).waitFor();
   await admin.getByText("Parcours valide").waitFor();
   await admin.getByRole("button", { name: /Le coup de cœur/ }).click();
-  await admin.locator("#ed-q-coup-de-coeur-texte").fill("Qu'est-ce qui vous a fait sourire en boutique ?");
+  // Saisie au clavier avec des pauses plus longues que la vérification (400 ms) : le champ ne doit ni être remplacé ni
+  // perdre la main (incident du 14/10/2026, le curseur disparaissait après quelques caractères). fill() ne le voyait pas.
+  const champTexte = admin.locator("#ed-q-coup-de-coeur-texte");
+  await champTexte.fill("");
+  // Texte vide : l'étape est signalée « à corriger » sans que le champ soit redessiné.
+  await admin.locator(".etape-editeur.ouverte .pastille", { hasText: "à corriger" }).waitFor();
+  assert.equal(await champTexte.evaluate((el) => el === document.activeElement), true, "le signalement laisse la main au champ");
+  for (const morceau of ["Qu'est-ce qui ", "vous a fait ", "sourire en boutique ?"]) {
+    await admin.keyboard.type(morceau, { delay: 20 });
+    await admin.waitForTimeout(900);
+    assert.equal(await champTexte.evaluate((el) => el === document.activeElement), true, "le champ garde la main pendant la saisie");
+  }
+  assert.equal(await champTexte.inputValue(), "Qu'est-ce qui vous a fait sourire en boutique ?");
   await admin.locator("summary", { hasText: "Ajouter une étape" }).click();
   await admin.locator(".type-etape strong", { hasText: /^Question$/ }).click();
   await admin.getByText("Parcours valide").waitFor();
