@@ -4,6 +4,7 @@
 // cabine avec le brouillon, sans rien enregistrer. Le fichier JSON reste accessible en mode expert.
 
 import { h } from "./dom.js";
+import { appliquerParcours, appliquerTheme, nomDuTheme } from "./catalogue.js";
 
 /**
  * @typedef {{ cle: string, libelle: string, type: "texte" | "long" | "nombre" | "case" | "liste" | "options", max?: number, nb?: number, min?: number, maxNb?: number, aide?: string, defaut?: unknown }} Champ
@@ -18,6 +19,7 @@ export const TYPES = /** @type {Record<string, { libelle: string, description: s
       { cle: "texte", libelle: "Texte sous le titre", type: "long", max: 300 },
       { cle: "bulles", libelle: "Bulles de la cabine (3 au plus)", type: "liste", nb: 3, max: 120, defaut: ["Bonjour !"] },
       { cle: "bouton", libelle: "Bouton", type: "texte", max: 40, defaut: "Je me lance" },
+      { cle: "masquerClient", libelle: "Sans le logo du client en haut à gauche (cet écran seulement)", type: "case" },
     ],
   },
   identification: {
@@ -40,6 +42,16 @@ export const TYPES = /** @type {Record<string, { libelle: string, description: s
       { cle: "bouton", libelle: "Bouton", type: "texte", max: 40, defaut: "C'est parti" },
       { cle: "proposerDiffusion", libelle: "Proposer l'accord de diffusion publique (réseaux sociaux, site)", type: "case" },
       { cle: "proposerFloutage", libelle: "Proposer de flouter le visage", type: "case", defaut: true },
+    ],
+  },
+  recevoir: {
+    libelle: "Recevoir ma vidéo", description: "Après l'accord : le visiteur laisse, s'il le veut, son e-mail pour recevoir ses vidéos (et pouvoir changer d'avis).",
+    champs: [
+      { cle: "titre", libelle: "Question", type: "long", max: 300, defaut: "Vous voulez recevoir votre vidéo ?" },
+      { cle: "texte", libelle: "Petite bulle sous la question", type: "texte", max: 160, defaut: "Pour la garder, ou la partager. Facultatif." },
+      { cle: "bouton", libelle: "Bouton avec l'e-mail", type: "texte", max: 40, defaut: "Recevoir ma vidéo" },
+      { cle: "boutonNon", libelle: "Bouton pour passer", type: "texte", max: 40, defaut: "Non merci" },
+      { cle: "proposerDiffusion", libelle: "Proposer l'accord de diffusion publique (réseaux sociaux, site)", type: "case", defaut: true },
     ],
   },
   cadrage: {
@@ -86,6 +98,7 @@ export const TYPES = /** @type {Record<string, { libelle: string, description: s
       { cle: "texte", libelle: "Texte", type: "long", max: 300 },
       { cle: "sortie", libelle: "Message de sortie (en grand)", type: "texte", max: 160, defaut: "Vous pouvez sortir de la cabine. Belle fin de journée !" },
       { cle: "retourAccueilSec", libelle: "Retour à l'accueil après (secondes)", type: "nombre", min: 3, maxNb: 60, defaut: 20 },
+      { cle: "contact", libelle: "Adresse pour demander la suppression, montrée à qui n'a pas laissé d'e-mail (parcours avec « Recevoir ma vidéo » ; par défaut contact@parlobox.com)", type: "texte", max: 160 },
     ],
   },
 });
@@ -149,7 +162,7 @@ export function autresReglages(/** @type {any} */ c) {
 }
 
 /** Ambiance connue de la cabine ; « conversation » par défaut. */
-const ambianceConnue = (/** @type {unknown} */ a) => (a === "pop" || a === "marine" ? a : "conversation");
+const ambianceConnue = (/** @type {unknown} */ a) => (a === "pop" || a === "marine" || a === "vive" ? a : "conversation");
 
 /**
  * Crée l'éditeur.
@@ -159,7 +172,10 @@ const ambianceConnue = (/** @type {unknown} */ a) => (a === "pop" || a === "mari
  *   valider: (config: any) => Promise<string[]>,
  *   enregistrer: (config: any) => Promise<void>,
  *   apercu: (config: any) => void,
- *   modeles: { libelle: string, charger: () => Promise<any> }[],
+ *   catalogue: {
+ *     themes: { id: string, nom: string, description?: string, charger: () => Promise<any> }[],
+ *     parcours: { id: string, nom: string, description?: string, charger: () => Promise<any> }[],
+ *   },
  * }} o
  */
 export function editeurParcours(o) {
@@ -200,13 +216,47 @@ export function editeurParcours(o) {
   const liste = h("ol", { class: "editeur-etapes" });
   const choixAmbiance = /** @type {HTMLSelectElement} */ (h("select", { id: "ed-ambiance", disabled: o.lectureSeule === true },
     h("option", { value: "conversation", selected: ambiance === "conversation" }, "Conversation (neutre Parlobox)"),
+    h("option", { value: "vive", selected: ambiance === "vive" }, "Vive (conversation colorée, plus de relief)"),
     h("option", { value: "pop", selected: ambiance === "pop" }, "Pop (festif, esprit BD)"),
     h("option", { value: "marine", selected: ambiance === "marine" }, "Marine (bord de mer, impertinent)")));
-  choixAmbiance.addEventListener("change", () => { ambiance = choixAmbiance.value; changer(); });
+  choixAmbiance.addEventListener("change", () => { ambiance = choixAmbiance.value; delete autres.theme; dessinerTheme(); changer(); });
   const caseTutoiement = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", id: "ed-tutoiement", checked: tutoiement, disabled: o.lectureSeule === true }));
   caseTutoiement.addEventListener("change", () => { tutoiement = caseTutoiement.checked; changer(); });
-  const reglages = h("div", { class: "pile", style: "gap: 8px" },
-    h("label", { class: "champ", for: "ed-ambiance" }, "Ambiance de la cabine", choixAmbiance),
+
+  // Thème (l'allure) et parcours (le déroulé) se choisissent séparément : changer l'un ne touche pas à l'autre.
+  const nomTheme = h("strong", { class: "nom-theme" });
+  const dessinerTheme = () => { nomTheme.textContent = nomDuTheme(config(), o.catalogue.themes); };
+  /** Menu + bouton : le catalogue, puis ce que l'on peut copier d'une autre campagne. */
+  const menuCatalogue = (/** @type {string} */ id, /** @type {{ id: string, nom: string, description?: string, charger: () => Promise<any> }[]} */ entrees, /** @type {string} */ libelleBouton, /** @type {(x: any) => void} */ appliquer) => {
+    const choixListe = /** @type {HTMLSelectElement} */ (h("select", { id, "aria-label": libelleBouton },
+      ...entrees.map((x, i) => h("option", { value: String(i), title: x.description ?? "" }, x.nom))));
+    const description = h("span", { class: "detail-verif" });
+    const decrire = () => { description.textContent = entrees[Number(choixListe.value)]?.description ?? ""; };
+    choixListe.addEventListener("change", decrire);
+    decrire();
+    const go = h("button", { type: "button", class: "bouton discret petit", onclick: async () => {
+      const x = await entrees[Number(choixListe.value)]?.charger();
+      if (x) appliquer(x);
+    } }, libelleBouton);
+    return h("div", { class: "pile", style: "gap: 6px" }, choixListe, description, go);
+  };
+  const appliquerConfig = (/** @type {any} */ c) => {
+    reprendre(c); etapes = structuredClone(c.etapes ?? []); ouverte = null; dessinerTheme(); dessiner(); changer();
+  };
+  const lecture = o.lectureSeule === true;
+  const blocTheme = h("div", { class: "pile bloc-reglage", style: "gap: 8px" },
+    h("h3", {}, "Thème ", h("span", { class: "detail-verif" }, "l'allure : ambiance, polices, couleurs, fonds, visuels")),
+    h("div", { class: "theme-actuel" }, "Actuel : ", nomTheme),
+    lecture ? null : menuCatalogue("ed-theme", o.catalogue.themes, "Appliquer ce thème", (t) => appliquerConfig(appliquerTheme(config(), t))),
+    lecture ? null : h("p", { class: "detail-verif", style: "margin: 0" }, "Garde les étapes et leurs textes."),
+    h("label", { class: "champ", for: "ed-ambiance" }, "Ambiance (réglage fin du thème)", choixAmbiance));
+  const blocParcours = lecture ? null : h("div", { class: "pile bloc-reglage", style: "gap: 8px" },
+    h("h3", {}, "Parcours type ", h("span", { class: "detail-verif" }, "le déroulé : étapes, textes, tutoiement")),
+    menuCatalogue("ed-parcours-type", o.catalogue.parcours, "Partir de ce parcours", (p) => appliquerConfig(appliquerParcours(config(), p))),
+    h("p", { class: "detail-verif", style: "margin: 0" }, "Remplace les étapes actuelles, garde le thème."));
+  const reglages = h("div", { class: "pile", style: "gap: 14px" },
+    blocTheme,
+    blocParcours,
     h("label", { class: "case-admin", for: "ed-tutoiement" }, caseTutoiement, "Tutoyer le visiteur (textes fixes de la cabine)"));
   const verification = h("div", { class: "verification" });
   const enregistrer = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton action", disabled: true }, "Enregistrer la version"));
@@ -385,14 +435,7 @@ export function editeurParcours(o) {
     catch (e) { problemes = /** @type {any} */ (e).corps?.problemes ?? [/** @type {Error} */ (e).message]; dessinerVerification(); dessiner(); }
   });
 
-  const modeles = o.lectureSeule || !o.modeles.length ? null : h("div", { class: "pile", style: "gap: 6px" },
-    h("span", { class: "detail-verif" }, "Partir d'un modèle (remplace les étapes actuelles) :"),
-    ...o.modeles.map((m) => h("button", { type: "button", class: "bouton discret petit", style: "justify-content: flex-start", onclick: async () => {
-      const c = await m.charger();
-      if (!c) return;
-      reprendre(c); etapes = structuredClone(c.etapes); ouverte = null; dessiner(); changer();
-    } }, m.libelle)));
-
+  dessinerTheme();
   dessiner();
   verifier();
   modifie = false;
@@ -413,6 +456,5 @@ export function editeurParcours(o) {
         h("button", { type: "button", class: "bouton discret", onclick: () => o.apercu(config()) }, "Aperçu dans la cabine"),
         o.lectureSeule ? null : enregistrer),
       etat,
-      o.lectureSeule ? null : h("p", { class: "detail-verif", style: "margin: 0" }, "L'aperçu ouvre la vraie cabine dans un nouvel onglet, avec ce brouillon : rien n'y est enregistré. Toute nouvelle version remet la campagne en brouillon (nouvelle validation du client)."),
-      modeles));
+      o.lectureSeule ? null : h("p", { class: "detail-verif", style: "margin: 0" }, "L'aperçu ouvre la vraie cabine dans un nouvel onglet, avec ce brouillon : rien n'y est enregistré. Toute nouvelle version remet la campagne en brouillon (nouvelle validation du client).")));
 }

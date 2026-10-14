@@ -1,60 +1,13 @@
 {
-  "version": 1,
-  "langue": "fr",
+  "id": "demo-fun",
+  "nom": "Démo : 4 questions fun",
+  "description": "Le déroulé de « Feedbackpost debrief » : accueil aux bulles en grand, prénom et accord, recevoir sa vidéo, cadrage, 4 questions centrées, fin. Tutoiement.",
   "tutoiement": true,
   "disposition": "centree",
-  "habillage": {
-    "polices": {
-      "titres": "inter",
-      "texte": "inter"
-    },
-    "titresMajuscules": false,
-    "couleurs": {
-      "marque": "#242841",
-      "bulle": "#F6F4F5",
-      "visiteur": "#C4007A",
-      "fond": "#FFFFFF",
-      "texte": "#303136"
-    },
-    "fonds": [
-      {
-        "id": "blanc",
-        "nom": "Blanc",
-        "couleur": "#FFFFFF",
-        "texte": "#303136"
-      },
-      {
-        "id": "doux",
-        "nom": "Gris doux",
-        "couleur": "#F6F4F5",
-        "texte": "#303136"
-      },
-      {
-        "id": "nuit",
-        "nom": "Nuit WhyMe",
-        "couleur": "#242841",
-        "couleurBas": "#1A1D30",
-        "texte": "#FFFFFF"
-      },
-      {
-        "id": "geste",
-        "nom": "Geste WhyMe",
-        "couleur": "#C4007A",
-        "couleurBas": "#A3197F",
-        "texte": "#FFFFFF"
-      }
-    ],
-    "parlomix": {
-      "ouverture": "{prenom} a des choses à dire",
-      "jingle": "parlobox",
-      "fond": "geste"
-    }
-  },
   "etapes": [
     {
       "id": "accueil",
       "type": "accueil",
-      "fond": "blanc",
       "titre": "À toi la parole.",
       "texte": "Face caméra, 2 minutes chrono.",
       "bulles": [
@@ -63,20 +16,28 @@
         "Sois toi-même, les autres sont déjà pris."
       ],
       "bouton": "Je me lance",
-      "bullesGrandes": true
+      "bullesGrandes": true,
+      "masquerClient": true
     },
     {
       "id": "toi",
       "type": "identification",
-      "fond": "blanc",
       "titre": "On commence simple : ton prénom ?",
       "texte": "Juste pour t'appeler par ton prénom.",
       "accord": true
     },
     {
+      "id": "recevoir",
+      "type": "recevoir",
+      "titre": "Tu veux recevoir ta vidéo ?",
+      "texte": "Pour la garder, ou la partager. Laisse ton e-mail, c'est facultatif.",
+      "bouton": "Recevoir ma vidéo",
+      "boutonNon": "Non merci",
+      "proposerDiffusion": true
+    },
+    {
       "id": "cadrage",
       "type": "cadrage",
-      "fond": "blanc",
       "titre": "Place ton visage dans l'ovale",
       "proposerFloutage": true,
       "reperes": false,
@@ -90,7 +51,6 @@
     {
       "id": "q-coup-de-coeur",
       "type": "question",
-      "fond": "blanc",
       "titreCourt": "Coup de cœur",
       "texte": "Ton dernier achat coup de cœur, c'était quoi ?",
       "pistes": [
@@ -107,7 +67,6 @@
     {
       "id": "q-fan",
       "type": "question",
-      "fond": "blanc",
       "titreCourt": "Fan",
       "texte": "Une marque que tu défendrais face à tes potes ?",
       "pistes": [
@@ -124,7 +83,6 @@
     {
       "id": "q-le-pire",
       "type": "question",
-      "fond": "blanc",
       "titreCourt": "Le pire",
       "texte": "Le pire service client de ta vie ?",
       "pistes": [
@@ -141,7 +99,6 @@
     {
       "id": "q-incompris",
       "type": "question",
-      "fond": "blanc",
       "titreCourt": "Incompris",
       "texte": "Le produit que tu ne comprends pas qu'on vende encore ?",
       "pistes": [
@@ -158,11 +115,11 @@
     {
       "id": "fin",
       "type": "fin",
-      "fond": "nuit",
       "titre": "Merci {prenom}, c'était parfait !",
       "texte": "Tes réponses sont bien arrivées. Merci de les avoir données sans filtre.",
       "sortie": "Bonne suite de journée !",
-      "retourAccueilSec": 10
+      "retourAccueilSec": 10,
+      "contact": "contact@parlobox.com"
     }
   ]
 }

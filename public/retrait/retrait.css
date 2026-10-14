@@ -1,6 +1,13 @@
 /* Parlobox — page publique de retrait d'accord (ouverte depuis le QR code de fin de parcours, sur téléphone). */
 @font-face { font-family: "Fredoka"; src: url("../polices/fredoka.woff") format("woff"); font-weight: 300 700; font-display: swap; }
 @font-face { font-family: "Gabarito"; src: url("../polices/gabarito.woff") format("woff"); font-weight: 400 900; font-display: swap; }
+/* Polices des habillages de campagne : nécessaires au dessin du Parlomix fabriqué sur cette page. */
+@font-face { font-family: "Michroma"; src: url("../polices/michroma.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("../polices/inter.woff") format("woff"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("../polices/barlow-condensed-bold.woff") format("woff"); font-weight: 500 900; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-regular.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-semibold.woff") format("woff"); font-weight: 500 600; font-display: swap; }
+@font-face { font-family: "Barlow"; src: url("../polices/barlow-bold.woff") format("woff"); font-weight: 700 900; font-display: swap; }
 
 :root {
   --accent: #3F4C8F; --parole: #F2D27A; --fond: #F1F2F6; --texte: #23263F; --rec: #D65A57;
@@ -61,3 +68,12 @@ button[disabled] { opacity: .55; cursor: wait; }
 .video figcaption { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; }
 .passage .choix { margin-top: 4px; }
 .champ input[type="email"] { text-transform: none; letter-spacing: 0; font-family: "Gabarito", system-ui, sans-serif; font-size: 19px; }
+
+/* Mon Parlomix (fabriqué dans le navigateur) */
+.bloc-parlomix .parlomix { display: flex; flex-direction: column; gap: 10px; }
+.bloc-parlomix.grand { padding: 20px; }
+.bloc-parlomix .principal, .bloc-parlomix a.principal { display: block; text-align: center; text-decoration: none; border-radius: 999px; padding: 14px 20px; font-family: var(--titres); font-weight: 600; font-size: 18px; }
+.barre-parlomix { display: block; height: 8px; border-radius: 4px; background: var(--trait); overflow: hidden; }
+.barre-parlomix > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+.apercu-parlomix, .film-parlomix { display: block; width: min(100%, 280px); aspect-ratio: 9 / 16; margin: 0 auto; border-radius: 18px; background: #000; }
+.sous-titre { font-family: var(--titres); font-weight: 600; font-size: 20px; margin: 10px 0 0; }

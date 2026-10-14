@@ -104,7 +104,7 @@ export function decouperConsigne(texte) {
 
 /** Le parcours propose-t-il la case « diffusion publique » ? */
 export function diffusionProposee(/** @type {Parcours} */ p) {
-  return p.etapes.some((e) => (e.type === "consentement" && e.proposerDiffusion === true)
+  return p.etapes.some((e) => ((e.type === "consentement" || e.type === "recevoir") && e.proposerDiffusion === true)
     || (e.type === "identification" && e.accord === true && e.proposerDiffusion === true));
 }
 

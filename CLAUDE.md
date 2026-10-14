@@ -5,6 +5,10 @@ Plateforme de cabines vidéo d'avis consommateurs, **by whyme**. Nom de marque *
 (Workers, bases, stockages, dépôt) restent : invisibles pour les visiteurs, les changer demanderait de déplacer les données.
 Vocabulaire : **Parlobox** = la marque, la cabine et l'expérience ; **Parlorama** = l'interface de gestion et de consultation (`/admin/`) ;
 **Parlomètre** = mesure et indicateurs ; **Parlomix** = le clip monté (à venir). Maintenue par Claude, avec un développeur freelance en filet.
+Ce qu'on assemble (14/10/2026, `docs/architecture.md`, « Gabarit, thème, parcours ») : **gabarit** = la cabine (code,
+commun) ; **thème** = l'allure (ambiance + habillage, catalogue `public/admin/modeles/themes/`) ; **parcours** = le
+déroulé (étapes, catalogue `public/admin/modeles/parcours/`) ; **campagne** = un thème + un parcours. Ne plus
+mélanger : un parcours type n'a ni fond ni couleur, un thème n'a pas d'étape.
 Lire `docs/architecture.md` avant toute modification structurelle, `docs/exploitation.md` en cas d'incident.
 **Why me** (11/10/2026) : second produit sur la même plateforme, l'interview vidéo RH du candidat sur son propre
 téléphone (JobBox ou lien). Code dans `src/whyme/`, `public/whyme/`, `public/recruteur/`, `public/rh/`, `montage/` ; lire `docs/whyme.md`.
@@ -39,7 +43,7 @@ npm run check      # typecheck + tests (Node ≥ 22.18, sans installation)
 ```
 Tout changement de la cabine se vérifie aussi de bout en bout, dans un vrai Chrome avec caméra et micro simulés :
 ```
-npm run e2e -- <audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|pfa|geely]   # parcours complet + présence du son dans chaque vidéo
+npm run e2e -- <audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|pfa|geely|whyme]   # parcours complet + présence du son dans chaque vidéo
 npm run cabine:local                            # serveur local avec une campagne de démo (code d'appairage affiché, /admin/)
 E2E_ADMIN=1 npm run e2e -- …                     # ajoute la visite de l'espace de gestion (captures admin-*.png ; geely et pfa : vrai Parlomix)
 npm run e2e:whyme -- <voix.wav> <camera.y4m> <captures>   # Why me : téléphone simulé, vrai montage ffmpeg

@@ -1,0 +1,56 @@
+{
+  "id": "whyme",
+  "nom": "WhyMe",
+  "description": "Charte WhyMe en ambiance « vive » : Inter, navy et fuchsia, bulles pleines, fin sur fond nuit.",
+  "ambiance": "vive",
+  "habillage": {
+    "polices": {
+      "titres": "inter",
+      "texte": "inter"
+    },
+    "titresMajuscules": false,
+    "couleurs": {
+      "marque": "#242841",
+      "bulle": "#F6F4F5",
+      "visiteur": "#C4007A",
+      "fond": "#FFFFFF",
+      "texte": "#303136"
+    },
+    "fonds": [
+      {
+        "id": "blanc",
+        "nom": "Blanc",
+        "couleur": "#FFFFFF",
+        "texte": "#303136"
+      },
+      {
+        "id": "doux",
+        "nom": "Gris doux",
+        "couleur": "#F6F4F5",
+        "texte": "#303136"
+      },
+      {
+        "id": "nuit",
+        "nom": "Nuit WhyMe",
+        "couleur": "#242841",
+        "couleurBas": "#1A1D30",
+        "texte": "#FFFFFF"
+      },
+      {
+        "id": "geste",
+        "nom": "Geste WhyMe",
+        "couleur": "#C4007A",
+        "couleurBas": "#A3197F",
+        "texte": "#FFFFFF"
+      }
+    ],
+    "fondsEcrans": {
+      "fin": "nuit"
+    },
+    "parlomix": {
+      "ouverture": "{prenom} a des choses à dire",
+      "jingle": "parlobox",
+      "fond": "geste"
+    }
+  }
+}

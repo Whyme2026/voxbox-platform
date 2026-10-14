@@ -1,0 +1,36 @@
+{
+  "themes": [
+    {
+      "id": "parlobox",
+      "nom": "Parlobox (neutre)",
+      "description": "La conversation : fonds clairs, bulles douces, Fredoka et Gabarito. La base vendue, avant personnalisation."
+    },
+    {
+      "id": "whyme",
+      "nom": "WhyMe",
+      "description": "Charte WhyMe en ambiance « vive » : Inter, navy et fuchsia, bulles pleines, fin sur fond nuit."
+    },
+    {
+      "id": "pop",
+      "nom": "Pop",
+      "description": "Festif, esprit BD : contours d'encre, ombres franches, rose, jaune et cyan."
+    },
+    {
+      "id": "marine",
+      "nom": "Marine",
+      "description": "Bord de mer et impertinence : nuit marine, orange bouée, vagues en bas d'écran."
+    }
+  ],
+  "parcours": [
+    {
+      "id": "demo-fun",
+      "nom": "Démo : 4 questions fun",
+      "description": "Le déroulé de « Feedbackpost debrief » : accueil aux bulles en grand, prénom et accord, recevoir sa vidéo, cadrage, 4 questions centrées, fin. Tutoiement."
+    },
+    {
+      "id": "avis-neutre",
+      "nom": "Avis : 5 questions (vouvoiement)",
+      "description": "Le parcours neutre Parlobox : accueil, prénom et e-mail facultatif, mode d'emploi et accord, 5 questions, fin."
+    }
+  ]
+}

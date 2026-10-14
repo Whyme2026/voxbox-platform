@@ -53,6 +53,28 @@ Fichier JSON validé par `src/parcours/schema.ts` : étapes `accueil`, `identifi
 `question`, `choix` (embranchement), `pause` (avant/après), `fin`. Contrôles : identifiants uniques, renvois valides,
 consentement avant toute question, toutes les étapes atteignables, fin obligatoire.
 
+## Gabarit, thème, parcours : qui fait quoi (14/10/2026)
+Règle de travail, après un mélange constaté entre modèles, feuilles de style et parcours :
+| Couche | Ce que c'est | Où ça vit | Qui le change |
+|---|---|---|---|
+| **Gabarit** | la cabine elle-même : écrans, emplacements, tailles, comportements | le code (`public/cabine/`) | Claude, pour toutes les campagnes à la fois |
+| **Thème** | l'allure, la « feuille de style » : `ambiance` + `habillage` (polices, couleurs, fonds, fonds par écran, visuels, Parlomix) | catalogue `public/admin/modeles/themes/*.json` | choisi dans Parlorama, ou copié d'une campagne |
+| **Parcours** | le déroulé : étapes et textes, `tutoiement`, `disposition` | catalogue `public/admin/modeles/parcours/*.json` | choisi dans Parlorama, puis édité étape par étape |
+| **Campagne** | un thème + un parcours, versionnés ensemble, validés par le client | base (`parcours_versions`) | éditeur de Parlorama |
+- Changer de thème garde les étapes ; partir d'un autre parcours garde le thème (`public/admin/js/catalogue.js`, logique
+  pure testée : `appliquerTheme`, `appliquerParcours`). Les fonds et visuels inconnus du nouveau thème sont retirés
+  des étapes. Un parcours type ne porte **aucun** fond : c'est le thème qui donne le fond de chaque type d'écran
+  (`habillage.fondsEcrans`, ex. `{ "fin": "nuit" }`) ; une étape peut toujours imposer le sien.
+- `parcours.theme` : étiquette du thème du catalogue d'origine (affichée dans l'éditeur ; « Propre à la campagne »
+  si l'habillage a été retouché ou vient d'ailleurs). Ce qui s'applique reste l'ambiance et l'habillage.
+- Catalogue (`catalogue.json`) : thèmes Parlobox (neutre), WhyMe, Pop, Marine ; parcours « Démo : 4 questions fun »
+  et « Avis : 5 questions ». Les habillages de marque (PFA, Geely) restent dans leur campagne et se reprennent par
+  « Celui de la campagne… ».
+- Éditeur, panneau « Réglages » : bloc **Thème** (actuel, choisir, appliquer ; ambiance en réglage fin), bloc
+  **Parcours type** (partir de…), puis le tutoiement. Plus de « modèles » qui mélangeaient tout.
+- `fixtures/parcours-whyme-base.json` = thème `whyme` + parcours `demo-fun` (vérifié par un test) : la campagne de
+  démo montrée aux prospects.
+
 ## Habillage de campagne (parcours.habillage)
 Une campagne peut prendre l'allure de sa marque sans une ligne de code propre à la marque : tout est dans le parcours,
 versionné et validé par le client comme le reste. Clés (toutes facultatives, contrôlées par `validerHabillage`) :
@@ -99,12 +121,11 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - Question, `intitulePistes` : intitulé au-dessus des pistes (par défaut « Des idées, si besoin ») ; `""` : aucun.
 - Question, `mentionTemps` : petite ligne sous la question, `{lecture}` et `{duree}` remplacés par les secondes de
   lecture et de réponse de l'étape (PFA : « Tu as {lecture} s pour réfléchir, {duree} s pour répondre. ») ; masquée pendant la prise.
-- **Thème de base WhyMe** (13/10/2026, `fixtures/parcours-whyme-base.json`, copie dans `public/admin/modeles/`, proposé
-  par l'éditeur) : point de départ des campagnes. Déroulé et réglages d'écran de « Feedbackpost debrief » (accueil aux
-  bulles en grand, accord sur l'écran du prénom, cadrage à 3 conseils, questions centrées, 10 s de lecture, mention du
-  temps, pistes sans intitulé, tutoiement) ; habillage à la charte WhyMe : Inter, marque navy #242841, bulle #F6F4F5,
-  visiteur magenta #C4007A, texte #303136, fond de fin « nuit », ouverture et signature du Parlomix sur « geste »
-  (magenta → prune). Les corps et emplacements restent ceux de la cabine.
+- **Thème WhyMe** (13/10/2026, revu le 14/10/2026) : catalogue `themes/whyme.json`, ambiance `vive`, charte WhyMe :
+  Inter, marque navy #242841, bulle #F6F4F5, visiteur magenta #C4007A, texte #303136, fin sur fond « nuit »
+  (`fondsEcrans`), ouverture du Parlomix sur « geste » (magenta → prune). Avec le parcours `demo-fun` (déroulé de
+  « Feedbackpost debrief » : accueil aux bulles en grand **sans logo client** (`accueil.masquerClient`), accord sur
+  l'écran du prénom, **« Recevoir ma vidéo »**, cadrage à 3 conseils, questions centrées, 10 s de lecture, fin).
 - **Gabarit commun de la cabine** (débrief « Feedbackpost debrief », 14/10/2026, cabine 0.8.0), valable pour toutes les
   campagnes : en-tête avec, à gauche, le logo du client et la ligne de la campagne (`habillage.entete`, 60 caractères
   au plus, ex. « La Fabrique de l'Innovation ») ; à droite, les repères puis la signature fixe « parlobox by whyme »
@@ -124,6 +145,24 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   Parlorama, onglet Consentement : le texte de la case de diffusion se modifie par campagne (nouvelle version des
   textes, usage interne inchangé). PFA : « J'ai 18 ans ou plus et j'accepte que la PFA publie ma vidéo sur ses réseaux
   sociaux pendant 1 an. Facultatif. » (public jeune : réservée aux majeurs).
+- **Écran « Recevoir ma vidéo »** (étape `recevoir`, 14/10/2026), après l'accord : e-mail facultatif (clavier e-mail,
+  « Recevoir ma vidéo » grisé tant que l'adresse n'en est pas une, « Non merci » pour passer) et, si
+  `proposerDiffusion`, la case facultative de diffusion publique (réseaux sociaux ; texte de diffusion de la campagne).
+  La session part après cet écran (e-mail, `envoi_video`, diffusion). Côté serveur (migration `0015_envoi_video.sql`) :
+  `sessions.envoi_video` seulement si le parcours joué a cet écran et qu'un e-mail est donné ; l'adresse de la
+  plateforme est notée (`envoi_video_origine`) pour le lien. Tâche planifiée `envoyerVideosAuxVisiteurs`
+  (`src/routes/acces.ts`) : 10 min après le passage, s'il y a au moins une vidéo, un e-mail (Brevo) « ton Parlomix
+  t'attend » avec **un seul lien**, `/retrait/#parlomix=…`, valable **30 jours**. La page s'ouvre sur « Créer mon
+  Parlomix » : le film 9:16 se fabrique **dans le navigateur du visiteur** (mêmes modules que Parlorama, rien n'est
+  monté d'avance ni gardé côté serveur ; journal `parlomix.visiteur`), puis « Télécharger » ou « Partager ». Le son
+  fourni « glitch » n'y est pas servi (licence) : le jingle Parlobox le remplace. Même lien (`acces_visiteur.motif = 'video'`, hors limite
+  des demandes du QR code) : voir ses vidéos, retirer l'accord réseaux sociaux, tout supprimer. Une seule fois,
+  journalisé (`session.envoi_videos`) ; sans vidéo au bout d'un jour, abandon ; sans Brevo, rien ne part ni n'est
+  marqué. Parlorama : pastille « Recevra / Vidéos envoyées par e-mail », colonne d'export. ⚠ Le lien suppose `/retrait/`
+  public : c'est le cas en test, pas encore en production. Envoyer le Parlomix lui-même demandera le montage côté serveur.
+- **Fin** d'un parcours qui a l'écran « recevoir » : plus de rappel du QR code extérieur. E-mail laissé : « Tes vidéos
+  arrivent par e-mail » avec l'adresse ; sinon « Tu changes d'avis ? écris à » `fin.contact` (contact@parlobox.com par
+  défaut). Sans écran « recevoir », la fin reste comme avant (QR code).
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
 **Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,
@@ -162,6 +201,12 @@ ne gonfle pas le total.
 - Polices libres (licence OFL, copies dans `public/polices/`), réduites aux caractères latins et servies par le Worker :
   rien n'est chargé depuis internet.
 - Flou : niveau **fort** retenu (10/10/2026).
+- **Ambiance `vive`** (14/10/2026, retours D.A. sur le thème WhyMe) : la conversation avec plus de relief, tout en
+  jetons de la campagne. Questions et titre du cadrage dans une bulle pleine (dégradé de la couleur de marque, texte
+  clair) ; étiquette de question en pastille du visiteur ; pistes en bulles teintées ; barre de temps fine au dégradé du
+  visiteur sur un rail teinté (fin de la « bande bleue ») ; liseré de l'image ; compte à rebours empilé ; cadrage aéré,
+  conseils en bulles teintées, pastilles en dégradé, conclusion dite par le visiteur ; halo léger en haut à droite.
+  Gabarit inchangé. Correctif commun (disposition centrée) : boutons à côté de l'image sur une seule ligne.
 - **Ambiance** (réglage du parcours, `"ambiance"`) : `conversation` (par défaut, ci-dessus), `pop` ou `marine` (festif, esprit BD :
   contours d'encre, ombres franches, trame de points, bulles de travers, rayons à l'accueil, confettis à la fin ;
   rose `#FF5C93`, jaune `#FFD23F`, cyan `#3EC1F3` en décor, papier crème). Tout est en CSS (`:root[data-ambiance="pop"]`),
@@ -222,7 +267,7 @@ Une page sans compilation (`public/admin/`), même direction artistique, protég
 ## Parlomix (montages)
 Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le navigateur de la personne qui le lance
 (gratuit, rien ne quitte l'UE). Le même plan de montage pourra être exécuté plus tard par un serveur de rendu.
-- `public/admin/js/montage/plan.js` (logique pure, testée) : repérage des blancs à partir de l'enveloppe du son
+- `public/retrait/montage/plan.js` (déplacé le 14/10/2026 depuis `public/admin/js/montage/` : la page publique du visiteur s'en sert aussi) (logique pure, testée) : repérage des blancs à partir de l'enveloppe du son
   (début et fin coupés, silences de plus de 0,7 s raccourcis), choix des réponses (par personne ; par question dans
   la campagne ou dans une cabine ; filtre « diffusion acceptée » ; prénoms ou « Avis n° k » ; 20 réponses au plus),
   plan (ouverture, réponses séparées par une carte animée et le jingle, fin), recadrage 9:16, **jingles composés par
@@ -230,7 +275,7 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   pour l'automobile : moteur qui monte en régime, souffle, arpège électro sur grosse caisse à 150 bpm, accord final ;
   3 s à l'ouverture, qui dure alors 3 s, et 0,9 s entre les réponses). Bruit pseudo-aléatoire à graine fixe : le
   même jingle à chaque montage.
-- `public/admin/js/montage/rendu.js` : canevas + MediaRecorder, MP4 si le navigateur sait (sinon WebM), coupes
+- `public/retrait/montage/rendu.js` : canevas + MediaRecorder, MP4 si le navigateur sait (sinon WebM), coupes
   franches (enregistrement en pause pendant les recherches), cartes et bandeaux aux couleurs du client, limiteur
   sur le son, vérification que le film contient du son (sinon nouveau montage en WebM : leçon Geely).
 - API (`src/routes/parlomix.ts`, migration `0002_parlomix.sql`) : le plan est vérifié (réponses de la campagne,

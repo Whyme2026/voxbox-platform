@@ -15,6 +15,7 @@ import { volumeCampagne } from "../volumes.ts";
 
 interface LigneSession {
   id: string; prenom: string; cree_le: string; consent_diffusion: number; recontact: number;
+  envoi_video: number; envoi_video_le: string | null;
   retiree_le: string | null; parcours_version_id: string; cabine_id: string | null; cabine_nom: string | null;
 }
 interface LigneReponse {
@@ -116,21 +117,21 @@ export function routesReponses(r: Routeur): void {
     exiger(id, "reponses.lire");
     const c = await chargerCampagne(ctx.env.DB, id, ctx.params.id!);
     const { results } = await ctx.env.DB.prepare(
-      `SELECT s.id, s.cree_le, s.prenom, s.nom, s.email, s.recontact, s.consent_diffusion, s.retiree_le, cb.nom AS cabine,
+      `SELECT s.id, s.cree_le, s.prenom, s.nom, s.email, s.recontact, s.consent_diffusion, s.envoi_video, s.retiree_le, cb.nom AS cabine,
               (SELECT COUNT(*) FROM reponses r WHERE r.session_id = s.id AND r.cle_source IS NOT NULL) AS reponses
          FROM sessions s LEFT JOIN cabines cb ON cb.id = s.cabine_id
         WHERE s.campagne_id = ? AND s.purgee_le IS NULL ORDER BY s.cree_le`,
-    ).bind(c.id).all<{ id: string; cree_le: string; prenom: string; nom: string | null; email: string | null; recontact: number; consent_diffusion: number; retiree_le: string | null; cabine: string | null; reponses: number }>();
+    ).bind(c.id).all<{ id: string; cree_le: string; prenom: string; nom: string | null; email: string | null; recontact: number; consent_diffusion: number; envoi_video: number; retiree_le: string | null; cabine: string | null; reponses: number }>();
     await journaliser(ctx.env.DB, id, { action: "campagne.export", cibleType: "campagne", cibleId: c.id, clientId: c.client_id, details: { lignes: results.length } });
     // Une colonne par étape « choix » (qualification, aiguillage) : le libellé de l'option choisie.
     const { choix } = await libellesParcours(ctx.env.DB, c.id);
     const choixParSession = await choixDesSessions(ctx.env.DB, c.id);
     const libelle = (etape: string, option: string | undefined) => choix.find((x) => x.id === etape)?.options.find((o) => o.id === option)?.libelle ?? option ?? "";
     const lignes = [
-      ["Date (UTC)", "Prénom", "Nom", "E-mail (recontact accepté)", "Recontact", "Diffusion publique", "Cabine", "Réponses vidéo", "Accord retiré", ...choix.map((x) => x.titre)],
+      ["Date (UTC)", "Prénom", "Nom", "E-mail (recontact accepté)", "Recontact", "Diffusion publique", "Veut recevoir ses vidéos", "Cabine", "Réponses vidéo", "Accord retiré", ...choix.map((x) => x.titre)],
       ...results.map((x) => [
         x.cree_le.replace("T", " ").slice(0, 16), x.prenom, x.nom ?? "", x.recontact ? (x.email ?? "") : "",
-        x.recontact ? "oui" : "non", x.consent_diffusion ? "oui" : "non", x.cabine ?? "", x.reponses, x.retiree_le ? "oui" : "",
+        x.recontact ? "oui" : "non", x.consent_diffusion ? "oui" : "non", x.envoi_video ? "oui" : "non", x.cabine ?? "", x.reponses, x.retiree_le ? "oui" : "",
         ...choix.map((e) => libelle(e.id, choixParSession.get(x.id)?.[e.id])),
       ]),
     ];
@@ -151,7 +152,7 @@ export function routesReponses(r: Routeur): void {
     const limite = Math.min(Math.max(Number(ctx.url.searchParams.get("limite") ?? 100) || 100, 1), 300);
 
     const { results: sessions } = await ctx.env.DB.prepare(
-      `SELECT s.id, s.prenom, s.cree_le, s.consent_diffusion, s.recontact, s.retiree_le, s.parcours_version_id, s.cabine_id, cb.nom AS cabine_nom
+      `SELECT s.id, s.prenom, s.cree_le, s.consent_diffusion, s.recontact, s.envoi_video, s.envoi_video_le, s.retiree_le, s.parcours_version_id, s.cabine_id, cb.nom AS cabine_nom
          FROM sessions s LEFT JOIN cabines cb ON cb.id = s.cabine_id
         WHERE s.campagne_id = ? AND s.purgee_le IS NULL
         ORDER BY s.cree_le DESC LIMIT ${limite}`,
@@ -182,6 +183,7 @@ export function routesReponses(r: Routeur): void {
         choix: choixParSession.get(s.id) ?? {},
         consent_diffusion: Boolean(s.consent_diffusion),
         recontact: Boolean(s.recontact),
+        envoi_video: Boolean(s.envoi_video),
         // Accord retiré : la session reste visible pour la traçabilité, mais plus aucune vidéo n'est servie.
         reponses: s.retiree_le ? [] : (parSession.get(s.id) ?? []).sort((a, b) => rang(a.etape_id) - rang(b.etape_id))
           .map(({ session_id: _, ...rep }) => ({ ...rep, miniature: Boolean(rep.miniature), son_present: rep.son_present === null ? null : Boolean(rep.son_present) })),

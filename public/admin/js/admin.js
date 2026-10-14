@@ -4,9 +4,10 @@
 
 import { h } from "./dom.js";
 import { editeurParcours } from "./editeur.js";
+import { parcoursDe, themeDe } from "./catalogue.js";
 import { vueAnalyse } from "./analyse.js";
-import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, titreOuverture, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
-import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "./montage/rendu.js";
+import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, titreOuverture, dureeSegments, CLIPS_MAX } from "../../retrait/montage/plan.js";
+import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "../../retrait/montage/rendu.js";
 
 /** @typedef {{ email: string, role: string, client: any, droits: string[], environnement: string }} Moi */
 
@@ -541,6 +542,8 @@ async function vueReponses(/** @type {any} */ c) {
             : s.consent_diffusion ? h("span", { class: "pastille", "data-ton": "vert" }, "Diffusion publique autorisée")
             : h("span", { class: "pastille" }, "Usage interne seulement"),
           s.recontact ? h("span", { class: "pastille", "data-ton": "vox" }, "Accepte d'être recontacté") : null,
+          s.envoi_video && !s.retiree_le ? h("span", { class: "pastille", "data-ton": "vox", title: "Il a laissé son e-mail pour recevoir ses vidéos (et pouvoir changer d'avis)" },
+            s.envoi_video_le ? "Vidéos envoyées par e-mail" : "Recevra ses vidéos par e-mail") : null,
           s.reponses.length && !s.retiree_le ? h("a", { class: "bouton discret petit", style: "margin-left: auto", href: `#/campagnes/${c.id}?onglet=parlomix&personne=${s.id}` }, "Parlomix de cette personne") : null),
         Object.keys(s.choix ?? {}).length ? h("div", { class: "choix-visiteur", "aria-label": "Ses choix" },
           ...etapesChoix.filter((e) => s.choix[e.id]).map((e) => h("span", { class: "pastille sans-point", title: e.titre }, libelleOption(e.id, s.choix[e.id])))) : null,
@@ -1021,16 +1024,21 @@ const lisible = (/** @type {string} */ t) => String(t).replaceAll("{prenom}", "[
 async function vueParcours(/** @type {any} */ c) {
   const p = c.parcours;
   const modifiable = peut("campagnes.gerer") && estWhyme() && c.statut !== "active" && c.statut !== "close";
-  /** @type {{ libelle: string, charger: () => Promise<any> }[]} */
-  const modeles = [
-    { libelle: "Parcours neutre Parlobox (démo)", charger: async () => (await fetch("modeles/parcours-neutre.json")).json() },
-    // Thème de base des campagnes (13/10/2026) : déroulé de « Feedbackpost debrief », charte WhyMe (Inter, navy, magenta).
-    { libelle: "Thème de base WhyMe", charger: async () => (await fetch("modeles/parcours-whyme-base.json")).json() },
-  ];
+  // Catalogue (14/10/2026) : les thèmes (l'allure) et les parcours types (le déroulé) se choisissent séparément ;
+  // on peut aussi reprendre le thème ou le parcours d'une autre campagne. Voir js/catalogue.js.
+  const charger = async (/** @type {string} */ chemin) => (await fetch(chemin)).json();
+  const liste = await charger("modeles/catalogue.json").catch(() => ({ themes: [], parcours: [] }));
+  /** @type {{ themes: { id: string, nom: string, description?: string, charger: () => Promise<any> }[], parcours: { id: string, nom: string, description?: string, charger: () => Promise<any> }[] }} */
+  const catalogue = {
+    themes: liste.themes.map((/** @type {any} */ t) => ({ ...t, charger: () => charger(`modeles/themes/${t.id}.json`) })),
+    parcours: liste.parcours.map((/** @type {any} */ t) => ({ ...t, charger: () => charger(`modeles/parcours/${t.id}.json`) })),
+  };
   if (modifiable) {
     const { campagnes } = await api("/api/admin/campagnes");
     for (const autre of campagnes.filter((/** @type {any} */ x) => x.id !== c.id && x.parcours_version_id).slice(0, 12)) {
-      modeles.push({ libelle: `Copier : ${autre.nom} (${autre.client_nom})`, charger: async () => (await api(`/api/admin/campagnes/${autre.id}`)).campagne.parcours?.config });
+      const config = async () => (await api(`/api/admin/campagnes/${autre.id}`)).campagne.parcours?.config;
+      catalogue.themes.push({ id: `campagne-${autre.id}`, nom: `Celui de « ${autre.nom} » (${autre.client_nom})`, charger: async () => themeDe(await config()) });
+      catalogue.parcours.push({ id: `campagne-${autre.id}`, nom: `Celui de « ${autre.nom} » (${autre.client_nom})`, charger: async () => parcoursDe(await config()) });
     }
   }
   const entete = h("div", { class: "entete-parcours" },
@@ -1040,7 +1048,7 @@ async function vueParcours(/** @type {any} */ c) {
   return h("div", { class: "pile" }, entete, editeurParcours({
     config: p?.config ?? { version: 1, langue: "fr", etapes: [] },
     lectureSeule: !modifiable,
-    modeles,
+    catalogue,
     valider: async (config) => modifiable ? (await api("/api/admin/parcours/valider", { methode: "POST", corps: { config } })).problemes : [],
     enregistrer: async (config) => {
       await api(`/api/admin/campagnes/${c.id}/parcours`, { methode: "POST", corps: { config } });

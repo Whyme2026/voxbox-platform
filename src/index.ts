@@ -11,7 +11,7 @@ import { routesCabine } from "./routes/cabine.ts";
 import { routesReponses } from "./routes/reponses.ts";
 import { routesParlomix } from "./routes/parlomix.ts";
 import { routesRetrait } from "./routes/retrait.ts";
-import { routesAcces } from "./routes/acces.ts";
+import { envoyerVideosAuxVisiteurs, routesAcces } from "./routes/acces.ts";
 import { routesWhymeCandidat } from "./whyme/candidat.ts";
 import { routesWhymeMontage } from "./whyme/montage.ts";
 import { routesWhymePublic } from "./whyme/public.ts";
@@ -109,6 +109,8 @@ export default {
     ctx.waitUntil(tachesWhyme(env).then((b) => console.log("Why me, tâches planifiées", b)));
     // Parlobox : purge à échéance (durée de conservation promise aux visiteurs).
     ctx.waitUntil(purgerEchues(env).then((b) => { if (b.sessions || b.erreurs) console.log("Parlobox, purge à échéance", JSON.stringify(b)); }));
+    // Parlobox : e-mail « tes vidéos » aux visiteurs qui l'ont demandé (écran « recevoir »), une fois leurs vidéos reçues.
+    ctx.waitUntil(envoyerVideosAuxVisiteurs(env).then((b) => { if (b.envoyes || b.abandonnes || b.erreurs) console.log("Parlobox, envoi des vidéos aux visiteurs", JSON.stringify(b)); }));
     // Parlobox : alertes d'exploitation (cabine hors ligne, batterie, file d'envoi, micro, vidéos sans voix, analyse).
     ctx.waitUntil(verifierExploitation(env).then((b) => { if (b.ouvertes || b.fermees) console.log("Parlobox, alertes d'exploitation", JSON.stringify(b)); }));
         // Transcriptions d'abord, classements ensuite (une réponse transcrite ici est classée au même passage).
