@@ -287,8 +287,8 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
     ctx.globalAlpha = 1 - sortie;
     ctx.translate(W / 2, cy);
     ctx.scale(echelle, echelle);
-    // La question en entier dans la bulle (3 lignes au plus), son nom court en étiquette au-dessus ;
-    // sans question (Parlomix par question : un prénom), le titre seul, en grand.
+    // La question en entier dans la bulle (4 lignes au plus), sans son nom court (14/10/2026 : jamais visible dans
+    // le film) ; sans question (Parlomix par question : un prénom), le titre seul, en grand.
     const question = carte.sousTitre;
     // Corps de la question agrandi (débrief PFA, 14/10/2026) : lisible d'un coup d'œil, même sur un téléphone.
     ctx.font = policeTitre(th, u * (question ? 0.095 : 0.1));
@@ -300,17 +300,6 @@ export function dessinerCarte(ctx, carte, t, th, logo, visuels = new Map()) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     textes.forEach((x, i) => ctx.fillText(x, 0, -hb / 2 + u * 0.06 + hl * (i + 0.5)));
-    if (question) {
-      ctx.font = policeTexte(th, u * 0.042, 700);
-      const etiquette = casse(th, carte.titre);
-      const le = ctx.measureText(etiquette).width + u * 0.07;
-      ctx.fillStyle = th.marque;
-      ctx.beginPath();
-      ctx.roundRect(-le / 2, -hb / 2 - u * 0.09, le, u * 0.066, u * 0.033);
-      ctx.fill();
-      ctx.fillStyle = th.surMarque;
-      ctx.fillText(etiquette, 0, -hb / 2 - u * 0.057);
-    }
     ctx.restore();
     ctx.globalAlpha = 1 - sortie;
     if (visuel) dessinerVisuel(ctx, visuel, W / 2, H * (portrait ? 0.66 : 0.7), Math.min(W * (portrait ? 0.8 : 0.42), u * 0.95), rebond(Math.min(1, Math.max(0, (t - 0.08) / 0.35))));

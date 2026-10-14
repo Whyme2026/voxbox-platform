@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.10.0";
+const VERSION = "0.10.1";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -805,7 +805,7 @@ async function ecranQuestion(/** @type {any} */ e) {
     h("div", { class: "ecran ecran-question", "data-phase": "lire" },
       h("section", { class: "gauche", "aria-label": "La question" },
         h("div", { class: "tete arrive" },
-          h("span", { class: "etiquette-pastille titre-court" }, e.titreCourt ?? `Question ${progression.numero}`),
+          // Le nom court (titreCourt) ne s'affiche jamais en cabine : il sert dans Parlorama (14/10/2026).
           h("p", { class: "bulle marque grande question", "data-longueur": texte.length > 90 ? "longue" : texte.length > 55 ? "moyenne" : null }, texte),
           // Le temps pour réfléchir (et répondre), sous la question : valeurs réelles de l'étape.
           e.mentionTemps ? h("p", { class: "mention-temps" }, perso(e.mentionTemps)

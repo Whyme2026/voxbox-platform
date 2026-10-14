@@ -15,7 +15,7 @@
  *   signature : ligne de l'écran de fin « signature » (ex. « La Fabrique de l'Innovation »)
  * @typedef {"parlobox" | "turbo" | "glitch"} Jingle
  * @typedef {[number, number]} Segment  début et fin en millisecondes dans la vidéo source
- * @typedef {{ id: string, etiquette: string, detail?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip
+ * @typedef {{ id: string, etiquette: string, detail?: string, prenom?: string, dureeMs: number, segments: Segment[], sessionId: string, fond?: string, visuel?: string }} Clip
  * @typedef {{ type: "carte", role: "intro" | "transition" | "fin", dureeMs: number, titre: string, sousTitre?: string, jingle: boolean, fond?: string, visuel?: string, temps?: TempsOuverture, signature?: boolean }} SequenceCarte
  * @typedef {{ souffle: [number, number], titre: number, sousTitre: number, visuel: number, eclats: readonly number[] }} TempsOuverture  repères du son (ms)
  * @typedef {{ type: "clip", reponseId: string, sessionId: string, segments: Segment[], bandeau: string | null, dureeMs: number }} SequenceClip
@@ -208,7 +208,8 @@ export const dureeSegments = (/** @type {Segment[]} */ s) => s.reduce((n, [a, b]
  * @typedef {{ id: string, prenom: string, cree_le: string, consent_diffusion: boolean, retiree_le: string | null, cabine_id: string | null, cabine_nom: string | null, reponses: ReponseApi[], choix?: Record<string, string> }} SessionApi
  * @typedef {{ id: string, titre: string, texte: string, fond?: string, visuel?: string }} QuestionApi
  * @typedef {{ id: string, options: { id: string, visuel?: string }[] }} EtapeChoixApi
- * @typedef {{ id: string, sessionId: string, etiquette: string, detail?: string, dureeMs: number, fond?: string, visuel?: string }} Choix
+ * @typedef {{ id: string, sessionId: string, etiquette: string, detail?: string, prenom?: string, dureeMs: number, fond?: string, visuel?: string }} Choix
+ *   etiquette : nom court de la question (par personne, Parlorama seulement) ou prénom (par question) ; prenom : celui de la personne
  */
 
 /**
@@ -224,7 +225,7 @@ export function choixParPersonne(session, questions, etapesChoix = []) {
   return session.reponses.map((r) => {
     const q = questions.find((x) => x.id === r.etape_id);
     return {
-      id: r.id, sessionId: session.id, etiquette: q?.titre ?? r.etape_id, detail: q?.texte, dureeMs: r.duree_ms ?? 0,
+      id: r.id, sessionId: session.id, etiquette: q?.titre ?? r.etape_id, detail: q?.texte, prenom: session.prenom, dureeMs: r.duree_ms ?? 0,
       ...habillageClip(q, session, etapesChoix),
     };
   });
@@ -297,16 +298,18 @@ export function planParlomix(o) {
   const sequences = [{ type: "carte", role: "intro", dureeMs: intro, titre: o.titre, sousTitre: o.sousTitre, jingle: true, ...ouverture, ...(son ? { temps: son.temps } : {}) }];
   o.clips.forEach((c, i) => {
     // La question en bulle avant chaque réponse (règle du 13/10/2026) : pour une personne, dès la première.
-    if (i > 0 || o.type === "personne") {
+    // Le nom court de la question ne paraît jamais dans le film (14/10/2026) : la question en entier, ou le prénom.
+    const parPersonne = o.type === "personne";
+    if (i > 0 || parPersonne) {
       sequences.push({
-        type: "carte", role: "transition", dureeMs: o.type === "personne" && c.detail ? DUREES.question : DUREES.transition,
-        titre: c.etiquette, sousTitre: o.type === "personne" ? c.detail : undefined, jingle: true, ...habit(c),
+        type: "carte", role: "transition", dureeMs: parPersonne && c.detail ? DUREES.question : DUREES.transition,
+        titre: parPersonne ? (c.detail || c.etiquette) : c.etiquette, sousTitre: parPersonne ? c.detail : undefined, jingle: true, ...habit(c),
       });
     }
     const segments = c.segments.length ? c.segments : /** @type {Segment[]} */ ([[0, c.dureeMs]]);
     sequences.push({
       type: "clip", reponseId: c.id, sessionId: c.sessionId, segments,
-      bandeau: o.bandeaux === false ? null : c.etiquette, dureeMs: dureeSegments(segments),
+      bandeau: o.bandeaux === false ? null : parPersonne ? (c.prenom ?? null) : c.etiquette, dureeMs: dureeSegments(segments),
     });
   });
   // Fin : avec une signature d'habillage (ou la ligne de la campagne), le décor et le visuel de l'ouverture, le client,

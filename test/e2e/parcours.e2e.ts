@@ -97,10 +97,11 @@ async function scenarioDemo() {
   await cocher("Flouter mon visage");
   await bouton("C'est parti");
   // Chaque question : le temps de lire (compte à rebours), puis l'enregistrement.
-  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.texte);
   for (const [i, titre] of titres.entries()) {
     const n = String(i + 1);
-    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator(".ecran-question .question", { hasText: titre }).waitFor({ timeout: 30_000 });
+    assert.equal(await page.locator(".titre-court").count(), 0, "nom court jamais affiché en cabine");
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(300);
     await capture(`04-q${n}-a-lire`);
@@ -288,10 +289,11 @@ async function scenarioFabrice() {
   await page.waitForTimeout(900);
   await capture("04-choix");
   await page.getByRole("button", { name: "Personne. Froissée, assumée." }).click();
-  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.texte);
   for (const [i, titre] of titres.entries()) {
     const n = String(i + 1);
-    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator(".ecran-question .question", { hasText: titre }).waitFor({ timeout: 30_000 });
+    assert.equal(await page.locator(".titre-court").count(), 0, "nom court jamais affiché en cabine");
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(350);
     if (i === 0) assert.equal(await page.locator("#ecoute").innerText(), "", "rien à côté de la barre de temps pendant la lecture");
@@ -338,10 +340,11 @@ async function scenarioAlexandre() {
   await page.waitForTimeout(1200);
   await capture("03-regles");
   await bouton("C'est parti");
-  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.texte);
   for (const [i, titre] of titres.entries()) {
     const n = String(i + 1);
-    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator(".ecran-question .question", { hasText: titre }).waitFor({ timeout: 30_000 });
+    assert.equal(await page.locator(".titre-court").count(), 0, "nom court jamais affiché en cabine");
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(400);
     await capture(`04-q${n}-a-lire`);
@@ -422,10 +425,11 @@ async function scenarioPfa() {
   assert.equal(await page.evaluate(() => document.getElementById("cabine")?.dataset.disposition), "centree");
   assert.equal(await page.locator('.ecran-question[data-phase="lire"]').count(), 1);
   assert.equal(await page.getByText("Des idées, si besoin").count(), 0, "pas d'intitulé au-dessus des pistes");
-  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.titreCourt);
+  const titres = parcours.etapes.filter((e: any) => e.type === "question").map((e: any) => e.texte);
   for (const [i, titre] of titres.entries()) {
     const n = String(i + 1);
-    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+    await page.locator(".ecran-question .question", { hasText: titre }).waitFor({ timeout: 30_000 });
+    assert.equal(await page.locator(".titre-court").count(), 0, "nom court jamais affiché en cabine");
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(400);
     // « Question n sur 4 » au centre de l'en-tête, loin de la signature « parlobox by whyme ».
@@ -542,8 +546,11 @@ async function scenarioWhyme() {
 }
 
 async function scenarioGeely() {
-  const question = async (titre: string, nom: string) => {
-    await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
+  // On repère la question par le début de son texte (le nom court ne s'affiche plus en cabine).
+  const question = async (nomCourt: string, nom: string) => {
+    const titre = String(parcours.etapes.find((e: any) => e.titreCourt === nomCourt)?.texte ?? nomCourt).split("{")[0].trim();
+    await page.locator(".ecran-question .question", { hasText: titre }).waitFor({ timeout: 30_000 });
+    assert.equal(await page.locator(".titre-court").count(), 0, "nom court jamais affiché en cabine");
     await page.locator("#compte:not([hidden])").waitFor();
     await page.waitForTimeout(400);
     await capture(`${nom}-a-lire`);

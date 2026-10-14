@@ -163,6 +163,10 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
 - **Fin** d'un parcours qui a l'écran « recevoir » : plus de rappel du QR code extérieur. E-mail laissé : « Tes vidéos
   arrivent par e-mail » avec l'adresse ; sinon « Tu changes d'avis ? écris à » `fin.contact` (contact@parlobox.com par
   défaut). Sans écran « recevoir », la fin reste comme avant (QR code).
+- Question, `titreCourt` (14/10/2026, cabine 0.10.1) : **jamais affiché en cabine**, pour toutes les campagnes ; il sert
+  dans Parlorama (listes, réponses par question, analyse, nom des Parlomix). **Jamais dans le Parlomix non plus** : carte
+  avant chaque réponse = la question en entier, bandeau = le prénom (par personne) ; par question, l'ouverture porte la
+  question en entier.
 - L'éditeur de Parlorama conserve tout réglage qu'il ne montre pas (disposition, intitulePistes vide…) : incident du 12/10/2026.
 
 **Sons fournis** (13/10/2026) : `habillage.parlomix.jingle = "glitch"` joue « Tech Glitch Whoosh Logo » (Alex_Kizenkov,
