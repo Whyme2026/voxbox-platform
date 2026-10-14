@@ -126,6 +126,13 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   (`fondsEcrans`), ouverture du Parlomix sur « geste » (magenta → prune). Avec le parcours `demo-fun` (déroulé de
   « Feedbackpost debrief » : accueil aux bulles en grand **sans logo client** (`accueil.masquerClient`), accord sur
   l'écran du prénom, **« Recevoir ma vidéo »**, cadrage à 3 conseils, questions centrées, 10 s de lecture, fin).
+- **Cadrage dans le gabarit de la question** (14/10/2026, cabine 0.11.0, disposition centrée) : consigne à la place de
+  la question, conclusion à la place de la mention du temps, conseils sur une ligne à la place des pistes, image centrée
+  sous l'objectif à la taille de la question (la ligne du temps reste vide), « Flouter mon visage » à gauche de l'image,
+  « Je suis prêt » à sa droite ; au centre de l'en-tête, « ↑ Regarde ici : la caméra » (cadrage seulement). En passant
+  à la première question, l'image ne bouge pas (vérifié par l'essai PFA). Conseils de base : « Fais court : 15 à 25 s
+  pour répondre selon les questions », « Fini ? Touche « Question suivante » », « Parle normalement ». Sans
+  disposition centrée, l'ancien cadrage (texte à gauche, image à droite) reste.
 - **En haut à gauche : l'évènement, seul** (règle de base de toutes les campagnes, 14/10/2026, cabine 0.10.2) : si la
   campagne a un nom d'évènement (`habillage.entete`, champ « Nom de l'évènement » de l'éditeur), il s'affiche seul,
   sans logo ni nom du client ; sinon, le logo du client (à défaut son nom). Même règle pour le filigrane du Parlomix.

@@ -93,9 +93,9 @@
       "proposerFloutage": true,
       "reperes": false,
       "conseils": [
-        "Fais court : 15 à 25 secondes suffisent, va droit au but.",
-        "Tu as fini de répondre ? Touche « Question suivante » sans attendre.",
-        "Regarde la caméra, en haut de l'écran, et parle normalement."
+        "Fais court : 15 à 25 s pour répondre selon les questions",
+        "Fini ? Touche « Question suivante »",
+        "Parle normalement"
       ],
       "conclusion": "Sois sincère, on adore ça !"
     },
