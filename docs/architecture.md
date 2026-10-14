@@ -151,8 +151,11 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   La session part après cet écran (e-mail, `envoi_video`, diffusion). Côté serveur (migration `0015_envoi_video.sql`) :
   `sessions.envoi_video` seulement si le parcours joué a cet écran et qu'un e-mail est donné ; l'adresse de la
   plateforme est notée (`envoi_video_origine`) pour le lien. Tâche planifiée `envoyerVideosAuxVisiteurs`
-  (`src/routes/acces.ts`) : 10 min après le passage, s'il y a au moins une vidéo, un e-mail (Brevo) « tes vidéos
-  sont prêtes » avec un lien `/retrait/#acces=…` valable **30 jours** (`acces_visiteur.motif = 'video'`, hors limite
+  (`src/routes/acces.ts`) : 10 min après le passage, s'il y a au moins une vidéo, un e-mail (Brevo) « ton Parlomix
+  t'attend » avec **un seul lien**, `/retrait/#parlomix=…`, valable **30 jours**. La page s'ouvre sur « Créer mon
+  Parlomix » : le film 9:16 se fabrique **dans le navigateur du visiteur** (mêmes modules que Parlorama, rien n'est
+  monté d'avance ni gardé côté serveur ; journal `parlomix.visiteur`), puis « Télécharger » ou « Partager ». Le son
+  fourni « glitch » n'y est pas servi (licence) : le jingle Parlobox le remplace. Même lien (`acces_visiteur.motif = 'video'`, hors limite
   des demandes du QR code) : voir ses vidéos, retirer l'accord réseaux sociaux, tout supprimer. Une seule fois,
   journalisé (`session.envoi_videos`) ; sans vidéo au bout d'un jour, abandon ; sans Brevo, rien ne part ni n'est
   marqué. Parlorama : pastille « Recevra / Vidéos envoyées par e-mail », colonne d'export. ⚠ Le lien suppose `/retrait/`
@@ -264,7 +267,7 @@ Une page sans compilation (`public/admin/`), même direction artistique, protég
 ## Parlomix (montages)
 Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le navigateur de la personne qui le lance
 (gratuit, rien ne quitte l'UE). Le même plan de montage pourra être exécuté plus tard par un serveur de rendu.
-- `public/admin/js/montage/plan.js` (logique pure, testée) : repérage des blancs à partir de l'enveloppe du son
+- `public/retrait/montage/plan.js` (déplacé le 14/10/2026 depuis `public/admin/js/montage/` : la page publique du visiteur s'en sert aussi) (logique pure, testée) : repérage des blancs à partir de l'enveloppe du son
   (début et fin coupés, silences de plus de 0,7 s raccourcis), choix des réponses (par personne ; par question dans
   la campagne ou dans une cabine ; filtre « diffusion acceptée » ; prénoms ou « Avis n° k » ; 20 réponses au plus),
   plan (ouverture, réponses séparées par une carte animée et le jingle, fin), recadrage 9:16, **jingles composés par
@@ -272,7 +275,7 @@ Décision du 10/10/2026 : le montage se fabrique **dans Parlorama**, dans le nav
   pour l'automobile : moteur qui monte en régime, souffle, arpège électro sur grosse caisse à 150 bpm, accord final ;
   3 s à l'ouverture, qui dure alors 3 s, et 0,9 s entre les réponses). Bruit pseudo-aléatoire à graine fixe : le
   même jingle à chaque montage.
-- `public/admin/js/montage/rendu.js` : canevas + MediaRecorder, MP4 si le navigateur sait (sinon WebM), coupes
+- `public/retrait/montage/rendu.js` : canevas + MediaRecorder, MP4 si le navigateur sait (sinon WebM), coupes
   franches (enregistrement en pause pendant les recherches), cartes et bandeaux aux couleurs du client, limiteur
   sur le son, vérification que le film contient du son (sinon nouveau montage en WebM : leçon Geely).
 - API (`src/routes/parlomix.ts`, migration `0002_parlomix.sql`) : le plan est vérifié (réponses de la campagne,

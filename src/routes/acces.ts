@@ -91,27 +91,42 @@ export function routesAcces(r: Routeur): void {
   r.get("/api/acces/moi", async (ctx) => {
     const email = await emailDuJeton(ctx.request, ctx.env);
     const { results: sessions } = await ctx.env.DB.prepare(
-      `SELECT s.id, s.prenom, s.cree_le, s.consent_diffusion, s.parcours_version_id, ca.nom AS campagne, cl.nom AS marque, cl.contact_rgpd
+      `SELECT s.id, s.prenom, s.cree_le, s.consent_diffusion, s.parcours_version_id, ca.nom AS campagne, cl.nom AS marque, cl.contact_rgpd,
+              cl.logo_url, cl.couleurs
          FROM sessions s JOIN campagnes ca ON ca.id = s.campagne_id JOIN clients cl ON cl.id = ca.client_id
         WHERE s.email = ? AND s.retiree_le IS NULL ORDER BY s.cree_le DESC LIMIT 50`,
-    ).bind(email).all<{ id: string; prenom: string; cree_le: string; consent_diffusion: number; parcours_version_id: string; campagne: string; marque: string; contact_rgpd: string }>();
-    // Titres des questions, par version de parcours.
-    const titres = new Map<string, Record<string, string>>();
+    ).bind(email).all<{ id: string; prenom: string; cree_le: string; consent_diffusion: number; parcours_version_id: string; campagne: string; marque: string; contact_rgpd: string; logo_url: string | null; couleurs: string | null }>();
+    // Parcours joué par chaque passage (questions et allure), lu une fois par version.
+    type EtapeLue = { id: string; type: string; titreCourt?: string; texte?: string; fond?: string; visuel?: string; options?: { id: string; visuel?: string }[] };
+    const versions = new Map<string, { etapes: EtapeLue[]; habillage?: unknown; ambiance?: string; tutoiement?: boolean }>();
     const passages = [];
     for (const s of sessions) {
-      if (!titres.has(s.parcours_version_id)) {
+      if (!versions.has(s.parcours_version_id)) {
         const v = await ctx.env.DB.prepare("SELECT config FROM parcours_versions WHERE id = ?").bind(s.parcours_version_id).first<{ config: string }>();
-        const etapes = (v ? (JSON.parse(v.config) as { etapes?: { id: string; type: string; titreCourt?: string; texte?: string }[] }).etapes : []) ?? [];
-        titres.set(s.parcours_version_id, Object.fromEntries(etapes.filter((e) => e.type === "question").map((e) => [e.id, e.titreCourt ?? e.texte ?? e.id])));
+        versions.set(s.parcours_version_id, v ? JSON.parse(v.config) : { etapes: [] });
       }
-      const t = titres.get(s.parcours_version_id)!;
+      const pv = versions.get(s.parcours_version_id)!;
+      const questions = (pv.etapes ?? []).filter((e) => e.type === "question");
       const { results: reponses } = await ctx.env.DB.prepare(
         "SELECT id, etape_id, duree_ms FROM reponses WHERE session_id = ? AND cle_source IS NOT NULL ORDER BY cree_le",
       ).bind(s.id).all<{ id: string; etape_id: string; duree_ms: number | null }>();
+      const { results: choix } = await ctx.env.DB.prepare("SELECT etape_id, option_id FROM choix WHERE session_id = ?").bind(s.id).all<{ etape_id: string; option_id: string }>();
+      const rang = (etape: string) => { const i = questions.findIndex((q) => q.id === etape); return i < 0 ? 999 : i; };
       passages.push({
         id: s.id, prenom: s.prenom, date: s.cree_le, marque: s.marque, campagne: s.campagne, contact_rgpd: s.contact_rgpd,
         diffusion: Boolean(s.consent_diffusion),
-        reponses: reponses.map((x) => ({ id: x.id, question: t[x.etape_id] ?? x.etape_id, duree_ms: x.duree_ms })),
+        reponses: reponses.sort((a, b) => rang(a.etape_id) - rang(b.etape_id)).map((x) => {
+          const q = questions.find((e) => e.id === x.etape_id);
+          return { id: x.id, etape_id: x.etape_id, question: q?.titreCourt ?? q?.texte ?? x.etape_id, texte: q?.texte ?? "", duree_ms: x.duree_ms };
+        }),
+        // De quoi fabriquer son Parlomix dans son navigateur (14/10/2026) : l'allure de la campagne, rien de personnel en plus.
+        parlomix: {
+          habillage: pv.habillage ?? null, ambiance: pv.ambiance ?? "conversation", tutoiement: pv.tutoiement === true,
+          client: { nom: s.marque, logo_url: s.logo_url, couleurs: s.couleurs ? JSON.parse(s.couleurs) as unknown : {} },
+          questions: questions.map((q) => ({ id: q.id, titre: q.titreCourt ?? q.texte ?? q.id, texte: q.texte ?? "", ...(q.fond ? { fond: q.fond } : {}), ...(q.visuel ? { visuel: q.visuel } : {}) })),
+          etapes_choix: (pv.etapes ?? []).filter((e) => e.type === "choix").map((e) => ({ id: e.id, options: (e.options ?? []).map((o) => ({ id: o.id, ...(o.visuel ? { visuel: o.visuel } : {}) })) })),
+          choix: Object.fromEntries(choix.map((c) => [c.etape_id, c.option_id])),
+        },
       });
     }
     return json({ email, passages });
@@ -130,6 +145,14 @@ export function routesAcces(r: Routeur): void {
       nom: `parlobox-${rep.etape_id}.${rep.cle_source.endsWith(".mp4") ? "mp4" : "webm"}`,
       journaliser: () => journaliser(ctx.env.DB, VISITEUR, { action: "reponse.visionnage", cibleType: "reponse", cibleId: rep.id, clientId: rep.client_id, details: { session_id: rep.session_id, par: "le visiteur" } }),
     });
+  });
+
+  // Parlomix fabriqué par le visiteur dans son navigateur (rien n'est envoyé ni gardé) : seulement tracé.
+  r.post("/api/acces/sessions/:id/parlomix", async (ctx) => {
+    const email = await emailDuJeton(ctx.request, ctx.env);
+    const s = await sessionDuVisiteur(ctx.env, email, ctx.params.id ?? "");
+    await journaliser(ctx.env.DB, VISITEUR, { action: "parlomix.visiteur", cibleType: "session", cibleId: s.id, clientId: s.client_id });
+    return json({ ok: true });
   });
 
   r.post("/api/acces/sessions/:id", async (ctx) => {
@@ -156,24 +179,33 @@ const ENVOIS_PAR_PASSAGE = 25;
 
 const echapper = (t: string) => t.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]!);
 
-/** E-mail envoyé au visiteur qui a demandé ses vidéos : les voir, et changer d'avis (diffusion, suppression). */
+/**
+ * E-mail envoyé au visiteur qui a demandé sa vidéo (14/10/2026) : un seul lien, qui ouvre la page où il fabrique
+ * lui-même son Parlomix, dans son navigateur (rien n'est monté d'avance pour tout le monde). La même page permet de
+ * changer d'avis (diffusion, suppression).
+ */
 export function messageVideos(o: { prenom: string; marque: string; lien: string; tutoiement: boolean; diffusion: boolean; contact: string }) {
   const tu = o.tutoiement;
   const bonjour = o.prenom ? `${tu ? "Salut" : "Bonjour"} ${o.prenom},` : "Bonjour,";
-  const intro = tu ? `Merci d'avoir joué le jeu de la cabine Parlobox ${o.marque} ! Tes vidéos sont prêtes.`
-    : `Merci d'avoir répondu dans la cabine Parlobox ${o.marque} ! Vos vidéos sont prêtes.`;
-  const voir = tu ? "Voir mes vidéos" : "Voir mes vidéos";
+  const intro = tu
+    ? `Merci d'avoir joué le jeu de la cabine Parlobox ${o.marque} ! Ton Parlomix t'attend : tes réponses montées en un petit film, à garder ou à partager.`
+    : `Merci d'avoir répondu dans la cabine Parlobox ${o.marque} ! Votre Parlomix vous attend : vos réponses montées en un petit film, à garder ou à partager.`;
+  const bouton = tu ? "Créer mon Parlomix" : "Créer mon Parlomix";
+  const comment = tu
+    ? "Un clic sur le lien, et ton film se fabrique sous tes yeux, en une minute environ."
+    : "Un clic sur le lien, et votre film se fabrique sous vos yeux, en une minute environ.";
   const avis = tu
     ? `Tu changes d'avis ? Depuis ce même lien, tu peux ${o.diffusion ? "retirer ton accord pour les réseaux sociaux, ou " : ""}supprimer tes vidéos, à tout moment.`
     : `Vous changez d'avis ? Depuis ce même lien, vous pouvez ${o.diffusion ? "retirer votre accord pour les réseaux sociaux, ou " : ""}supprimer vos vidéos, à tout moment.`;
   const duree = tu
     ? `Le lien est valable ${DUREE_LIEN_VIDEO_JOURS} jours. Ensuite, écris à ${o.contact} pour toute demande.`
     : `Le lien est valable ${DUREE_LIEN_VIDEO_JOURS} jours. Ensuite, écrivez à ${o.contact} pour toute demande.`;
-  const texte = `${bonjour}\n\n${intro}\n\n${voir} : ${o.lien}\n\n${avis}\n${duree}\n\nParlobox by whyme`;
+  const texte = `${bonjour}\n\n${intro}\n\n${bouton} : ${o.lien}\n${comment}\n\n${avis}\n${duree}\n\nParlobox by whyme`;
   const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.5;color:#303136;max-width:520px">
 <p style="font-size:20px;font-weight:700;color:#242841;margin:0 0 12px">${echapper(bonjour)}</p>
 <p>${echapper(intro)}</p>
-<p><a href="${echapper(o.lien)}" style="display:inline-block;padding:13px 24px;border-radius:24px 24px 6px 24px;background:#C4007A;color:#FFFFFF;text-decoration:none;font-weight:700">${voir}</a></p>
+<p><a href="${echapper(o.lien)}" style="display:inline-block;padding:13px 24px;border-radius:24px 24px 6px 24px;background:#C4007A;color:#FFFFFF;text-decoration:none;font-weight:700">${bouton}</a></p>
+<p style="color:#6B6D75;font-size:14px">${echapper(comment)}</p>
 <p>${echapper(avis)}</p>
 <p style="color:#6B6D75;font-size:14px">${echapper(duree)}</p>
 <p style="color:#6B6D75;font-size:14px">parlobox <span style="font-size:12px">by</span> <b>why<span style="color:#C4007A">me</span></b></p></div>`;
@@ -216,10 +248,11 @@ export async function envoyerVideosAuxVisiteurs(env: Env): Promise<{ envoyes: nu
       // Le jeton est noté avant l'envoi : un e-mail parti donne toujours un lien valable.
       await env.DB.prepare("INSERT INTO acces_visiteur (id, email, jeton_empreinte, cree_le, expire_le, envoye, motif) VALUES (?, ?, ?, ?, ?, 1, 'video')")
         .bind(nouvelId(), s.email, await empreinte(jeton), now, expire).run();
-      const lien = `${s.envoi_video_origine ?? ""}/retrait/#acces=${jeton}`;
+      // #parlomix= : la page s'ouvre sur la fabrication du Parlomix (et garde la gestion de ses vidéos en dessous).
+      const lien = `${s.envoi_video_origine ?? ""}/retrait/#parlomix=${jeton}`;
       await envoyerCourriel(env, {
         a: s.email,
-        sujet: parcours.tutoiement ? `${s.prenom}, tes vidéos Parlobox sont prêtes` : "Vos vidéos Parlobox sont prêtes",
+        sujet: parcours.tutoiement ? `${s.prenom}, ton Parlomix t'attend` : "Votre Parlomix vous attend",
         ...messageVideos({ prenom: s.prenom, marque: s.marque, lien, tutoiement: parcours.tutoiement === true, diffusion: Boolean(s.consent_diffusion), contact }),
       });
       await env.DB.batch([

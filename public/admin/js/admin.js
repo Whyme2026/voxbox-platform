@@ -6,8 +6,8 @@ import { h } from "./dom.js";
 import { editeurParcours } from "./editeur.js";
 import { parcoursDe, themeDe } from "./catalogue.js";
 import { vueAnalyse } from "./analyse.js";
-import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, titreOuverture, dureeSegments, CLIPS_MAX } from "./montage/plan.js";
-import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "./montage/rendu.js";
+import { choixParPersonne, choixParQuestion, planParlomix, themeDepuisCouleurs, titreOuverture, dureeSegments, CLIPS_MAX } from "../../retrait/montage/plan.js";
+import { analyserReponse, fabriquer, formatsDisponibles, contientDuSon, dessinerCarte } from "../../retrait/montage/rendu.js";
 
 /** @typedef {{ email: string, role: string, client: any, droits: string[], environnement: string }} Moi */
 

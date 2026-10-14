@@ -81,11 +81,12 @@ test("recevoir : l'e-mail part une fois les vidéos reçues, une seule fois, ave
   assert.equal(boiteEssai.length, 1);
   const m = boiteEssai[0]!;
   assert.equal(m.a, "ines@exemple.fr");
-  assert.match(m.sujet, /Inès, tes vidéos Parlobox sont prêtes/, "tutoiement du parcours");
+  assert.match(m.sujet, /Inès, ton Parlomix t'attend/, "tutoiement du parcours");
+  assert.match(m.texte, /Créer mon Parlomix : http:\/\/localhost\/retrait\/#parlomix=/, "un seul lien : celui qui fabrique le Parlomix");
   assert.match(m.texte, /retirer ton accord pour les réseaux sociaux/);
   assert.match(m.texte, /contact@parlobox\.com/);
-  const jeton = /#acces=([\w-]+)/.exec(m.texte)?.[1] ?? "";
-  assert.ok(m.texte.includes("http://localhost/retrait/#acces="), "lien vers la page du visiteur, sur l'adresse de la plateforme");
+  const jeton = /#parlomix=([\w-]+)/.exec(m.texte)?.[1] ?? "";
+  assert.equal((m.texte.match(/http:\/\//g) ?? []).length, 1, "aucun autre lien dans l'e-mail");
   // Le lien ouvre ses vidéos (30 jours) et permet de retirer la diffusion.
   const appel = (methode: string, chemin: string, corps?: unknown) => traiter(new Request(`http://localhost${chemin}`, {
     method: methode, headers: { "x-acces": jeton, ...(corps ? { "content-type": "application/json" } : {}) }, body: corps ? JSON.stringify(corps) : undefined,
@@ -93,6 +94,18 @@ test("recevoir : l'e-mail part une fois les vidéos reçues, une seule fois, ave
   const moi = await (await appel("GET", "/api/acces/moi")).json() as any;
   assert.equal(moi.passages.length, 1);
   assert.equal(moi.passages[0].reponses.length, 1);
+  // De quoi fabriquer le Parlomix dans le navigateur : l'allure de la campagne et les questions jouées.
+  const px = moi.passages[0].parlomix;
+  assert.equal(px.ambiance, "vive");
+  assert.equal(px.tutoiement, true);
+  assert.equal(px.habillage.couleurs.visiteur, "#C4007A");
+  assert.equal(px.client.nom, "WhyMe");
+  assert.deepEqual(px.questions.map((q: any) => q.titre), ["Coup de cœur", "Fan", "Le pire", "Incompris"]);
+  assert.equal(moi.passages[0].reponses[0].etape_id, "q-coup-de-coeur");
+  assert.equal(moi.passages[0].reponses[0].texte, "Ton dernier achat coup de cœur, c'était quoi ?");
+  // Fabriqué chez le visiteur, rien n'est gardé : seul le fait est tracé.
+  assert.equal((await appel("POST", `/api/acces/sessions/${ines.id}/parlomix`)).status, 200);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM journal WHERE action = 'parlomix.visiteur' AND cible_id = ?").bind(ines.id).first<any>()).n, 1);
   const acces = await db.prepare("SELECT motif, expire_le FROM acces_visiteur").first<any>();
   assert.equal(acces.motif, "video");
   assert.ok(Date.parse(acces.expire_le) > Date.now() + 29 * 24 * 3600_000, "lien valable 30 jours");

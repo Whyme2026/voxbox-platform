@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   segmentsParole, enveloppe, dureeSegments, planParlomix, themeDepuisCouleurs, choixParPersonne, choixParQuestion,
   recadrage, composerJingle, composerJingleTurbo, titreOuverture, DUREE_TURBO_MS, DUREES, CLIPS_MAX, SONS,
-} from "../public/admin/js/montage/plan.js";
+} from "../public/retrait/montage/plan.js";
 
 /** Niveaux par tranche de 20 ms à partir d'une description « silence / parole » en millisecondes. */
 function niveaux(...morceaux: [number, "s" | "p"][]) {
@@ -194,7 +194,7 @@ test("ambiance : sans couleur de marque, le Parlomix prend les couleurs de l'amb
 });
 
 test("habillage : fond de la question et visuel du modèle choisi par la personne, sur les cartes du plan", async () => {
-  const { visuelDeReponse } = await import("../public/admin/js/montage/plan.js");
+  const { visuelDeReponse } = await import("../public/retrait/montage/plan.js");
   const etapesChoix = [
     { id: "aiguillage", options: [{ id: "essai", visuel: "starray" }, { id: "client", visuel: "e5" }] },
     { id: "modele-b", options: [{ id: "starray", visuel: "starray" }, { id: "e2", visuel: "e2" }] },

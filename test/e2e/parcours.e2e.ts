@@ -20,7 +20,8 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { join } from "node:path";
 import assert from "node:assert/strict";
-import { demarrerServeur, preparer, objets, db } from "./serveur.ts";
+import { demarrerServeur, preparer, objets, db, env } from "./serveur.ts";
+import { envoyerVideosAuxVisiteurs } from "../../src/routes/acces.ts";
 import { boiteEssai } from "../../src/courriel.ts";
 
 const require = createRequire(import.meta.url);
@@ -157,6 +158,44 @@ async function visiteSuppressionCampagne() {
  * Page du QR code extérieur, sur téléphone : le visiteur saisit son e-mail, reçoit un lien, regarde une vidéo,
  * puis supprime ses réponses.
  */
+/**
+ * Why me / écran « recevoir » : l'e-mail ne donne qu'un lien ; sur la page, le visiteur fabrique son Parlomix 9:16
+ * dans son navigateur (téléphone simulé), le regarde et peut le télécharger. Le film doit contenir du son.
+ */
+async function visiteParlomixVisiteur() {
+  boiteEssai.length = 0;
+  await db.prepare("UPDATE sessions SET cree_le = ? WHERE envoi_video = 1").bind(new Date(Date.now() - 15 * 60_000).toISOString()).run();
+  const bilan = await envoyerVideosAuxVisiteurs({ ...env, AUTH_MODE: "dev" } as any);
+  assert.equal(bilan.envoyes, 1, "un e-mail pour Inès");
+  const lien = /https?:\/\/\S+#parlomix=[\w-]+/.exec(boiteEssai[0]!.texte)?.[0] ?? "";
+  assert.ok(lien.includes("/retrait/#parlomix="), `lien du Parlomix : ${lien}`);
+  const tel = await navigateur.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  const p = await tel.newPage();
+  p.on("pageerror", (e: Error) => erreurs.push(`parlomix visiteur : ${e.message}`));
+  const photo = (nom: string) => p.screenshot({ path: join(captures, `${scenario}-parlomix-${nom}.png`) });
+  await p.goto(lien.replace(/^http:\/\/[^/]+/, `http://localhost:${port}`));
+  await p.getByRole("heading", { name: "Inès, ton Parlomix" }).waitFor();
+  await photo("01-page");
+  await p.getByRole("button", { name: "Créer mon Parlomix" }).first().click();
+  await p.locator(".apercu-parlomix").waitFor();
+  await p.waitForTimeout(6000);
+  await photo("02-fabrication");
+  await p.locator("video.film-parlomix").waitFor({ timeout: 240_000 });
+  await p.waitForTimeout(800);
+  await photo("03-pret");
+  const octets = await p.evaluate(async () => {
+    const v = document.querySelector("video.film-parlomix") as HTMLVideoElement;
+    return [...new Uint8Array(await (await fetch(v.src)).arrayBuffer())];
+  });
+  const fichier = join(captures, `${scenario}-parlomix-visiteur.bin`);
+  writeFileSync(fichier, new Uint8Array(octets));
+  const flux = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "csv=p=0", fichier]).toString();
+  assert.match(flux, /audio/, "le Parlomix a du son");
+  assert.match(flux, /720,1280/, "Parlomix en 9:16");
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM journal WHERE action = 'parlomix.visiteur'").first<any>()).n, 1);
+  await tel.close();
+}
+
 async function visiteRetrait() {
   const s = await db.prepare("SELECT id FROM sessions ORDER BY cree_le LIMIT 1").first<any>();
   await db.prepare("UPDATE sessions SET email = 'camille@exemple.fr' WHERE id = ?").bind(s.id).run(); // e-mail donné à l'identification
@@ -911,6 +950,7 @@ try {
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
   if (process.env.E2E_ADMIN) await (scenario === "geely" ? visiteAdminGeely() : scenario === "pfa" ? visiteAdminPfa() : visiteAdmin());
   if (scenario === "demo" && !process.env.E2E_VIDEO) await visiteRetrait();
+  if (scenario === "whyme") await visiteParlomixVisiteur();
   if (scenario === "demo" && process.env.E2E_ADMIN && !process.env.E2E_VIDEO) await visiteSuppressionCampagne();
   if (bilanParlomix.length) console.log(JSON.stringify({ parlomix: bilanParlomix }, null, 2));
   assert.deepEqual(erreurs, [], "aucune erreur dans la page");
