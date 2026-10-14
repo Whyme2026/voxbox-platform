@@ -199,7 +199,9 @@ test("catalogue : changer de thème garde les étapes, changer de parcours garde
   assert.deepEqual(autreParcours.habillage, avecWhyme.habillage);
   assert.equal(autreParcours.theme, "whyme");
   assert.equal(autreParcours.disposition, undefined);
-  assert.deepEqual(themeDe(autreParcours), { id: "whyme", ambiance: "vive", habillage: avecWhyme.habillage });
+  assert.equal(avecWhyme.habillage.entete, "La Fabrique de l'Innovation", "le nom de l'évènement reste avec la campagne");
+  const { entete: _e, ...allure } = avecWhyme.habillage;
+  assert.deepEqual(themeDe(autreParcours), { id: "whyme", ambiance: "vive", habillage: allure });
   assert.deepEqual(parcoursDe(pfa).etapes, pfa.etapes);
   assert.equal(nomDuTheme(autreParcours, [{ id: "whyme", nom: "WhyMe" }]), "WhyMe");
   assert.equal(nomDuTheme(pfa, [{ id: "whyme", nom: "WhyMe" }]), "Propre à la campagne");
@@ -345,4 +347,16 @@ test("habillage.entete : ligne de la campagne à côté du logo du client, 60 ca
     p.habillage.entete = mauvais;
     assert.ok(validerParcours(p).some((m) => m.startsWith("habillage.entete")), `refusé : ${JSON.stringify(mauvais)}`);
   }
+});
+
+test("nom de l'évènement : propre à la campagne, il survit au changement de thème et ne se copie pas avec le thème", () => {
+  const config = { version: 1, langue: "fr", theme: "x", habillage: { entete: "Salon 2026", couleurs: { marque: "#112233" } }, etapes: [] };
+  const nouveau = { id: "y", habillage: { couleurs: { marque: "#445566" }, entete: "Autre évènement" } };
+  const c = appliquerTheme(config, nouveau);
+  assert.equal(c.habillage.entete, "Salon 2026");
+  assert.equal(c.habillage.couleurs.marque, "#445566");
+  assert.equal(themeDe(config).habillage.entete, undefined);
+  assert.equal(themeDe({ habillage: { entete: "Salon 2026" } }).habillage, undefined, "un habillage réduit à l'évènement n'est pas un thème");
+  assert.equal(appliquerTheme({ habillage: { entete: "Salon 2026" }, etapes: [] }, { id: "parlobox" }).habillage.entete, "Salon 2026", "thème neutre : l'évènement reste");
+  assert.equal(nomDuTheme({ habillage: { entete: "Salon 2026" } }, [{ id: "parlobox", nom: "Parlobox (neutre)" }]), "Parlobox (neutre)");
 });

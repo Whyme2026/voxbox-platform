@@ -160,6 +160,9 @@ test("Parlomix de la campagne PFA : « Le Salon de l'auto de {prénom} », ouver
   delete sansSignature.parlomix.signature;
   const th2 = themeDepuisCouleurs({}, sansSignature, pfa.ambiance);
   assert.equal(th2.signature, "La Fabrique de l'Innovation");
+  // En filigrane, en haut à gauche : le nom de l'évènement à la place du client (règle de base, 14/10/2026).
+  assert.equal(th2.evenement, "La Fabrique de l'Innovation");
+  assert.equal(themeDepuisCouleurs({}, { couleurs: { marque: "#112233" } }).evenement, undefined, "sans évènement : le client");
   const fin2 = planParlomix({ type: "personne", titre: "x", signature: "PFA", format: "9:16", theme: th2,
     clips: [{ id: "r1", etiquette: "Ta visite", dureeMs: 4000, segments: [[0, 4000]], sessionId: "s1" }] }).sequences.at(-1) as any;
   assert.equal(fin2.signature, true);

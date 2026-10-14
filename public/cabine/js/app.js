@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.10.1";
+const VERSION = "0.10.2";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -240,22 +240,24 @@ function appliquerHabillage() {
   if (POLICES_LARGES.has(hab.polices?.titres)) cabine.dataset.titres = "large"; else delete cabine.dataset.titres;
   cabine.toggleAttribute("data-majuscules", hab.titresMajuscules === true);
   if (config?.parcours?.disposition === "centree") cabine.dataset.disposition = "centree"; else delete cabine.dataset.disposition;
-  cabine.toggleAttribute("data-habille", Boolean(config?.parcours?.habillage));
+  // Un habillage qui ne porte que le nom de l'évènement ne change pas l'allure (le décor reste).
+  cabine.toggleAttribute("data-habille", Object.keys(config?.parcours?.habillage ?? {}).some((k) => k !== "entete"));
   fonds = new Map((hab.fonds ?? []).map((/** @type {any} */ a) => [a.id, a]));
   visuels = new Map((hab.visuels ?? []).map((/** @type {any} */ v) => [v.id, v]));
   appliquerFond(null);
 
-  // En-tête, à gauche : le logo du client (à défaut, son nom si la campagne est habillée) et la ligne de la campagne
-  // (habillage.entete). À droite, toujours, la signature « parlobox by whyme ».
-  const logo = /** @type {HTMLImageElement} */ ($("logo"));
-  const nom = $("nom-marque");
-  logo.hidden = !client?.logo_url;
-  nom.hidden = Boolean(client?.logo_url) || !config?.parcours?.habillage || !client?.nom;
-  nom.textContent = nom.hidden ? "" : client.nom;
-  if (client?.logo_url) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
+  // En-tête, à gauche (règle de base, 14/10/2026) : le nom de l'évènement (habillage.entete) s'il y en a un, seul ;
+  // sinon le logo du client (à défaut, son nom si la campagne est habillée). À droite, toujours, « parlobox by whyme ».
   const ligne = $("entete-texte");
   ligne.textContent = typeof hab.entete === "string" ? hab.entete.trim() : "";
   ligne.hidden = !ligne.textContent;
+  const evenement = !ligne.hidden;
+  const logo = /** @type {HTMLImageElement} */ ($("logo"));
+  const nom = $("nom-marque");
+  logo.hidden = evenement || !client?.logo_url;
+  nom.hidden = evenement || Boolean(client?.logo_url) || !config?.parcours?.habillage || !client?.nom;
+  nom.textContent = nom.hidden ? "" : client.nom;
+  if (!logo.hidden) { logo.src = client.logo_url; logo.alt = client.nom ?? ""; }
   // Ambiance graphique du parcours (« conversation » par défaut) et textes fixes au vouvoiement ou au tutoiement.
   const ambiance = ["pop", "marine", "vive"].includes(config?.parcours?.ambiance) ? config.parcours.ambiance : "conversation";
   document.documentElement.dataset.ambiance = ambiance;

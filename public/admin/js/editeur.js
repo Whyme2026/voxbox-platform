@@ -210,6 +210,7 @@ export function editeurParcours(o) {
     ambiance = ambianceConnue(c.ambiance);
     tutoiement = c.tutoiement === true;
     habillage = structuredClone(c.habillage);
+    champEvenement.value = habillage?.entete ?? "";
     choixAmbiance.value = ambiance;
     caseTutoiement.checked = tutoiement;
   };
@@ -222,6 +223,15 @@ export function editeurParcours(o) {
   choixAmbiance.addEventListener("change", () => { ambiance = choixAmbiance.value; delete autres.theme; dessinerTheme(); changer(); });
   const caseTutoiement = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", id: "ed-tutoiement", checked: tutoiement, disabled: o.lectureSeule === true }));
   caseTutoiement.addEventListener("change", () => { tutoiement = caseTutoiement.checked; changer(); });
+  // Nom de l'évènement (habillage.entete) : seul en haut à gauche de chaque écran, à la place du logo du client.
+  const champEvenement = /** @type {HTMLInputElement} */ (h("input", { type: "text", id: "ed-evenement", maxlength: "60", value: habillage?.entete ?? "",
+    placeholder: "Ex. La Fabrique de l'Innovation", disabled: o.lectureSeule === true }));
+  champEvenement.addEventListener("input", () => {
+    const v = champEvenement.value.trim();
+    if (v) habillage = { ...(habillage ?? {}), entete: v };
+    else if (habillage) { delete habillage.entete; if (!Object.keys(habillage).length) habillage = undefined; }
+    changer();
+  });
 
   // Thème (l'allure) et parcours (le déroulé) se choisissent séparément : changer l'un ne touche pas à l'autre.
   const nomTheme = h("strong", { class: "nom-theme" });
@@ -257,6 +267,7 @@ export function editeurParcours(o) {
   const reglages = h("div", { class: "pile", style: "gap: 14px" },
     blocTheme,
     blocParcours,
+    h("label", { class: "champ", for: "ed-evenement" }, "Nom de l'évènement (remplace le logo du client en haut à gauche)", champEvenement),
     h("label", { class: "case-admin", for: "ed-tutoiement" }, caseTutoiement, "Tutoyer le visiteur (textes fixes de la cabine)"));
   const verification = h("div", { class: "verification" });
   const enregistrer = /** @type {HTMLButtonElement} */ (h("button", { type: "button", class: "bouton action", disabled: true }, "Enregistrer la version"));

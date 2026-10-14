@@ -25,9 +25,16 @@ export function themeDe(/** @type {any} */ config) {
   const t = {};
   if (typeof config?.theme === "string") t.id = config.theme;
   if (config?.ambiance) t.ambiance = config.ambiance;
-  if (config?.habillage) t.habillage = structuredClone(config.habillage);
+  if (config?.habillage) {
+    // Le nom de l'évènement appartient à la campagne, pas au thème : il ne se copie pas.
+    const { entete: _evenement, ...reste } = config.habillage;
+    if (Object.keys(reste).length) t.habillage = structuredClone(reste);
+  }
   return t;
 }
+
+/** Habillage qui ne porte que le nom de l'évènement : sans effet sur l'allure (thème neutre). */
+export const seulementEvenement = (/** @type {any} */ habillage) => Boolean(habillage) && Object.keys(habillage).every((k) => k === "entete");
 
 /** Le parcours d'une configuration, sans son thème. */
 export function parcoursDe(/** @type {any} */ config) {
@@ -44,10 +51,14 @@ export function parcoursDe(/** @type {any} */ config) {
  */
 export function appliquerTheme(/** @type {any} */ config, /** @type {Theme} */ theme) {
   const c = structuredClone(config ?? {});
+  // Le nom de l'évènement (habillage.entete) est propre à la campagne : il survit au changement de thème.
+  const evenement = typeof c.habillage?.entete === "string" ? c.habillage.entete : undefined;
   for (const k of CLES_THEME) delete c[k];
   if (theme.id) c.theme = theme.id;
   if (theme.ambiance && theme.ambiance !== "conversation") c.ambiance = theme.ambiance;
   if (theme.habillage) c.habillage = structuredClone(theme.habillage);
+  if (c.habillage) delete c.habillage.entete;
+  if (evenement) c.habillage = { ...(c.habillage ?? {}), entete: evenement };
   const fonds = new Set((theme.habillage?.fonds ?? []).map((/** @type {any} */ f) => f.id));
   const visuels = new Set((theme.habillage?.visuels ?? []).map((/** @type {any} */ v) => v.id));
   const nettoyer = (/** @type {any} */ x, /** @type {boolean} */ etape) => {
@@ -82,6 +93,6 @@ export function appliquerParcours(/** @type {any} */ config, /** @type {Parcours
 export function nomDuTheme(config, themes) {
   const t = themes.find((x) => x.id === config?.theme);
   if (t) return t.nom;
-  if (!config?.habillage && (!config?.ambiance || config.ambiance === "conversation")) return themes.find((x) => x.id === "parlobox")?.nom ?? "Parlobox (neutre)";
+  if ((!config?.habillage || seulementEvenement(config.habillage)) && (!config?.ambiance || config.ambiance === "conversation")) return themes.find((x) => x.id === "parlobox")?.nom ?? "Parlobox (neutre)";
   return "Propre à la campagne";
 }

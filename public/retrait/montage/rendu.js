@@ -237,18 +237,19 @@ export function dessinerFiligranes(ctx, th, logo) {
   ctx.globalAlpha = 1;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  // Le client.
-  if (logo && logo.complete && logo.naturalWidth) {
+  // En haut à gauche : le nom de l'évènement s'il y en a un, seul ; sinon le client (logo, à défaut son nom).
+  const nomGauche = th.evenement ?? (logo && logo.complete && logo.naturalWidth ? null : th.client);
+  if (nomGauche) {
+    ctx.font = policeTitre(th, h * 0.5);
+    const nom = casse(th, nomGauche);
+    pastille(marge, ctx.measureText(nom).width + 2 * pad);
+    ctx.fillStyle = th.texte;
+    ctx.fillText(nom, marge + pad, marge + h / 2);
+  } else if (logo && logo.complete && logo.naturalWidth) {
     const hl = h - 2 * pad;
     const ll = Math.min(u * 0.3, (logo.naturalWidth / logo.naturalHeight) * hl);
     pastille(marge, ll + 2 * pad);
     ctx.drawImage(logo, marge + pad, marge + pad, ll, ll / (logo.naturalWidth / logo.naturalHeight));
-  } else if (th.client) {
-    ctx.font = policeTitre(th, h * 0.5);
-    const nom = casse(th, th.client);
-    pastille(marge, ctx.measureText(nom).width + 2 * pad);
-    ctx.fillStyle = th.texte;
-    ctx.fillText(nom, marge + pad, marge + h / 2);
   }
   // La plateforme : son logo « parlobox by whyme ».
   const corps = h * 0.42;

@@ -9,7 +9,7 @@
  *   marque: string, parole: string, fond: string, texte: string, surMarque: string, surParole: string,
  *   habille?: boolean, bulle?: string, surBulle?: string, policeTitres?: string, policeTexte?: string,
  *   titresLarges?: boolean, majuscules?: boolean, fonds?: Record<string, FondTheme>,
- *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string, client?: string, signature?: string
+ *   jingle?: Jingle, ouverture?: string, fondOuverture?: string, visuelOuverture?: string, client?: string, signature?: string, evenement?: string
  * }} Theme  couleurs de la campagne ; avec un habillage : polices, bulles, capitales, fonds (fonds des cartes),
  *   jingle et titre d'ouverture du Parlomix par personne (habillage.parlomix) ; client : son nom (filigrane sans logo) ;
  *   signature : ligne de l'écran de fin « signature » (ex. « La Fabrique de l'Innovation »)
@@ -71,6 +71,9 @@ export function themeDepuisCouleurs(couleurs, habillage = null, ambiance = "conv
   /** @type {Theme} */
   const theme = { marque, parole, fond: choisir("fond", defaut.fond), texte: choisir("texte", defaut.texte), surMarque: contraste(marque), surParole: contraste(parole) };
   if (!habillage || typeof habillage !== "object") return theme;
+  // Le nom de l'évènement remplace le client en filigrane, en haut à gauche (même règle que la cabine, 14/10/2026).
+  if (typeof habillage.entete === "string" && habillage.entete.trim()) theme.evenement = habillage.entete.trim();
+  if (Object.keys(habillage).every((k) => k === "entete")) return theme;
   theme.habille = true;
   if (typeof hc.bulle === "string" && HEX.test(hc.bulle)) { theme.bulle = hc.bulle; theme.surBulle = contraste(hc.bulle); }
   const titres = POLICES[/** @type {keyof typeof POLICES} */ (habillage.polices?.titres)];

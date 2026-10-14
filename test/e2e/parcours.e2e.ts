@@ -378,7 +378,10 @@ async function scenarioPfa() {
   assert.equal(await page.evaluate(() => document.fonts.check('700 40px "Barlow Condensed"')), true, "Barlow Condensed chargée");
   assert.equal(await page.evaluate(() => document.fonts.check('400 20px "Barlow"')), true, "Barlow chargée");
   // En-tête : à gauche le client et la ligne de la campagne, à droite « parlobox by whyme » ; plus de pied de page.
-  assert.equal(await page.locator("#entete-texte").innerText(), "La Fabrique de l'Innovation".toUpperCase(), "ligne de la campagne à côté du client");
+  assert.equal(await page.locator("#entete-texte").innerText(), "La Fabrique de l'Innovation".toUpperCase(), "nom de l'évènement en haut à gauche");
+  // Règle de base (14/10/2026) : avec un nom d'évènement, ni le logo ni le nom du client en haut à gauche.
+  assert.equal(await page.locator("#logo").isVisible(), false, "pas de logo du client");
+  assert.equal(await page.locator("#nom-marque").isVisible(), false, "pas de nom du client");
   assert.equal(await page.locator("#signature").isVisible(), true, "signature parlobox by whyme");
   const [gauche, droite] = await page.evaluate(() => ["entete-texte", "signature"].map((id) => document.getElementById(id)?.getBoundingClientRect().x ?? 0));
   assert.ok(gauche < 400 && droite > 900, "client à gauche, signature à droite");

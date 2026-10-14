@@ -120,8 +120,8 @@ button { font: inherit; color: inherit; }
 }
 .entete { grid-area: entete; position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; min-height: 44px; }
 .logo { max-height: 48px; max-width: 220px; object-fit: contain; }
-/* Ligne de la campagne, à côté du logo du client (habillage.entete), séparée par un filet. */
-.entete-texte { padding-left: 14px; border-left: 2px solid var(--trait); font-family: var(--titres); font-weight: 600; font-size: clamp(16px, 2.6vmin, 20px); line-height: 1.15; }
+/* Nom de l'évènement (habillage.entete) : seul en haut à gauche, à la place du logo du client (14/10/2026). */
+.entete-texte { font-family: var(--titres); font-weight: 700; font-size: clamp(17px, 2.8vmin, 22px); line-height: 1.15; }
 .cabine[data-majuscules] .entete-texte { text-transform: uppercase; letter-spacing: .04em; }
 /* Signature « parlobox by whyme », en haut à droite de tous les écrans, aux codes whyme : texte seul, minuscules,
    Inter, « me » en fuchsia (#C4007A). Fixe : elle ne prend ni les couleurs ni les polices de la campagne ; sur fond

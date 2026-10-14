@@ -126,6 +126,10 @@ de l'Auto 2026 : Barlow, dégradé rouge-indigo, rayons et voiture au trait, dis
   (`fondsEcrans`), ouverture du Parlomix sur « geste » (magenta → prune). Avec le parcours `demo-fun` (déroulé de
   « Feedbackpost debrief » : accueil aux bulles en grand **sans logo client** (`accueil.masquerClient`), accord sur
   l'écran du prénom, **« Recevoir ma vidéo »**, cadrage à 3 conseils, questions centrées, 10 s de lecture, fin).
+- **En haut à gauche : l'évènement, seul** (règle de base de toutes les campagnes, 14/10/2026, cabine 0.10.2) : si la
+  campagne a un nom d'évènement (`habillage.entete`, champ « Nom de l'évènement » de l'éditeur), il s'affiche seul,
+  sans logo ni nom du client ; sinon, le logo du client (à défaut son nom). Même règle pour le filigrane du Parlomix.
+  Le nom de l'évènement appartient à la campagne : il survit au changement de thème et ne se copie pas avec un thème.
 - **Gabarit commun de la cabine** (débrief « Feedbackpost debrief », 14/10/2026, cabine 0.8.0), valable pour toutes les
   campagnes : en-tête avec, à gauche, le logo du client et la ligne de la campagne (`habillage.entete`, 60 caractères
   au plus, ex. « La Fabrique de l'Innovation ») ; à droite, les repères puis la signature fixe « parlobox by whyme »
