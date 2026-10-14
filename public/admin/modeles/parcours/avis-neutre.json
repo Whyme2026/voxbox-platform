@@ -1,6 +1,7 @@
 {
-  "version": 1,
-  "langue": "fr",
+  "id": "avis-neutre",
+  "nom": "Avis : 5 questions (vouvoiement)",
+  "description": "Le parcours neutre Parlobox : accueil, prénom et e-mail facultatif, mode d'emploi et accord, 5 questions, fin.",
   "etapes": [
     {
       "id": "accueil",

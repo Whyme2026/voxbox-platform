@@ -10,11 +10,13 @@ import type { Routeur } from "../routeur.ts";
 import type { Env } from "../types.ts";
 import { HttpError, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { envoyerCourriel } from "../courriel.ts";
-import { journaliser } from "../journal.ts";
+import { journaliser, ligneJournal } from "../journal.ts";
 import { servirVideo } from "../media.ts";
 import { retirerAccord, retirerDiffusion, sessionPour } from "../rgpd/retrait.ts";
 
 const VISITEUR = "visiteur (accès par e-mail)";
+/** Adresse pour demander la suppression, quand le visiteur n'a pas d'e-mail (fin.contact par défaut). */
+export const CONTACT_PAR_DEFAUT = "contact@parlobox.com";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const DUREE_LIEN_MIN = 60;
 export const DEMANDES_PAR_HEURE = 3;
@@ -69,9 +71,9 @@ export function routesAcces(r: Routeur): void {
     const now = maintenant();
     const ilYaUnJour = new Date(Date.now() - 24 * 3600_000).toISOString();
     const ilYaUneHeure = new Date(Date.now() - 3600_000).toISOString();
-    // Ménage : rien n'est gardé plus d'un jour.
-    await ctx.env.DB.prepare("DELETE FROM acces_visiteur WHERE cree_le < ?").bind(ilYaUnJour).run();
-    const recentes = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM acces_visiteur WHERE email = ? AND cree_le >= ?").bind(email, ilYaUneHeure).first<{ n: number }>();
+    // Ménage : une demande n'est pas gardée plus d'un jour ; un lien envoyé avec les vidéos, jusqu'à son expiration.
+    await ctx.env.DB.prepare("DELETE FROM acces_visiteur WHERE (motif = 'demande' AND cree_le < ?) OR expire_le < ?").bind(ilYaUnJour, now).run();
+    const recentes = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM acces_visiteur WHERE email = ? AND cree_le >= ? AND motif = 'demande'").bind(email, ilYaUneHeure).first<{ n: number }>();
     if ((recentes?.n ?? 0) >= DEMANDES_PAR_HEURE) return json({ message: MESSAGE });
     const s = await ctx.env.DB.prepare("SELECT prenom FROM sessions WHERE email = ? AND retiree_le IS NULL ORDER BY cree_le DESC LIMIT 1").bind(email).first<{ prenom: string }>();
     const jeton = nouveauJeton();
@@ -142,4 +144,93 @@ export function routesAcces(r: Routeur): void {
     await retirerAccord(ctx.env, VISITEUR, s, "visiteur");
     return json({ retrait: "tout" });
   });
+}
+
+// ------------------------------------------------------------------ e-mail « tes vidéos » (écran « recevoir »)
+
+/** Lien envoyé avec les vidéos : valable 30 jours (ensuite, le QR code extérieur ou l'adresse de contact). */
+export const DUREE_LIEN_VIDEO_JOURS = 30;
+/** Délai avant l'envoi : le temps que le visiteur termine et que la tablette envoie ses vidéos. */
+export const DELAI_ENVOI_VIDEO_MIN = 10;
+const ENVOIS_PAR_PASSAGE = 25;
+
+const echapper = (t: string) => t.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]!);
+
+/** E-mail envoyé au visiteur qui a demandé ses vidéos : les voir, et changer d'avis (diffusion, suppression). */
+export function messageVideos(o: { prenom: string; marque: string; lien: string; tutoiement: boolean; diffusion: boolean; contact: string }) {
+  const tu = o.tutoiement;
+  const bonjour = o.prenom ? `${tu ? "Salut" : "Bonjour"} ${o.prenom},` : "Bonjour,";
+  const intro = tu ? `Merci d'avoir joué le jeu de la cabine Parlobox ${o.marque} ! Tes vidéos sont prêtes.`
+    : `Merci d'avoir répondu dans la cabine Parlobox ${o.marque} ! Vos vidéos sont prêtes.`;
+  const voir = tu ? "Voir mes vidéos" : "Voir mes vidéos";
+  const avis = tu
+    ? `Tu changes d'avis ? Depuis ce même lien, tu peux ${o.diffusion ? "retirer ton accord pour les réseaux sociaux, ou " : ""}supprimer tes vidéos, à tout moment.`
+    : `Vous changez d'avis ? Depuis ce même lien, vous pouvez ${o.diffusion ? "retirer votre accord pour les réseaux sociaux, ou " : ""}supprimer vos vidéos, à tout moment.`;
+  const duree = tu
+    ? `Le lien est valable ${DUREE_LIEN_VIDEO_JOURS} jours. Ensuite, écris à ${o.contact} pour toute demande.`
+    : `Le lien est valable ${DUREE_LIEN_VIDEO_JOURS} jours. Ensuite, écrivez à ${o.contact} pour toute demande.`;
+  const texte = `${bonjour}\n\n${intro}\n\n${voir} : ${o.lien}\n\n${avis}\n${duree}\n\nParlobox by whyme`;
+  const html = `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;line-height:1.5;color:#303136;max-width:520px">
+<p style="font-size:20px;font-weight:700;color:#242841;margin:0 0 12px">${echapper(bonjour)}</p>
+<p>${echapper(intro)}</p>
+<p><a href="${echapper(o.lien)}" style="display:inline-block;padding:13px 24px;border-radius:24px 24px 6px 24px;background:#C4007A;color:#FFFFFF;text-decoration:none;font-weight:700">${voir}</a></p>
+<p>${echapper(avis)}</p>
+<p style="color:#6B6D75;font-size:14px">${echapper(duree)}</p>
+<p style="color:#6B6D75;font-size:14px">parlobox <span style="font-size:12px">by</span> <b>why<span style="color:#C4007A">me</span></b></p></div>`;
+  return { texte, html };
+}
+
+/**
+ * Tâche planifiée : envoie leur lien aux visiteurs qui ont laissé leur e-mail sur l'écran « recevoir », une fois
+ * leurs vidéos reçues (10 minutes après le passage). Sans service d'e-mail configuré, rien ne part et rien n'est
+ * marqué : l'envoi se fera dès que Brevo sera branché. Un passage sans vidéo au bout d'un jour est abandonné.
+ */
+export async function envoyerVideosAuxVisiteurs(env: Env): Promise<{ envoyes: number; abandonnes: number; erreurs: number }> {
+  const bilan = { envoyes: 0, abandonnes: 0, erreurs: 0 };
+  if (!env.BREVO_CLE && env.AUTH_MODE !== "dev") return bilan;
+  const avant = new Date(Date.now() - DELAI_ENVOI_VIDEO_MIN * 60_000).toISOString();
+  const { results } = await env.DB.prepare(
+    `SELECT s.id, s.prenom, s.email, s.cree_le, s.consent_diffusion, s.envoi_video_origine, s.parcours_version_id, cl.nom AS marque, ca.client_id,
+            (SELECT COUNT(*) FROM reponses r WHERE r.session_id = s.id AND r.cle_source IS NOT NULL) AS videos
+       FROM sessions s JOIN campagnes ca ON ca.id = s.campagne_id JOIN clients cl ON cl.id = ca.client_id
+      WHERE s.envoi_video = 1 AND s.envoi_video_le IS NULL AND s.email IS NOT NULL AND s.retiree_le IS NULL AND s.purgee_le IS NULL
+        AND s.cree_le <= ? ORDER BY s.cree_le LIMIT ?`,
+  ).bind(avant, ENVOIS_PAR_PASSAGE).all<{ id: string; prenom: string; email: string; cree_le: string; consent_diffusion: number; envoi_video_origine: string | null; parcours_version_id: string; marque: string; client_id: string; videos: number }>();
+  const unJour = new Date(Date.now() - 24 * 3600_000).toISOString();
+  for (const s of results) {
+    const now = maintenant();
+    if (!s.videos) {
+      // Les vidéos peuvent arriver tard (tablette restée hors ligne) ; au bout d'un jour, on n'attend plus.
+      if (s.cree_le < unJour) {
+        await env.DB.prepare("UPDATE sessions SET envoi_video_le = ? WHERE id = ?").bind(now, s.id).run();
+        bilan.abandonnes++;
+      }
+      continue;
+    }
+    try {
+      const v = await env.DB.prepare("SELECT config FROM parcours_versions WHERE id = ?").bind(s.parcours_version_id).first<{ config: string }>();
+      const parcours = v ? JSON.parse(v.config) as { tutoiement?: boolean; etapes?: { type: string; contact?: string }[] } : {};
+      const contact = parcours.etapes?.find((e) => e.type === "fin")?.contact ?? CONTACT_PAR_DEFAUT;
+      const jeton = nouveauJeton();
+      const expire = new Date(Date.now() + DUREE_LIEN_VIDEO_JOURS * 24 * 3600_000).toISOString();
+      // Le jeton est noté avant l'envoi : un e-mail parti donne toujours un lien valable.
+      await env.DB.prepare("INSERT INTO acces_visiteur (id, email, jeton_empreinte, cree_le, expire_le, envoye, motif) VALUES (?, ?, ?, ?, ?, 1, 'video')")
+        .bind(nouvelId(), s.email, await empreinte(jeton), now, expire).run();
+      const lien = `${s.envoi_video_origine ?? ""}/retrait/#acces=${jeton}`;
+      await envoyerCourriel(env, {
+        a: s.email,
+        sujet: parcours.tutoiement ? `${s.prenom}, tes vidéos Parlobox sont prêtes` : "Vos vidéos Parlobox sont prêtes",
+        ...messageVideos({ prenom: s.prenom, marque: s.marque, lien, tutoiement: parcours.tutoiement === true, diffusion: Boolean(s.consent_diffusion), contact }),
+      });
+      await env.DB.batch([
+        env.DB.prepare("UPDATE sessions SET envoi_video_le = ? WHERE id = ?").bind(now, s.id),
+        ligneJournal(env.DB, "plateforme", { action: "session.envoi_videos", cibleType: "session", cibleId: s.id, clientId: s.client_id }),
+      ]);
+      bilan.envoyes++;
+    } catch (e) {
+      console.warn("Parlobox, envoi des vidéos au visiteur", s.id, String(e));
+      bilan.erreurs++;
+    }
+  }
+  return bilan;
 }

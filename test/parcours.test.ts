@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { diffusionProposee, questions, validerParcours, type Parcours } from "../src/parcours/schema.ts";
+import { diffusionProposee, envoiVideoPropose, questions, validerParcours, type Parcours } from "../src/parcours/schema.ts";
+import { appliquerParcours, appliquerTheme, nomDuTheme, parcoursDe, themeDe } from "../public/admin/js/catalogue.js";
 
 const auto = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-automobile.json"), "utf8")) as Parcours;
 const copie = (): Parcours => structuredClone(auto);
@@ -134,27 +135,32 @@ test("les bulles d'accueil sont limitées à 3 textes courts", () => {
   assert.ok(validerParcours(demo).some((p) => p.includes("bulles")));
 });
 
-test("le modèle « parcours neutre » de l'éditeur est identique au parcours de démonstration", () => {
-  const demo = readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8");
-  const modele = readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours-neutre.json"), "utf8");
-  assert.deepEqual(JSON.parse(modele), JSON.parse(demo));
+test("catalogue : le parcours type « avis neutre » reprend le parcours de démonstration", () => {
+  const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
+  const type = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours/avis-neutre.json"), "utf8"));
+  assert.deepEqual(type.etapes, demo.etapes);
 });
 
-test("thème de base WhyMe : modèle de l'éditeur, valide, déroulé de la campagne PFA et charte WhyMe", () => {
+test("thème de base WhyMe = thème « whyme » du catalogue + parcours type « démo fun », valide", () => {
   const base = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-whyme-base.json"), "utf8"));
-  const modele = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours-whyme-base.json"), "utf8"));
-  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
-  assert.deepEqual(modele, base);
+  const theme = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/themes/whyme.json"), "utf8"));
+  const type = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours/demo-fun.json"), "utf8"));
+  assert.deepEqual(appliquerTheme(appliquerParcours({ version: 1, langue: "fr" }, type), theme), base);
   assert.deepEqual(validerParcours(base), []);
-  // Même déroulé et mêmes réglages d'écran que la campagne de référence.
-  assert.deepEqual(base.etapes.map((e: any) => e.type), pfa.etapes.map((e: any) => e.type));
+  assert.equal(base.theme, "whyme");
+  assert.equal(base.ambiance, "vive");
   assert.equal(base.disposition, "centree");
   assert.equal(base.tutoiement, true);
+  // Déroulé : accueil sans logo client, prénom et accord, recevoir sa vidéo (avec la diffusion), cadrage, 4 questions, fin.
+  assert.deepEqual(base.etapes.map((e: any) => e.type), ["accueil", "identification", "recevoir", "cadrage", "question", "question", "question", "question", "fin"]);
+  assert.equal(base.etapes[0].masquerClient, true);
+  assert.equal(base.etapes.find((e: any) => e.type === "recevoir").proposerDiffusion, true);
+  assert.equal(base.etapes.find((e: any) => e.type === "fin").contact, "contact@parlobox.com");
+  assert.ok(base.etapes.every((e: any) => e.fond === undefined), "aucun fond dans le parcours : c'est le thème qui les donne");
+  assert.deepEqual(base.habillage.fondsEcrans, { fin: "nuit" });
   const questions = base.etapes.filter((e: any) => e.type === "question");
   assert.ok(questions.every((q: any) => q.compteARebours === 10 && q.intitulePistes === "" && q.mentionTemps?.includes("{lecture}")));
-  const cadrage = base.etapes.find((e: any) => e.type === "cadrage");
-  assert.equal(cadrage.conseils.length, 3);
-  assert.equal(base.etapes.find((e: any) => e.type === "identification").accord, true);
+  assert.equal(base.etapes.find((e: any) => e.type === "cadrage").conseils.length, 3);
   // Charte WhyMe : Inter, navy pour la marque, magenta pour le visiteur, aucune capitale forcée.
   assert.deepEqual(base.habillage.polices, { titres: "inter", texte: "inter" });
   assert.equal(base.habillage.couleurs.marque, "#242841");
@@ -162,11 +168,72 @@ test("thème de base WhyMe : modèle de l'éditeur, valide, déroulé de la camp
   assert.equal(base.habillage.titresMajuscules, false);
 });
 
+test("catalogue : chaque thème et chaque parcours type, combinés, donnent un parcours valide", () => {
+  const dossier = join(import.meta.dirname, "../public/admin/modeles");
+  const cat = JSON.parse(readFileSync(join(dossier, "catalogue.json"), "utf8"));
+  assert.ok(cat.themes.length >= 4 && cat.parcours.length >= 2);
+  for (const t of cat.themes) {
+    const theme = JSON.parse(readFileSync(join(dossier, "themes", `${t.id}.json`), "utf8"));
+    assert.equal(theme.id, t.id);
+    assert.ok(Object.keys(theme).every((k) => ["id", "nom", "description", "ambiance", "habillage"].includes(k)), `${t.id} : un thème n'a que l'allure`);
+    for (const p of cat.parcours) {
+      const type = JSON.parse(readFileSync(join(dossier, "parcours", `${p.id}.json`), "utf8"));
+      assert.equal(type.id, p.id);
+      assert.ok(type.ambiance === undefined && type.habillage === undefined, `${p.id} : un parcours type n'a pas d'allure`);
+      assert.deepEqual(validerParcours(appliquerTheme(appliquerParcours({ version: 1, langue: "fr" }, type), theme)), [], `${t.id} + ${p.id}`);
+    }
+  }
+});
+
+test("catalogue : changer de thème garde les étapes, changer de parcours garde le thème", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  const whyme = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/themes/whyme.json"), "utf8"));
+  const avecWhyme = appliquerTheme(pfa, whyme);
+  assert.deepEqual(avecWhyme.etapes.map((e: any) => e.id), pfa.etapes.map((e: any) => e.id));
+  assert.equal(avecWhyme.habillage.couleurs.visiteur, "#C4007A");
+  assert.equal(avecWhyme.disposition, "centree");
+  // Les fonds et visuels propres à la PFA, inconnus du thème WhyMe, sont retirés : le parcours reste valide.
+  assert.deepEqual(validerParcours(avecWhyme), []);
+  const neutre = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/parcours/avis-neutre.json"), "utf8"));
+  const autreParcours = appliquerParcours(avecWhyme, neutre);
+  assert.deepEqual(autreParcours.habillage, avecWhyme.habillage);
+  assert.equal(autreParcours.theme, "whyme");
+  assert.equal(autreParcours.disposition, undefined);
+  assert.deepEqual(themeDe(autreParcours), { id: "whyme", ambiance: "vive", habillage: avecWhyme.habillage });
+  assert.deepEqual(parcoursDe(pfa).etapes, pfa.etapes);
+  assert.equal(nomDuTheme(autreParcours, [{ id: "whyme", nom: "WhyMe" }]), "WhyMe");
+  assert.equal(nomDuTheme(pfa, [{ id: "whyme", nom: "WhyMe" }]), "Propre à la campagne");
+});
+
+test("écran « recevoir », accueil sans client, contact de fin, fonds par écran : contrôlés", () => {
+  const base = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-whyme-base.json"), "utf8"));
+  const copie = () => structuredClone(base);
+  let p = copie(); p.etapes.find((e: any) => e.type === "recevoir").bouton = "";
+  assert.ok(validerParcours(p).some((x) => x.includes("bouton")));
+  p = copie(); const [rec] = p.etapes.splice(2, 1); p.etapes.splice(1, 0, rec);
+  assert.ok(validerParcours(p).some((x) => x.includes("après l'accord")), "pas d'e-mail avant l'accord");
+  p = copie(); p.etapes[0].masquerClient = "oui";
+  assert.ok(validerParcours(p).some((x) => x.includes("masquerClient")));
+  p = copie(); p.etapes.at(-1).contact = "pas une adresse";
+  assert.ok(validerParcours(p).some((x) => x.includes("contact")));
+  p = copie(); p.habillage.fondsEcrans = { fin: "inconnu" };
+  assert.ok(validerParcours(p).some((x) => x.includes("fondsEcrans.fin")));
+  p = copie(); p.habillage.fondsEcrans = { ecran: "nuit" };
+  assert.ok(validerParcours(p).some((x) => x.includes("type d'écran inconnu")));
+  p = copie(); p.theme = "Pas Valide";
+  assert.ok(validerParcours(p).some((x) => x.startsWith("theme")));
+  assert.equal(diffusionProposee(base), true, "la diffusion proposée sur l'écran « recevoir » compte");
+  assert.equal(envoiVideoPropose(base), true);
+  const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
+  assert.equal(envoiVideoPropose(demo), false);
+});
+
 test("ambiance et tutoiement : facultatifs, valeurs contrôlées", () => {
   const demo = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-demo.json"), "utf8"));
   assert.deepEqual(validerParcours({ ...demo, ambiance: "pop", tutoiement: true }), []);
   assert.deepEqual(validerParcours({ ...demo, ambiance: "conversation", tutoiement: false }), []);
   assert.deepEqual(validerParcours({ ...demo, ambiance: "marine" }), []);
+  assert.deepEqual(validerParcours({ ...demo, ambiance: "vive" }), []);
   assert.ok(validerParcours({ ...demo, ambiance: "disco" }).some((p) => p.includes("ambiance")));
   assert.ok(validerParcours({ ...demo, tutoiement: "oui" }).some((p) => p.includes("tutoiement")));
 });

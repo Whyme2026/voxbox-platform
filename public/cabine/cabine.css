@@ -376,7 +376,9 @@ button { font: inherit; color: inherit; }
     width: calc((100dvh - var(--hors-camera)) * var(--format-camera-n)); max-width: 62vw; }
   [data-disposition="centree"] .ecran-question .droite > .zone-camera { grid-column: 2; grid-row: 2; transition: width .35s ease;
     width: calc((100dvh - var(--hors-camera)) * var(--format-camera-n)); max-width: 62vw; }
-  [data-disposition="centree"] .ecran-question .droite > .actions { grid-column: 3; grid-row: 2; align-self: end; width: auto; max-width: 240px; }
+  [data-disposition="centree"] .ecran-question .droite > .actions { grid-column: 3; grid-row: 2; align-self: end; width: auto; max-width: none; }
+  /* Sur une ligne (« Je suis prêt », « Question suivante ») : la taille suit la largeur de l'écran pour tenir à côté de l'image. */
+  [data-disposition="centree"] .ecran-question .droite > .actions .bouton { white-space: nowrap; font-size: min(var(--bouton), 2.05vw); padding: 0 1.1em; }
   [data-disposition="centree"] .ecran-question[data-phase="rec"] .titre-court,
   [data-disposition="centree"] .ecran-question[data-phase="rec"] .aide .intitule,
   [data-disposition="centree"] .ecran-question[data-phase="rec"] .coup-de-pouce { display: none; }
@@ -495,6 +497,22 @@ button { font: inherit; color: inherit; }
 .retrait .picto-qr { flex: none; width: clamp(44px, 7vmin, 56px); height: auto; color: var(--accent); }
 .texte-retrait { display: flex; flex-direction: column; gap: 4px; font-size: clamp(15px, 2.5vmin, 18px); line-height: 1.35; color: var(--texte-doux); }
 .texte-retrait strong { color: var(--texte); font-family: var(--titres); font-weight: 600; font-size: 1.15em; }
+
+/* Accueil sans le client (accueil.masquerClient) : l'en-tête garde sa hauteur, seuls le logo et la ligne s'effacent. */
+.cabine[data-sans-client] :is(.logo, .nom-marque, .entete-texte) { visibility: hidden; }
+
+/* « Recevoir ma vidéo » (étape recevoir) : comme l'écran du prénom, l'e-mail en bulle du visiteur, le clavier à côté,
+   l'accord de diffusion et les deux boutons dessous. */
+.ecran-recevoir .champ.visiteur .valeur { font-size: clamp(22px, 4.2vmin, 32px); overflow-wrap: anywhere; }
+.accord-diffusion .precision-diffusion { margin: 0 0 0 40px; font-size: 13px; line-height: 1.4; color: var(--texte-doux); }
+.sous-clavier .actions.droite .bouton.secondaire { margin-right: 0; }
+/* Le clavier de l'e-mail a une ligne de plus (chiffres) : en paysage, il prend plus de hauteur que ce qu'il y a dessous. */
+@media (orientation: landscape) {
+  .cabine[data-ecran="recevoir"]:has(.clavier:not(:empty)) { grid-template-rows: auto minmax(0, 1.3fr) minmax(0, .7fr); }
+}
+/* Fin : l'adresse (e-mail du visiteur ou contact) bien lisible. */
+.texte-retrait .adresse { color: var(--parole); font-weight: 700; font-size: 1.05em; overflow-wrap: anywhere; }
+.cabine[data-fond-sombre] .carte .texte-retrait .adresse { color: var(--parole); }
 
 /* =============================================================== ambiance « pop »
    Version festive, pour les animations ludiques (parcours avec "ambiance": "pop").
@@ -818,3 +836,83 @@ button { font: inherit; color: inherit; }
   :root[data-ambiance="marine"] .cabine::before, :root[data-ambiance="marine"] .cabine::after,
   :root[data-ambiance="marine"] .compte-bulle, :root[data-ambiance="marine"] .actions.droite.arrive .bouton { animation: none !important; }
 }
+
+/* =============================================================== ambiance « vive » (14/10/2026)
+   La conversation, avec plus de relief et de couleur. Même gabarit, mêmes emplacements : seules les surfaces changent,
+   et toutes les couleurs viennent des jetons de la campagne (--accent : la marque, --parole : le visiteur).
+   - questions et cadrage : la marque parle dans une bulle pleine (dégradé de sa couleur, texte clair), l'étiquette
+     de la question en pastille du visiteur, les pistes en bulles teintées ;
+   - le temps : une barre fine, au dégradé du visiteur, sur un rail teinté (plus de bande sombre) ;
+   - l'image : liseré aux couleurs du visiteur, compte à rebours empilé (chiffre au-dessus, texte dessous) ;
+   - cadrage aéré : conseils en bulles teintées, pastilles en dégradé, la conclusion dite par le visiteur. */
+:root[data-ambiance="vive"] {
+  --vive-pale: color-mix(in srgb, var(--parole) 9%, #FFFFFF);
+  --vive-rail: color-mix(in srgb, var(--parole) 14%, #FFFFFF);
+  --vive-degrade: linear-gradient(90deg, var(--parole), color-mix(in srgb, var(--parole) 55%, var(--accent)));
+  --vive-bulle-haut: color-mix(in srgb, var(--accent) 88%, var(--parole));
+  --vive-bulle-bas: var(--accent);
+  --vive-ombre: 0 2px 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 22px 40px -22px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+/* Un halo très doux aux couleurs de la campagne, sur les fonds clairs unis. */
+:root[data-ambiance="vive"] .cabine:not([data-fond-sombre]):not([data-degrade]) {
+  background-image: radial-gradient(60vmax 45vmax at 104% -8%, color-mix(in srgb, var(--parole) 7%, transparent), transparent 70%);
+}
+
+/* La marque parle : bulle pleine, dégradé de sa couleur, texte clair (questions et cadrage). */
+:root[data-ambiance="vive"] :is(.ecran-question .question, .ecran-cadrage .texte-cadrage > h1.bulle) {
+  background: linear-gradient(180deg, var(--vive-bulle-haut), var(--vive-bulle-bas)); color: var(--sur-accent);
+  box-shadow: var(--vive-ombre); padding: .5em .95em .55em; letter-spacing: -0.01em;
+}
+:root[data-ambiance="vive"] :is(.ecran-question .question, .ecran-cadrage .texte-cadrage > h1.bulle)::after { background: var(--vive-bulle-bas); }
+/* L'étiquette de la question : pastille du visiteur, en capitales espacées. */
+:root[data-ambiance="vive"] .ecran-question .titre-court {
+  background: var(--parole); color: var(--sur-parole); text-transform: uppercase; letter-spacing: .1em;
+  font-size: clamp(12px, 1.9vmin, 14px); font-weight: 700; padding: 6px 14px 5px; box-shadow: 0 6px 14px -8px var(--parole);
+}
+:root[data-ambiance="vive"] .mention-temps { color: color-mix(in srgb, var(--accent) 70%, var(--fond)); font-weight: 600; }
+/* Pistes : petites bulles teintées du visiteur, avec une puce. */
+:root[data-ambiance="vive"] .pistes { gap: 10px 12px; }
+:root[data-ambiance="vive"] .pistes span {
+  display: inline-flex; align-items: center; gap: 9px; background: var(--vive-pale); color: var(--accent); box-shadow: none;
+  border: 1.5px solid color-mix(in srgb, var(--parole) 22%, #FFFFFF); border-radius: 20px 20px 20px var(--queue);
+}
+:root[data-ambiance="vive"] .pistes span::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--parole); }
+
+/* Le temps : barre fine au dégradé du visiteur sur un rail teinté ; les secondes à sa couleur. */
+:root[data-ambiance="vive"] .barre-temps { height: 8px; border-radius: 4px; background: var(--vive-rail); }
+:root[data-ambiance="vive"] .barre-temps span,
+:root[data-ambiance="vive"] .barre-temps[data-etat="rec"] span { background: var(--vive-degrade); border-radius: 4px; }
+:root[data-ambiance="vive"] .temps > span:last-child { color: var(--parole); }
+:root[data-ambiance="vive"] .retour .barre span { background: var(--vive-degrade); }
+
+/* L'image : liseré du visiteur ; pendant la prise, un halo plus franc. */
+:root[data-ambiance="vive"] .apercu { box-shadow: 0 0 0 3px var(--vive-rail), var(--vive-ombre); }
+:root[data-ambiance="vive"] .apercu[data-rec] { box-shadow: 0 0 0 4px color-mix(in srgb, var(--parole) 55%, #FFFFFF), 0 18px 40px -18px var(--parole); }
+:root[data-ambiance="vive"] .compte { flex-direction: column; gap: 12px; background: color-mix(in srgb, var(--accent) 42%, transparent); }
+:root[data-ambiance="vive"] .compte-bulle { background: var(--parole); color: var(--sur-parole); box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .45); }
+:root[data-ambiance="vive"] .compte-texte { white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+:root[data-ambiance="vive"] .rec { background: color-mix(in srgb, var(--accent) 80%, transparent); }
+
+/* Cadrage aéré : plus d'espace, conseils en bulles teintées, pastilles en dégradé, la conclusion dite par le visiteur. */
+:root[data-ambiance="vive"] .ecran-cadrage .texte-cadrage { gap: clamp(14px, 2.8vmin, 22px); }
+:root[data-ambiance="vive"] .conseils-cadrage { gap: clamp(10px, 2vmin, 16px); }
+:root[data-ambiance="vive"] .conseils-cadrage li {
+  background: var(--vive-pale); box-shadow: none; border: 1.5px solid color-mix(in srgb, var(--parole) 16%, #FFFFFF);
+  padding: clamp(12px, 2.2vmin, 16px) clamp(16px, 2.8vmin, 22px); gap: 16px; font-weight: 500; color: var(--encre);
+}
+:root[data-ambiance="vive"] .conseils-cadrage .puce {
+  background: linear-gradient(135deg, var(--parole), color-mix(in srgb, var(--parole) 50%, var(--accent))); color: #FFFFFF;
+  width: 2em; height: 2em; box-shadow: 0 6px 12px -6px var(--parole);
+}
+:root[data-ambiance="vive"] .conclusion-cadrage {
+  align-self: flex-end; margin: 4px 12px 0 0; padding: .45em .9em; border-radius: var(--rayon) var(--rayon) var(--queue) var(--rayon); position: relative;
+  background: var(--parole); color: var(--sur-parole); font-size: calc(var(--corps) * 1.2); box-shadow: 0 12px 24px -14px var(--parole);
+}
+:root[data-ambiance="vive"] .conclusion-cadrage::after { content: ""; position: absolute; bottom: 0; right: -12px; width: 26px; height: 26px; background: inherit; clip-path: path("M0 0C0 15 8 23 26 26H0Z"); }
+@media (orientation: landscape) {
+  :root[data-ambiance="vive"] .ecran-cadrage.avec-conseils { column-gap: calc(var(--gouttiere) * 1.3); }
+}
+/* Repères de progression : la question en cours au dégradé du visiteur. */
+:root[data-ambiance="vive"] .points i { height: 8px; border-radius: 4px; background: var(--vive-rail); }
+:root[data-ambiance="vive"] .points i[data-etat="fait"] { background: color-mix(in srgb, var(--parole) 45%, #FFFFFF); }
+:root[data-ambiance="vive"] .points i[data-etat="en-cours"] { background: var(--vive-degrade); }

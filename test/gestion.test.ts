@@ -181,8 +181,9 @@ test("export : CSV pour tableur, e-mail seulement si recontact accepté, export 
   const texte = new TextDecoder().decode(octets);
   const lignes = texte.trim().split("\r\n");
   assert.equal(lignes.length, 4, "en-tête + 3 visiteurs");
-  assert.match(lignes[1]!, /Camille;;camille@exemple\.fr;oui;oui;Cabine A;2;/);
-  assert.match(lignes[2]!, /Léa;;;non;non;Cabine B;2;/);
+  assert.match(lignes[0]!, /Diffusion publique;Veut recevoir ses vidéos;Cabine/);
+  assert.match(lignes[1]!, /Camille;;camille@exemple\.fr;oui;oui;non;Cabine A;2;/);
+  assert.match(lignes[2]!, /Léa;;;non;non;non;Cabine B;2;/);
   assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM journal WHERE action = 'campagne.export'").first<any>()).n, 1);
   const autre = await traiter(new Request(`http://localhost/api/espace/campagnes/${cid}/export.csv`, { headers: { "x-dev-email": "lit@beta.test" } }), env);
   assert.equal(autre.status, 404);

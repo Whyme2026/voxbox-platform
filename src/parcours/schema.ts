@@ -2,7 +2,7 @@
 // Le même moteur sert la cabine, le lien à distance et le QR code.
 // Rien ici n'est propre à un secteur : l'automobile n'est qu'un exemple de configuration.
 
-export type TypeEtape = "accueil" | "identification" | "consentement" | "cadrage" | "question" | "choix" | "pause" | "fin";
+export type TypeEtape = "accueil" | "identification" | "consentement" | "recevoir" | "cadrage" | "question" | "choix" | "pause" | "fin";
 
 interface EtapeBase {
   id: string;
@@ -29,6 +29,8 @@ export interface EtapeAccueil extends EtapeBase {
   bulles?: string[];
   /** Bulles en grand, sur une colonne plus large : quand elles portent les consignes (12/10/2026). */
   bullesGrandes?: boolean;
+  /** Sans le logo (ni le nom) du client en haut à gauche, sur cet écran seulement (14/10/2026). */
+  masquerClient?: boolean;
 }
 
 // Dans tous les textes affichés, {prenom} est remplacé par le prénom du visiteur (ou retiré s'il est inconnu).
@@ -73,6 +75,23 @@ export interface EtapeConsentement extends EtapeBase {
    */
   avecCamera?: boolean;
 }
+/**
+ * « Recevoir ma vidéo » (14/10/2026), après l'accord : le visiteur laisse, s'il le veut, son e-mail pour recevoir
+ * ses vidéos (les garder, les partager) ; c'est aussi par cet e-mail qu'il pourra changer d'avis. La case facultative
+ * de diffusion publique (réseaux sociaux) peut être proposée au même moment.
+ */
+export interface EtapeRecevoir extends EtapeBase {
+  type: "recevoir";
+  titre: string;
+  /** Petite bulle sous le titre. */
+  texte?: string;
+  /** Bouton quand l'e-mail est saisi (par défaut « Recevoir ma vidéo »). */
+  bouton: string;
+  /** Bouton pour passer sans e-mail (par défaut « Non merci »). */
+  boutonNon?: string;
+  /** Propose la case facultative de diffusion publique (réseaux sociaux, site, publicité). */
+  proposerDiffusion?: boolean;
+}
 export interface EtapeCadrage extends EtapeBase {
   type: "cadrage"; titre: string; proposerFloutage?: boolean;
   /** Bulle au-dessus du titre (ex. « On va te poser 4 questions… »). */
@@ -114,23 +133,33 @@ export interface OptionChoix {
 }
 export interface EtapeChoix extends EtapeBase { type: "choix"; titre: string; options: OptionChoix[] }
 export interface EtapePause extends EtapeBase { type: "pause"; titre: string; texte?: string; bouton: string }
-export interface EtapeFin extends EtapeBase { type: "fin"; titre: string; texte?: string; sortie?: string; retourAccueilSec?: number }
+export interface EtapeFin extends EtapeBase {
+  type: "fin"; titre: string; texte?: string; sortie?: string; retourAccueilSec?: number;
+  /**
+   * Adresse pour demander la suppression, montrée au visiteur qui n'a pas laissé d'e-mail quand le parcours propose
+   * l'écran « recevoir » (par défaut contact@parlobox.com). Le visiteur qui a laissé son e-mail est renvoyé vers
+   * l'e-mail qu'il va recevoir ; aucun des deux ne voit le rappel du QR code extérieur.
+   */
+  contact?: string;
+}
 
 export type Etape =
-  | EtapeAccueil | EtapeIdentification | EtapeConsentement | EtapeCadrage
+  | EtapeAccueil | EtapeIdentification | EtapeConsentement | EtapeRecevoir | EtapeCadrage
   | EtapeQuestion | EtapeChoix | EtapePause | EtapeFin;
 
 /**
  * Ambiance graphique de la cabine.
  * - « conversation » (par défaut) : direction artistique neutre Parlobox, fonds clairs et bulles douces ;
  * - « pop » : version festive (bande dessinée, contours épais, trames, couleurs vives), pour les animations ludiques ;
- * - « marine » : bord de mer et impertinence (bleu nuit, bouée orange, ciré jaune, vagues qui roulent en bas d'écran).
- * Les couleurs de la marque cliente restent prioritaires dans les deux cas.
+ * - « marine » : bord de mer et impertinence (bleu nuit, bouée orange, ciré jaune, vagues qui roulent en bas d'écran) ;
+ * - « vive » (14/10/2026) : la conversation avec plus de relief et de couleur (question dans une bulle pleine aux
+ *   couleurs de la marque, pastilles et conseils colorés, dégradés du visiteur sur le temps et l'image).
+ * Les couleurs de la marque cliente restent prioritaires dans tous les cas : aucune couleur propre à une marque ici.
  */
-export type Ambiance = "conversation" | "pop" | "marine";
+export type Ambiance = "conversation" | "pop" | "marine" | "vive";
 export type Disposition = "cote" | "centree";
 export const DISPOSITIONS: readonly Disposition[] = ["cote", "centree"];
-export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop", "marine"];
+export const AMBIANCES: readonly Ambiance[] = ["conversation", "pop", "marine", "vive"];
 
 /**
  * Habillage d'une campagne : ce qui donne à la cabine et aux Parlomix l'allure de la marque, sans code propre
@@ -156,6 +185,11 @@ export interface Habillage {
    */
   couleurs?: { marque?: string; bulle?: string; visiteur?: string; fond?: string; texte?: string };
   fonds?: Fond[];
+  /**
+   * Fond de chaque type d'écran (ex. { "fin": "nuit" }), parmi `fonds` (14/10/2026). Une étape qui a son propre `fond`
+   * garde le sien. Permet à un thème de donner l'allure des écrans sans toucher aux étapes du parcours.
+   */
+  fondsEcrans?: Partial<Record<TypeEtape, string>>;
   visuels?: Visuel[];
   /**
    * Parlomix de la campagne : titre d'ouverture du film par personne ({prenom} remplacé), jingle, et fond et visuel
@@ -167,6 +201,11 @@ export interface Habillage {
 export interface Parcours {
   version: 1;
   langue: string;
+  /**
+   * Thème du catalogue de Parlorama d'où viennent l'ambiance et l'habillage (ex. « whyme »), pour l'afficher
+   * (14/10/2026). Simple étiquette : ce qui s'applique, ce sont l'ambiance et l'habillage du parcours.
+   */
+  theme?: string;
   /** Ambiance graphique (par défaut « conversation »). */
   ambiance?: Ambiance;
   /** Textes fixes de la cabine au tutoiement (par défaut : vouvoiement). Les textes légaux restent au vouvoiement. */
@@ -181,7 +220,8 @@ export interface Parcours {
   etapes: Etape[];
 }
 
-const TYPES: readonly TypeEtape[] = ["accueil", "identification", "consentement", "cadrage", "question", "choix", "pause", "fin"];
+const TYPES: readonly TypeEtape[] = ["accueil", "identification", "consentement", "recevoir", "cadrage", "question", "choix", "pause", "fin"];
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ID_VALIDE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
 /** Renvoie la liste des problèmes du parcours ; liste vide = parcours valide. */
@@ -194,6 +234,7 @@ export function validerParcours(brut: unknown): string[] {
   if (p.ambiance !== undefined && !AMBIANCES.includes(p.ambiance)) pb.push(`ambiance : ${AMBIANCES.join(", ")} attendu`);
   if (p.tutoiement !== undefined && typeof p.tutoiement !== "boolean") pb.push("tutoiement : vrai ou faux");
   if (p.disposition !== undefined && !DISPOSITIONS.includes(p.disposition)) pb.push(`disposition : ${DISPOSITIONS.join(", ")} attendu`);
+  if (p.theme !== undefined && (typeof p.theme !== "string" || !ID_VALIDE.test(p.theme))) pb.push("theme : identifiant du catalogue attendu (minuscules, chiffres, - ou _)");
   if (!Array.isArray(p.etapes) || p.etapes.length === 0) return [...pb, "etapes : liste non vide attendue"];
 
   const ids = new Set<string>();
@@ -241,6 +282,7 @@ export function validerParcours(brut: unknown): string[] {
         if (e.surtitre !== undefined) txt(ou, "surtitre", e.surtitre, 40);
         if (e.bulles !== undefined) liste(ou, "bulles", e.bulles, 3, 120);
         if (e.bullesGrandes !== undefined && typeof e.bullesGrandes !== "boolean") pb.push(`${ou} : « bullesGrandes » vrai ou faux`);
+        if (e.masquerClient !== undefined && typeof e.masquerClient !== "boolean") pb.push(`${ou} : « masquerClient » vrai ou faux`);
         break;
       case "pause":
         txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40); break;
@@ -262,6 +304,14 @@ export function validerParcours(brut: unknown): string[] {
       case "fin":
         txt(ou, "titre", e.titre);
         if (e.sortie !== undefined) txt(ou, "sortie", e.sortie, 160);
+        if (e.contact !== undefined && (typeof e.contact !== "string" || e.contact.length > 160 || !EMAIL.test(e.contact))) pb.push(`${ou} : « contact » : adresse e-mail attendue`);
+        break;
+      case "recevoir":
+        if (!consentementVu) pb.push(`${ou} : l'écran « recevoir » vient après l'accord du visiteur`);
+        txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
+        if (e.texte !== undefined) txt(ou, "texte", e.texte, 160);
+        if (e.boutonNon !== undefined) txt(ou, "boutonNon", e.boutonNon, 40);
+        if (e.proposerDiffusion !== undefined && typeof e.proposerDiffusion !== "boolean") pb.push(`${ou} : « proposerDiffusion » vrai ou faux`);
         break;
       case "consentement":
         consentementVu = true; txt(ou, "titre", e.titre); txt(ou, "bouton", e.bouton, 40);
@@ -329,7 +379,7 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
   if (brut === undefined) return { fonds, visuels };
   if (!brut || typeof brut !== "object" || Array.isArray(brut)) { pb.push("habillage : objet attendu"); return { fonds, visuels }; }
   const h = brut as Record<string, unknown>;
-  const connues = new Set(["polices", "titresMajuscules", "entete", "couleurs", "fonds", "visuels", "parlomix"]);
+  const connues = new Set(["polices", "titresMajuscules", "entete", "couleurs", "fonds", "fondsEcrans", "visuels", "parlomix"]);
   for (const k of Object.keys(h)) if (!connues.has(k)) pb.push(`habillage : clé inconnue « ${k} »`);
   const couleur = (ou: string, v: unknown) => { if (typeof v !== "string" || !COULEUR.test(v)) pb.push(`${ou} : couleur au format #RRGGBB attendue`); };
 
@@ -391,6 +441,14 @@ export function validerHabillage(brut: unknown, pb: string[]): { fonds: Set<stri
       if (total > VISUELS_MAX_TOTAL) pb.push(`habillage.visuels : ${VISUELS_MAX_TOTAL} caractères au plus en tout`);
     }
   }
+  if (h.fondsEcrans !== undefined) {
+    const fe = h.fondsEcrans as Record<string, unknown>;
+    if (!fe || typeof fe !== "object" || Array.isArray(fe)) pb.push("habillage.fondsEcrans : objet attendu");
+    else for (const [k, v] of Object.entries(fe)) {
+      if (!TYPES.includes(k as TypeEtape)) pb.push(`habillage.fondsEcrans : type d'écran inconnu « ${k} »`);
+      else if (typeof v !== "string" || !fonds.has(v)) pb.push(`habillage.fondsEcrans.${k} : fond inconnu (${String(v)})`);
+    }
+  }
   const pm = h.parlomix as Record<string, unknown> | undefined;
   if (pm && typeof pm === "object") {
     if (pm.fond !== undefined && (typeof pm.fond !== "string" || !fonds.has(pm.fond))) pb.push(`habillage.parlomix : fond inconnu (${String(pm.fond)})`);
@@ -426,8 +484,13 @@ function verifierAtteignabilite(etapes: Etape[]): string[] {
 
 /** La campagne propose-t-elle le consentement facultatif de diffusion publique ? */
 export function diffusionProposee(p: Parcours): boolean {
-  return p.etapes.some((e) => (e.type === "consentement" && e.proposerDiffusion === true)
+  return p.etapes.some((e) => ((e.type === "consentement" || e.type === "recevoir") && e.proposerDiffusion === true)
     || (e.type === "identification" && e.accord === true && e.proposerDiffusion === true));
+}
+
+/** Le parcours propose-t-il l'écran « recevoir » (e-mail pour recevoir ses vidéos) ? */
+export function envoiVideoPropose(p: Parcours): boolean {
+  return p.etapes.some((e) => e.type === "recevoir");
 }
 
 /** Étapes « choix » d'un parcours (qualification, embranchement), dans l'ordre de la configuration. */

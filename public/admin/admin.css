@@ -310,3 +310,11 @@ h2 { font-family: var(--titres); font-weight: 600; font-size: 21px; margin: 0 0 
 .ligne-alerte { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--trait); }
 .ligne-alerte:last-child { border-bottom: 0; }
 @media (max-width: 640px) { .ligne-alerte { grid-template-columns: 1fr; } }
+
+/* Éditeur : thème (l'allure) et parcours type (le déroulé), deux blocs distincts (14/10/2026). */
+.bloc-reglage { padding: 12px 14px; border-radius: 14px; background: var(--fond, #F1F2F6); }
+.bloc-reglage h3 { margin: 0; font-size: 15px; display: flex; flex-direction: column; gap: 2px; }
+.bloc-reglage h3 .detail-verif { font-weight: 400; }
+.bloc-reglage select { width: 100%; min-height: 42px; padding: 8px 12px; border-radius: 12px; border: 1.5px solid var(--trait); background: var(--carte); color: var(--encre); font-size: 14px; }
+.theme-actuel { font-size: 14px; }
+.nom-theme { font-weight: 700; }

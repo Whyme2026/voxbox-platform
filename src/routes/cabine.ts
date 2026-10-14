@@ -6,7 +6,7 @@ import type { D1Database } from "../types.ts";
 import { authentifierCabine, codeAleatoire, empreinteJeton, nouveauJeton, type CabineAuthentifiee } from "../auth/cabine.ts";
 import { conflit, HttpError, introuvable, invalide, json, lireJson, maintenant, nouvelId, texte } from "../http.ts";
 import { ligneJournal } from "../journal.ts";
-import { choix as etapesChoix, diffusionProposee, questions, type Parcours } from "../parcours/schema.ts";
+import { choix as etapesChoix, diffusionProposee, envoiVideoPropose, questions, type Parcours } from "../parcours/schema.ts";
 import { lireMiniature } from "../media.ts";
 import { doitEtreTranscrite, transcrireReponse } from "../analyse/transcription.ts";
 import { classerReponse } from "../analyse/classement.ts";
@@ -120,6 +120,8 @@ export function routesCabine(r: Routeur): void {
     const email = texte(d, "email", { max: 160 })?.toLowerCase() ?? null;
     if (email && !EMAIL.test(email)) throw invalide("email : adresse invalide");
     const recontact = email && d.recontact === true ? 1 : 0; // la case n'a de sens que si l'e-mail est saisi
+    // Écran « recevoir » : l'e-mail laissé pour recevoir ses vidéos (seulement si le parcours joué le propose).
+    const envoiVideo = email && d.envoi_video === true && envoiVideoPropose(parcoursJoue) ? 1 : 0;
 
     const now = typeof d.cree_le === "string" && !Number.isNaN(Date.parse(d.cree_le)) && Date.parse(d.cree_le) <= Date.now() + 60_000
       ? new Date(d.cree_le).toISOString() // heure réelle du passage, même si l'envoi arrive plus tard
@@ -135,11 +137,13 @@ export function routesCabine(r: Routeur): void {
     };
     await ctx.env.DB.prepare(
       `INSERT INTO sessions (id, campagne_id, cabine_id, canal, prenom, nom, email, recontact, consent_interne, consent_diffusion,
-                             consentement_version_id, parcours_version_id, code_retrait, cree_le, purge_prevue_le)
-       VALUES (?, ?, ?, 'cabine', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+                             consentement_version_id, parcours_version_id, code_retrait, cree_le, purge_prevue_le,
+                             envoi_video, envoi_video_origine)
+       VALUES (?, ?, ?, 'cabine', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       s.id, c.id, cab.id, prenom, nom, email, recontact, diffusion ? 1 : 0,
       String(d.consentement_version_id), String(d.parcours_version_id), s.code_retrait, now, s.purge_prevue_le,
+      envoiVideo, envoiVideo ? ctx.url.origin : null,
     ).run();
     return json({ session: s }, 201);
   });

@@ -10,7 +10,9 @@
 //    répond, part essayer la voiture, revient et répond aux questions d'après l'essai (choix enregistrés).
 // Chaque scénario vérifie ensuite que toutes les vidéos reçues contiennent une piste son et de la voix.
 //
-// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|pfa|geely]
+//  - whyme : thème WhyMe (ambiance « vive ») et parcours démo : accueil sans logo client, recevoir sa vidéo (e-mail et accord
+//    réseaux sociaux), fin qui parle de l'e-mail laissé, ou donne l'adresse de contact (second visiteur, en portrait).
+// node test/e2e/parcours.e2e.ts <fichier-audio.wav> <dossier-captures> [demo|auto|fabrice|alexandre|pfa|geely|whyme]
 // Nécessite Playwright et Chromium (variables PLAYWRIGHT_MODULE et PLAYWRIGHT_BROWSERS_PATH).
 
 import { createRequire } from "node:module";
@@ -29,7 +31,7 @@ if (!audio) throw new Error("Fichier audio de test manquant");
 mkdirSync(captures, { recursive: true });
 
 const fixture = scenario === "auto" ? "parcours-automobile.json" : scenario === "fabrice" ? "parcours-fabrice.json"
-  : scenario === "alexandre" ? "parcours-alexandre.json" : scenario === "pfa" ? "parcours-pfa.json" : scenario === "geely" ? "parcours-geely.json" : "parcours-demo.json";
+  : scenario === "alexandre" ? "parcours-alexandre.json" : scenario === "pfa" ? "parcours-pfa.json" : scenario === "geely" ? "parcours-geely.json" : scenario === "whyme" ? "parcours-whyme-base.json" : "parcours-demo.json";
 const parcours = JSON.parse(readFileSync(join(import.meta.dirname, `../../fixtures/${fixture}`), "utf8"));
 // Parcours accéléré pour l'essai. E2E_RYTHME=demo garde un rythme proche du réel (pour filmer une démonstration).
 const rythmeDemo = process.env.E2E_RYTHME === "demo";
@@ -42,8 +44,8 @@ const nbQuestions = scenario === "geely" ? 6 : parcours.etapes.filter((e: any) =
 const port = 8790 + Math.floor(Math.random() * 100);
 const serveur = await demarrerServeur(port);
 const { code } = await preparer(parcours,
-  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : scenario === "pfa" ? { nom: "PFA" } : { nom: "Parlobox" },
-  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "alexandre" ? "Spécial Alexandre" : scenario === "pfa" ? "Fabrique de l'Innovation — Mondial 2026" : scenario === "geely" ? "Geely — concession" : "Démo Parlobox (neutre)");
+  scenario === "auto" ? { nom: "Démo Auto", couleurs: { principale: "#0F6E5A", fond: "#F4F6F5", texte: "#10231D" } } : scenario === "geely" ? { nom: "Geely" } : scenario === "pfa" ? { nom: "PFA" } : scenario === "whyme" ? { nom: "WhyMe" } : { nom: "Parlobox" },
+  scenario === "auto" ? "Essai routier" : scenario === "fabrice" ? "Spécial Fabrice" : scenario === "alexandre" ? "Spécial Alexandre" : scenario === "pfa" ? "Fabrique de l'Innovation — Mondial 2026" : scenario === "geely" ? "Geely — concession" : scenario === "whyme" ? "Démo WhyMe" : "Démo Parlobox (neutre)");
 
 const navigateur = await chromium.launch({
   args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${audio}`, "--autoplay-policy=no-user-gesture-required"],
@@ -420,6 +422,86 @@ async function scenarioPfa() {
   return { sessions: 2, consentDiffusion: 1, prenom: "Inès" };
 }
 
+async function scenarioWhyme() {
+  // Thème WhyMe (ambiance « vive ») + parcours démo : accueil sans logo client, prénom et accord, recevoir sa vidéo
+  // (e-mail et accord réseaux sociaux), cadrage, 4 questions centrées, fin qui parle de l'e-mail laissé.
+  await page.getByText("Sois toi-même, les autres sont déjà pris.").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.ambiance), "vive");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById("nom-marque")!).visibility), "hidden", "accueil : pas de client en haut à gauche");
+  await page.waitForTimeout(2400);
+  await capture("01-accueil");
+  await bouton("Je me lance");
+  await page.getByText("ton prénom ?").waitFor();
+  assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById("nom-marque")!).visibility), "visible", "le client revient après l'accueil");
+  for (const c of "Inès") await touche(c);
+  await cocher("J'accepte que WhyMe");
+  await page.waitForTimeout(500);
+  await capture("02-identification");
+  await bouton("Continuer");
+  // Recevoir ma vidéo : « Recevoir » grisé tant que l'e-mail n'est pas une adresse ; accord réseaux sociaux facultatif.
+  await page.getByText("Tu veux recevoir ta vidéo ?").waitFor();
+  assert.equal(await page.getByRole("button", { name: "Recevoir ma vidéo" }).isDisabled(), true);
+  for (const c of "ines") await touche(c);
+  await touche("@");
+  for (const c of "exemple") await touche(c);
+  await touche(".fr");
+  assert.equal(await page.getByRole("button", { name: "Recevoir ma vidéo" }).isDisabled(), false);
+  await cocher("J'accepte aussi que WhyMe utilise ma vidéo");
+  await page.waitForTimeout(600);
+  await capture("02b-recevoir");
+  await bouton("Recevoir ma vidéo");
+  await page.getByText("Place ton visage dans l'ovale").waitFor();
+  await page.locator(".ecran-cadrage #apercu:not([hidden])").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(1500);
+  await capture("03-cadrage");
+  await bouton("Je suis prêt");
+  for (let n = 1; n <= nbQuestions; n++) {
+    await page.locator(".ecran-question").waitFor({ timeout: 30_000 });
+    await page.locator("#compte:not([hidden])").waitFor({ timeout: 30_000 });
+    await page.waitForTimeout(600);
+    await capture(`04-q${n}-a-lire`);
+    await page.locator("#rec:not([hidden])").waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    await capture(`05-q${n}-on-tourne`);
+    await page.locator("#rec:not([hidden])").waitFor({ state: "hidden", timeout: 30_000 });
+  }
+  await page.getByText("Merci Inès").waitFor({ timeout: 90_000 });
+  await page.getByText("Tes vidéos arrivent par e-mail").waitFor();
+  await page.getByText("ines@exemple.fr").waitFor();
+  assert.equal(await page.getByText("QR code").count(), 0, "e-mail laissé : pas de QR code");
+  await page.waitForTimeout(2500);
+  await capture("06-fin-avec-email");
+  // Second visiteur, en portrait, sans e-mail : la fin donne l'adresse pour demander la suppression.
+  await page.setViewportSize({ width: 720, height: 1280 });
+  await page.getByText("Sois toi-même, les autres sont déjà pris.").waitFor({ timeout: 25_000 });
+  await bouton("Je me lance");
+  for (const c of "Lou") await touche(c);
+  await cocher("J'accepte que WhyMe");
+  await bouton("Continuer");
+  await page.getByText("Tu veux recevoir ta vidéo ?").waitFor();
+  await page.waitForTimeout(600);
+  await capture("07-recevoir-portrait");
+  await bouton("Non merci");
+  await page.getByText("Place ton visage dans l'ovale").waitFor();
+  await page.waitForTimeout(800);
+  await capture("07b-cadrage-portrait");
+  await bouton("Je suis prêt");
+  await page.locator("#rec:not([hidden])").waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(800);
+  await capture("08-question-portrait");
+  for (let n = 1; n <= nbQuestions; n++) {
+    await page.locator("#rec:not([hidden])").waitFor({ timeout: 30_000 });
+    await page.locator("#rec:not([hidden])").waitFor({ state: "hidden", timeout: 30_000 });
+  }
+  await page.getByText("contact@parlobox.com").waitFor({ timeout: 60_000 });
+  assert.equal(await page.getByText("QR code").count(), 0, "sans e-mail : l'adresse, pas le QR code");
+  await page.waitForTimeout(1500);
+  await capture("09-fin-sans-email-portrait");
+  const s = await db.prepare("SELECT prenom, email, envoi_video, consent_diffusion FROM sessions ORDER BY cree_le").all<any>();
+  assert.deepEqual(s.results.map((x: any) => [x.prenom, x.email, x.envoi_video, x.consent_diffusion]), [["Inès", "ines@exemple.fr", 1, 1], ["Lou", null, 0, 0]]);
+  return { sessions: 2, consentDiffusion: 1, prenom: "Inès" };
+}
+
 async function scenarioGeely() {
   const question = async (titre: string, nom: string) => {
     await page.locator(".titre-court", { hasText: titre }).waitFor({ timeout: 30_000 });
@@ -612,7 +694,14 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   await admin.getByRole("button", { name: "Créer la campagne" }).click();
   await admin.getByRole("heading", { name: "Printemps en boutique" }).waitFor();
   await admin.getByRole("tab", { name: "Parcours" }).click();
-  await admin.getByRole("button", { name: "Parcours neutre Parlobox (démo)" }).click();
+  // Le parcours (le déroulé) et le thème (l'allure) se choisissent séparément.
+  await admin.locator("#ed-parcours-type").selectOption({ label: "Avis : 5 questions (vouvoiement)" });
+  await admin.getByRole("button", { name: "Partir de ce parcours" }).click();
+  await admin.getByText("Parcours valide").waitFor();
+  assert.equal(await admin.locator(".nom-theme").innerText(), "Parlobox (neutre)");
+  await admin.locator("#ed-theme").selectOption({ label: "WhyMe" });
+  await admin.getByRole("button", { name: "Appliquer ce thème" }).click();
+  await admin.locator(".nom-theme", { hasText: "WhyMe" }).waitFor();
   await admin.getByText("Parcours valide").waitFor();
   await admin.getByRole("button", { name: /Le coup de cœur/ }).click();
   await admin.locator("#ed-q-coup-de-coeur-texte").fill("Qu'est-ce qui vous a fait sourire en boutique ?");
@@ -625,6 +714,7 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   await cabine.setViewportSize({ width: 1280, height: 720 });
   await cabine.getByText("Une minute pour dire").waitFor();
   await cabine.getByText("Aperçu : rien n'est enregistré").waitFor();
+  assert.equal(await cabine.evaluate(() => document.documentElement.dataset.ambiance), "vive", "le thème WhyMe s'applique à l'aperçu");
   await cabine.waitForTimeout(1800);
   await cabine.screenshot({ path: join(captures, "admin-17-apercu-cabine.png") });
   await cabine.close();
@@ -632,7 +722,9 @@ async function visiteEdition(admin: any, photo: (nom: string) => Promise<void>) 
   await admin.getByText("Nouvelle version du parcours enregistrée").waitFor();
   const v = await db.prepare("SELECT p.config FROM parcours_versions p JOIN campagnes c ON c.parcours_version_id = p.id WHERE c.nom = 'Printemps en boutique'").first<any>();
   const config = JSON.parse(v.config);
-  assert.equal(config.etapes.filter((e: any) => e.type === "question").length, 6, "5 questions du modèle + 1 ajoutée");
+  assert.equal(config.etapes.filter((e: any) => e.type === "question").length, 6, "5 questions du parcours type + 1 ajoutée");
+  assert.equal(config.theme, "whyme");
+  assert.equal(config.habillage.couleurs.visiteur, "#C4007A");
   assert.ok(config.etapes.some((e: any) => e.texte === "Qu'est-ce qui vous a fait sourire en boutique ?"));
   // Actions sur un visiteur dans la campagne de démo : retrait de l'accord de diffusion, recherche.
   await admin.getByLabel("Menu").getByRole("link", { name: "Campagnes" }).click();
@@ -786,7 +878,7 @@ async function visiteAdminPfa() {
 try {
   await appairer();
   const attendu = scenario === "auto" ? await scenarioAuto() : scenario === "fabrice" ? await scenarioFabrice()
-    : scenario === "alexandre" ? await scenarioAlexandre() : scenario === "pfa" ? await scenarioPfa() : scenario === "geely" ? await scenarioGeely() : await scenarioDemo();
+    : scenario === "alexandre" ? await scenarioAlexandre() : scenario === "pfa" ? await scenarioPfa() : scenario === "whyme" ? await scenarioWhyme() : scenario === "geely" ? await scenarioGeely() : await scenarioDemo();
 
   // La file d'envoi se vide.
   const videosRecues = () => [...objets.keys()].filter((k) => k.endsWith(".webm")).length;

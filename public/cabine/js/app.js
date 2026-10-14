@@ -7,7 +7,7 @@ import { ouvrirCamera, creerVumetre, enregistrer, formatEnregistrement } from ".
 import { creerFlou, detectionDisponible } from "./flou.js";
 import { creerFileEnvoi } from "./file-envoi.js";
 
-const VERSION = "0.9.0";
+const VERSION = "0.10.0";
 const CLE_JETON = "voxbox.jeton";
 const CLE_CONFIG = "voxbox.config";
 const CLE_PAUSES = "voxbox.pauses";
@@ -23,7 +23,7 @@ const PAUSE_MAX_MS = 12 * 3600_000;
 
 /**
  * Visiteur en cours. Effacé entièrement à chaque retour à l'accueil.
- * @type {null | { id: string, prenom: string, nom: string, email: string, recontact: boolean, diffusion: boolean,
+ * @type {null | { id: string, prenom: string, nom: string, email: string, recontact: boolean, diffusion: boolean, envoiVideo: boolean,
  *   floutage: boolean, repondues: string[], creeLe: string, envoyee: boolean, parcoursVersion: string, consentVersion: string, codeRetrait: string,
  *   choixFaits: { etape: string, option: string, quand: string }[] }}
  */
@@ -36,7 +36,7 @@ const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.get
 const cabine = $("cabine");
 const scene = $("scene");
 /** Couleur de fond de chaque ambiance (barre du navigateur). */
-const FOND_AMBIANCE = /** @type {Record<string, string>} */ ({ conversation: "#F1F2F6", pop: "#FFF4DA", marine: "#0F2B46" });
+const FOND_AMBIANCE = /** @type {Record<string, string>} */ ({ conversation: "#F1F2F6", pop: "#FFF4DA", marine: "#0F2B46", vive: "#FFFFFF" });
 /** Fonds et visuels de l'habillage de la campagne en cours. */
 /** @type {Map<string, { couleur: string, couleurBas?: string, texte: string }>} */ let fonds = new Map();
 /** @type {Map<string, { nom: string, svg: string }>} */ let visuels = new Map();
@@ -257,7 +257,7 @@ function appliquerHabillage() {
   ligne.textContent = typeof hab.entete === "string" ? hab.entete.trim() : "";
   ligne.hidden = !ligne.textContent;
   // Ambiance graphique du parcours (« conversation » par défaut) et textes fixes au vouvoiement ou au tutoiement.
-  const ambiance = ["pop", "marine"].includes(config?.parcours?.ambiance) ? config.parcours.ambiance : "conversation";
+  const ambiance = ["pop", "marine", "vive"].includes(config?.parcours?.ambiance) ? config.parcours.ambiance : "conversation";
   document.documentElement.dataset.ambiance = ambiance;
   if (!valide(c.fond)) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", FOND_AMBIANCE[ambiance] ?? "#F1F2F6");
   $("ecoute-texte").textContent = tv("On vous écoute…", "On t'écoute…");
@@ -272,8 +272,10 @@ function appliquerFond(/** @type {string | null | undefined} */ id) {
     style.setProperty("--texte", a.texte);
     if (valide(a.couleurBas)) style.setProperty("--fond-scene", `linear-gradient(180deg, ${a.couleur}, ${a.couleurBas})`);
     else style.removeProperty("--fond-scene");
+    cabine.toggleAttribute("data-degrade", valide(a.couleurBas));
   } else {
     for (const p of ["--fond", "--texte", "--fond-scene"]) style.removeProperty(p);
+    cabine.removeAttribute("data-degrade");
   }
   const fond = a?.couleur ?? getComputedStyle(document.documentElement).getPropertyValue("--fond").trim();
   // Sur un fond sombre ou coloré, la signature « parlobox by whyme » passe en blanc (le magenta n'y serait pas lisible).
@@ -372,7 +374,7 @@ function codeRetrait() {
 
 function nouvelleSession() {
   visiteur = {
-    id: crypto.randomUUID(), prenom: "", nom: "", email: "", recontact: false, diffusion: false,
+    id: crypto.randomUUID(), prenom: "", nom: "", email: "", recontact: false, diffusion: false, envoiVideo: false,
     floutage: false, repondues: [], creeLe: new Date().toISOString(), envoyee: false,
     parcoursVersion: config.campagne.parcours_version_id, consentVersion: config.consentement.id,
     codeRetrait: codeRetrait(),
@@ -407,6 +409,7 @@ async function envoyerSession() {
       parcours_version_id: visiteur.parcoursVersion, consentement_version_id: visiteur.consentVersion,
       prenom: visiteur.prenom || "Visiteur", nom: visiteur.nom || undefined, email: visiteur.email || undefined,
       recontact: visiteur.recontact, consent_interne: true, consent_diffusion: visiteur.diffusion,
+      envoi_video: visiteur.envoiVideo && Boolean(visiteur.email),
       code_retrait: visiteur.codeRetrait,
     }),
   });
@@ -437,11 +440,15 @@ function aller(/** @type {string | null} */ id) {
   if (!id || !moteur) return accueil();
   const e = moteur.etape(id);
   relancerInactivite();
-  appliquerFond(/** @type {string | undefined} */ (e.fond));
+  // Fond de l'écran : celui de l'étape, sinon celui que le thème donne à ce type d'écran (habillage.fondsEcrans).
+  appliquerFond(/** @type {string | undefined} */ (e.fond ?? config?.parcours?.habillage?.fondsEcrans?.[e.type]));
+  // Accueil sans le logo ni le nom du client (accueil.masquerClient), sur cet écran seulement.
+  cabine.toggleAttribute("data-sans-client", e.type === "accueil" && e.masquerClient === true);
   switch (e.type) {
     case "accueil": return ecranAccueil(e);
     case "identification": return ecranIdentification(e);
     case "consentement": return ecranConsentement(e);
+    case "recevoir": return ecranRecevoir(e);
     case "cadrage": return ecranCadrage(e);
     case "question": return ecranQuestion(e);
     case "choix": return ecranChoix(e);
@@ -455,6 +462,7 @@ const suite = (/** @type {any} */ e, /** @type {string | undefined} */ choix = u
 
 function accueil() {
   visiteur = null;
+  cabine.removeAttribute("data-sans-client");
   activerFlou(false);
   appliquerFond(null);
   if (!config?.campagne || !moteur) return ecranAttente();
@@ -520,7 +528,13 @@ function ecranIdentification(/** @type {any} */ e) {
   // Diffusion publique (réseaux sociaux…) sous l'accord, facultative, si la campagne la propose (débrief PFA, 14/10/2026).
   const diffusion = Boolean(e.accord && e.proposerDiffusion) && diffusionProposee(config.parcours) && Boolean(config.consentement?.texte_diffusion);
   if (!diffusion) v.diffusion = false;
-  const continuer = bouton("Continuer", () => { if (!accord) return; if (e.accord) { if (!diffusion) v.diffusion = false; envoyerSession(); } suite(e); });
+  // Si l'écran « recevoir » suit, la session part après lui (avec l'e-mail et la diffusion) ; sinon, dès l'accord.
+  const recevoirEnsuite = moteur?.etape(/** @type {string} */ (moteur.suivante(e.id)))?.type === "recevoir";
+  const continuer = bouton("Continuer", () => {
+    if (!accord) return;
+    if (e.accord) { if (!diffusion) v.diffusion = false; if (!recevoirEnsuite) envoyerSession(); }
+    suite(e);
+  });
   const majBouton = () => continuer.toggleAttribute("disabled", v.prenom.trim().length < 1 || !accord);
   const marque = config.client?.nom ?? "la marque";
   const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_interne ?? "");
@@ -609,6 +623,50 @@ async function ecranConsentement(/** @type {any} */ e) {
           details,
           h("div", { class: "actions" }, partir)))),
   ], "consentement");
+}
+
+/**
+ * « Recevoir ma vidéo » : e-mail facultatif (pour recevoir ses vidéos et pouvoir changer d'avis) et, si la campagne
+ * le propose, l'accord facultatif de diffusion publique (réseaux sociaux). Deux boutons : recevoir, ou passer.
+ */
+function ecranRecevoir(/** @type {any} */ e) {
+  if (!visiteur) return accueil();
+  const v = visiteur;
+  // La diffusion déjà acceptée sur l'écran du prénom (s'il la proposait) reste acquise si cet écran ne la repropose pas.
+  const proposee = Boolean(e.proposerDiffusion) && diffusionProposee(config.parcours) && Boolean(config.consentement?.texte_diffusion);
+  const valeur = h("span", { class: "valeur", "data-indice": tv("vous@exemple.fr", "toi@exemple.fr"), "data-vide": v.email ? "non" : "oui" }, v.email);
+  const champ = h("button", { type: "button", class: "champ bulle visiteur", "aria-pressed": "true" },
+    h("span", { class: "etiquette" }, tv("Votre e-mail", "Ton e-mail")), valeur);
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const terminer = (/** @type {boolean} */ avecEmail) => {
+    if (!avecEmail) { v.email = ""; v.recontact = false; }
+    v.envoiVideo = avecEmail && EMAIL.test(v.email);
+    envoyerSession();
+    suite(e);
+  };
+  const recevoir = bouton(e.bouton || "Recevoir ma vidéo", () => terminer(true));
+  const non = bouton(e.boutonNon || "Non merci", () => terminer(false), "secondaire");
+  const maj = () => recevoir.toggleAttribute("disabled", !EMAIL.test(v.email));
+  const ouvrir = () => clavier.ouvrir(valeur, { mode: "email", max: 160, valeur: v.email, onChange: (x) => { v.email = x.trim(); maj(); relancerInactivite(); } });
+  champ.addEventListener("click", ouvrir);
+  const details = h("p", { class: "texte-legal", hidden: true }, config.consentement?.texte_diffusion ?? "");
+  afficher([
+    h("div", { class: "ecran ecran-recevoir" },
+      h("div", { class: "colonne" },
+        h("h1", { class: "bulle marque grande arrive" }, perso(e.titre)),
+        e.texte ? bulle("marque douce moyenne arrive", perso(e.texte)) : null),
+      h("div", { class: "champs" }, champ)),
+    h("div", { class: "sous-clavier" },
+      proposee ? h("div", { class: "accord-identification accord-diffusion" },
+        caseACocher(config.consentement.texte_diffusion, v.diffusion, (x) => { v.diffusion = x; }),
+        h("p", { class: "precision-diffusion" }, tv(
+          "Vous pourrez changer d'avis à tout moment grâce au lien reçu par e-mail.",
+          "Tu pourras changer d'avis à tout moment grâce au lien reçu par e-mail.")),
+        details) : null,
+      h("div", { class: "actions droite" }, non, recevoir)),
+  ], "recevoir");
+  maj();
+  ouvrir();
 }
 
 async function ecranCadrage(/** @type {any} */ e) {
@@ -889,6 +947,36 @@ function rappelRetrait() {
         "Scanne le QR code à l'extérieur de la cabine : tu pourras retirer ton accord ou supprimer tes vidéos, à tout moment."))));
 }
 
+/**
+ * Ce que l'écran de fin dit du droit de changer d'avis. Parcours avec l'écran « recevoir » : le visiteur qui a laissé
+ * son e-mail est renvoyé vers l'e-mail qu'il va recevoir ; sinon, l'adresse à laquelle écrire (fin.contact,
+ * contact@parlobox.com par défaut). Sans écran « recevoir » : le rappel du QR code extérieur, comme avant.
+ */
+function rappelFin(/** @type {any} */ e) {
+  const avecRecevoir = config?.parcours?.etapes?.some((/** @type {any} */ x) => x.type === "recevoir");
+  if (!avecRecevoir) return rappelRetrait();
+  const picto = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  picto.setAttribute("viewBox", "0 0 24 24");
+  picto.setAttribute("class", "picto-qr");
+  picto.setAttribute("aria-hidden", "true");
+  picto.innerHTML = '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m4 7 8 6 8-6"/>';
+  if (visiteur?.envoiVideo && visiteur.email) {
+    return h("div", { class: "carte retrait recevoir arrive" }, picto,
+      h("div", { class: "texte-retrait" },
+        h("strong", {}, tv("Vos vidéos arrivent par e-mail", "Tes vidéos arrivent par e-mail")),
+        h("span", { class: "adresse" }, visiteur.email),
+        h("span", {}, tv(
+          "Le lien qu'il contient vous permet aussi de changer d'avis, à tout moment.",
+          "Le lien qu'il contient te permet aussi de changer d'avis, à tout moment."))));
+  }
+  const contact = typeof e.contact === "string" && e.contact ? e.contact : "contact@parlobox.com";
+  return h("div", { class: "carte retrait arrive" }, picto,
+    h("div", { class: "texte-retrait" },
+      h("strong", {}, tv("Vous changez d'avis ?", "Tu changes d'avis ?")),
+      h("span", {}, tv("Pour demander la suppression de vos vidéos, écrivez à", "Pour demander la suppression de tes vidéos, écris à")),
+      h("span", { class: "adresse" }, contact)));
+}
+
 function ecranFin(/** @type {any} */ e) {
   if (visiteur) retirerPause(visiteur.id);
   activerFlou(false);
@@ -909,7 +997,7 @@ function ecranFin(/** @type {any} */ e) {
           visuelEtape(e, "visuel-fin")),
         h("div", { class: "colonne" },
           e.sortie ? h("p", { class: "sortie" }, perso(e.sortie)) : null,
-          rappelRetrait())),
+          rappelFin(e))),
       h("div", { class: "retour", style: `--duree: ${reste}s` }, h("div", { class: "barre" }, h("span")), libelle)),
   ], "fin");
   const ecran = numeroEcran;
