@@ -1,0 +1,72 @@
+{
+  "id": "salon-auto",
+  "nom": "Salon de l'auto",
+  "description": "Codes du stand « La Fabrique de l'Innovation » (PFA, Mondial de l'Auto) : Barlow, dégradé rouge-indigo, rayons et voiture au trait ; Parlomix « Le Salon de l'auto de {prénom} » ouvert sur le dégradé avec la voiture, jingle « turbo ».",
+  "habillage": {
+    "polices": {
+      "titres": "barlow-condensed",
+      "texte": "barlow"
+    },
+    "titresMajuscules": true,
+    "couleurs": {
+      "marque": "#2F3C9E",
+      "bulle": "#F2EFFA",
+      "visiteur": "#E4253B",
+      "fond": "#FFFFFF",
+      "texte": "#1D2B5B"
+    },
+    "fonds": [
+      {
+        "id": "blanc",
+        "nom": "Blanc atelier",
+        "couleur": "#FFFFFF",
+        "texte": "#1D2B5B"
+      },
+      {
+        "id": "lilas",
+        "nom": "Lilas",
+        "couleur": "#F2EFFA",
+        "texte": "#1D2B5B"
+      },
+      {
+        "id": "fabrique",
+        "nom": "Dégradé Fabrique",
+        "couleur": "#E4253B",
+        "couleurBas": "#2F3C9E",
+        "texte": "#FFFFFF"
+      }
+    ],
+    "fondsEcrans": {
+      "fin": "fabrique"
+    },
+    "visuels": [
+      {
+        "id": "fabrique",
+        "nom": "Rayons et voiture",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 900 260\"><g transform=\"translate(8 252)\"><path d=\"M0.0 -70.0L0.0 -240.0\" stroke=\"#E4253B\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M4.1 -69.9L14.0 -239.6\" stroke=\"#E02642\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M8.1 -69.5L27.9 -238.4\" stroke=\"#DD2649\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M12.2 -68.9L41.7 -236.4\" stroke=\"#D92751\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M16.1 -68.1L55.3 -233.5\" stroke=\"#D62758\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M20.1 -67.1L68.8 -229.9\" stroke=\"#D2285F\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M23.9 -65.8L82.1 -225.5\" stroke=\"#CF2866\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M27.7 -64.3L95.1 -220.4\" stroke=\"#CB296E\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M31.4 -62.6L107.7 -214.5\" stroke=\"#C82975\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M35.0 -60.6L120.0 -207.8\" stroke=\"#C42A7C\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M38.5 -58.5L131.9 -200.5\" stroke=\"#BA2C84\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M41.8 -56.1L143.3 -192.5\" stroke=\"#B02E8B\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M45.0 -53.6L154.3 -183.9\" stroke=\"#A63093\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M48.0 -50.9L164.7 -174.6\" stroke=\"#9C329A\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M50.9 -48.0L174.6 -164.7\" stroke=\"#9333A2\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M53.6 -45.0L183.9 -154.3\" stroke=\"#8935A9\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M56.1 -41.8L192.5 -143.3\" stroke=\"#7F37B1\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M58.5 -38.5L200.5 -131.9\" stroke=\"#7539B8\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M60.6 -35.0L207.8 -120.0\" stroke=\"#6B3BC0\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M62.6 -31.4L214.5 -107.7\" stroke=\"#643BBC\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M64.3 -27.7L220.4 -95.1\" stroke=\"#5E3BB8\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M65.8 -23.9L225.5 -82.1\" stroke=\"#573BB5\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M67.1 -20.1L229.9 -68.8\" stroke=\"#503BB1\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M68.1 -16.1L233.5 -55.3\" stroke=\"#4A3CAD\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M68.9 -12.2L236.4 -41.7\" stroke=\"#433CA9\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M69.5 -8.1L238.4 -27.9\" stroke=\"#3C3CA6\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M69.9 -4.1L239.6 -14.0\" stroke=\"#363CA2\" stroke-width=\"6\" stroke-linecap=\"round\"/><path d=\"M70.0 0.0L240.0 0.0\" stroke=\"#2F3C9E\" stroke-width=\"6\" stroke-linecap=\"round\"/></g><g transform=\"translate(270 24)\"><path d=\"M-4 110H-60M-10 140H-80M0 170H-50\" stroke=\"#D5D8E8\" stroke-width=\"3\" stroke-linecap=\"round\"/><g fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M20 160L20 136Q24 118 64 110L196 98Q252 56 336 50L428 52Q478 58 524 96L572 106Q596 114 596 140L596 160L522 160A44 44 0 0 0 434 160L190 160A44 44 0 0 0 102 160Z\" stroke=\"#2F3C9E\" stroke-width=\"6\"/><path d=\"M214 98Q258 66 336 60L418 62Q456 66 492 94Z\" stroke=\"#C42A7C\" stroke-width=\"4\"/><path d=\"M330 62L326 96\" stroke=\"#C42A7C\" stroke-width=\"4\"/><circle cx=\"146\" cy=\"160\" r=\"34\" stroke=\"#1D2B5B\" stroke-width=\"6\"/><circle cx=\"146\" cy=\"160\" r=\"12\" stroke=\"#6B3BC0\" stroke-width=\"4\"/><circle cx=\"478\" cy=\"160\" r=\"34\" stroke=\"#1D2B5B\" stroke-width=\"6\"/><circle cx=\"478\" cy=\"160\" r=\"12\" stroke=\"#6B3BC0\" stroke-width=\"4\"/><path d=\"M560 118L590 122\" stroke=\"#E4253B\" stroke-width=\"8\"/><path d=\"M34 128L58 124\" stroke=\"#6B3BC0\" stroke-width=\"8\"/></g></g></svg>"
+      },
+      {
+        "id": "voiture",
+        "nom": "Voiture au trait",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-90 0 730 230\"><g transform=\"translate(6 24)\"><path d=\"M-4 110H-60M-10 140H-80M0 170H-50\" stroke=\"#D5D8E8\" stroke-width=\"3\" stroke-linecap=\"round\"/><g fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M20 160L20 136Q24 118 64 110L196 98Q252 56 336 50L428 52Q478 58 524 96L572 106Q596 114 596 140L596 160L522 160A44 44 0 0 0 434 160L190 160A44 44 0 0 0 102 160Z\" stroke=\"#2F3C9E\" stroke-width=\"6\"/><path d=\"M214 98Q258 66 336 60L418 62Q456 66 492 94Z\" stroke=\"#C42A7C\" stroke-width=\"4\"/><path d=\"M330 62L326 96\" stroke=\"#C42A7C\" stroke-width=\"4\"/><circle cx=\"146\" cy=\"160\" r=\"34\" stroke=\"#1D2B5B\" stroke-width=\"6\"/><circle cx=\"146\" cy=\"160\" r=\"12\" stroke=\"#6B3BC0\" stroke-width=\"4\"/><circle cx=\"478\" cy=\"160\" r=\"34\" stroke=\"#1D2B5B\" stroke-width=\"6\"/><circle cx=\"478\" cy=\"160\" r=\"12\" stroke=\"#6B3BC0\" stroke-width=\"4\"/><path d=\"M560 118L590 122\" stroke=\"#E4253B\" stroke-width=\"8\"/><path d=\"M34 128L58 124\" stroke=\"#6B3BC0\" stroke-width=\"8\"/></g></g></svg>"
+      },
+      {
+        "id": "voiture-blanche",
+        "nom": "Voiture au trait (blanche)",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-10 0 630 230\"><g transform=\"translate(0 24)\"><g fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M20 160L20 136Q24 118 64 110L196 98Q252 56 336 50L428 52Q478 58 524 96L572 106Q596 114 596 140L596 160L522 160A44 44 0 0 0 434 160L190 160A44 44 0 0 0 102 160Z\" stroke=\"#FFFFFF\" stroke-width=\"6\"/><path d=\"M214 98Q258 66 336 60L418 62Q456 66 492 94Z\" stroke=\"#FFFFFF\" stroke-width=\"4\"/><path d=\"M330 62L326 96\" stroke=\"#FFFFFF\" stroke-width=\"4\"/><circle cx=\"146\" cy=\"160\" r=\"34\" stroke=\"#FFFFFF\" stroke-width=\"6\"/><circle cx=\"146\" cy=\"160\" r=\"12\" stroke=\"#FFFFFF\" stroke-width=\"4\"/><circle cx=\"478\" cy=\"160\" r=\"34\" stroke=\"#FFFFFF\" stroke-width=\"6\"/><circle cx=\"478\" cy=\"160\" r=\"12\" stroke=\"#FFFFFF\" stroke-width=\"4\"/><path d=\"M560 118L590 122\" stroke=\"#FFFFFF\" stroke-width=\"8\"/><path d=\"M34 128L58 124\" stroke=\"#FFFFFF\" stroke-width=\"8\"/></g></g></svg>"
+      },
+      {
+        "id": "rayons",
+        "nom": "Rayons",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 260 260\"><g transform=\"translate(6 254)\"><path d=\"M0.0 -70.0L0.0 -248.0\" stroke=\"#E4253B\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M4.1 -69.9L14.4 -247.6\" stroke=\"#E02642\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M8.1 -69.5L28.8 -246.3\" stroke=\"#DD2649\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M12.2 -68.9L43.1 -244.2\" stroke=\"#D92751\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M16.1 -68.1L57.2 -241.3\" stroke=\"#D62758\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M20.1 -67.1L71.1 -237.6\" stroke=\"#D2285F\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M23.9 -65.8L84.8 -233.0\" stroke=\"#CF2866\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M27.7 -64.3L98.2 -227.7\" stroke=\"#CB296E\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M31.4 -62.6L111.3 -221.6\" stroke=\"#C82975\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M35.0 -60.6L124.0 -214.8\" stroke=\"#C42A7C\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M38.5 -58.5L136.3 -207.2\" stroke=\"#BA2C84\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M41.8 -56.1L148.1 -198.9\" stroke=\"#B02E8B\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M45.0 -53.6L159.4 -190.0\" stroke=\"#A63093\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M48.0 -50.9L170.2 -180.4\" stroke=\"#9C329A\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M50.9 -48.0L180.4 -170.2\" stroke=\"#9333A2\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M53.6 -45.0L190.0 -159.4\" stroke=\"#8935A9\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M56.1 -41.8L198.9 -148.1\" stroke=\"#7F37B1\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M58.5 -38.5L207.2 -136.3\" stroke=\"#7539B8\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M60.6 -35.0L214.8 -124.0\" stroke=\"#6B3BC0\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M62.6 -31.4L221.6 -111.3\" stroke=\"#643BBC\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M64.3 -27.7L227.7 -98.2\" stroke=\"#5E3BB8\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M65.8 -23.9L233.0 -84.8\" stroke=\"#573BB5\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M67.1 -20.1L237.6 -71.1\" stroke=\"#503BB1\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M68.1 -16.1L241.3 -57.2\" stroke=\"#4A3CAD\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M68.9 -12.2L244.2 -43.1\" stroke=\"#433CA9\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M69.5 -8.1L246.3 -28.8\" stroke=\"#3C3CA6\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M69.9 -4.1L247.6 -14.4\" stroke=\"#363CA2\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M70.0 0.0L248.0 0.0\" stroke=\"#2F3C9E\" stroke-width=\"7\" stroke-linecap=\"round\"/></g></svg>"
+      }
+    ],
+    "parlomix": {
+      "ouverture": "Le Salon de l'auto de {prenom}",
+      "jingle": "turbo",
+      "fond": "fabrique",
+      "visuel": "voiture-blanche",
+      "signature": "La Fabrique de l'Innovation"
+    }
+  }
+}
