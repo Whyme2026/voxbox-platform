@@ -360,3 +360,19 @@ test("nom de l'évènement : propre à la campagne, il survit au changement de t
   assert.equal(appliquerTheme({ habillage: { entete: "Salon 2026" }, etapes: [] }, { id: "parlobox" }).habillage.entete, "Salon 2026", "thème neutre : l'évènement reste");
   assert.equal(nomDuTheme({ habillage: { entete: "Salon 2026" } }, [{ id: "parlobox", nom: "Parlobox (neutre)" }]), "Parlobox (neutre)");
 });
+
+test("thème « Salon de l'auto » : l'habillage de la Fabrique de l'Innovation, sans le nom de l'évènement", () => {
+  const pfa = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/parcours-pfa.json"), "utf8"));
+  const theme = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/themes/salon-auto.json"), "utf8"));
+  assert.equal(theme.nom, "Salon de l'auto");
+  assert.equal(theme.habillage.entete, undefined, "le nom de l'évènement appartient à la campagne");
+  assert.deepEqual(theme.habillage.parlomix, { ouverture: "Le Salon de l'auto de {prenom}", jingle: "turbo", fond: "fabrique", visuel: "voiture-blanche", signature: "La Fabrique de l'Innovation" });
+  // Appliqué au parcours PFA : les étapes gardent leurs rayons et leur voiture, l'évènement reste, tout est valide.
+  const c = appliquerTheme(pfa, theme);
+  assert.deepEqual(validerParcours(c), []);
+  assert.equal(c.etapes[0].visuel, "rayons");
+  assert.equal(c.etapes.at(-1).visuel, "voiture-blanche");
+  assert.equal(c.habillage.entete, "La Fabrique de l'Innovation");
+  const catalogue = JSON.parse(readFileSync(join(import.meta.dirname, "../public/admin/modeles/catalogue.json"), "utf8"));
+  assert.equal(nomDuTheme(c, catalogue.themes), "Salon de l'auto");
+});

@@ -19,6 +19,11 @@
       "id": "marine",
       "nom": "Marine",
       "description": "Bord de mer et impertinence : nuit marine, orange bouée, vagues en bas d'écran."
+    },
+    {
+      "id": "salon-auto",
+      "nom": "Salon de l'auto",
+      "description": "Codes du stand « La Fabrique de l'Innovation » (PFA, Mondial de l'Auto) : Barlow, dégradé rouge-indigo, rayons et voiture au trait ; Parlomix « Le Salon de l'auto de {prénom} » ouvert sur le dégradé avec la voiture, jingle « turbo »."
     }
   ],
   "parcours": [
